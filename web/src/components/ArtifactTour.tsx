@@ -190,14 +190,7 @@ function TourOverlay({
   const [shadow] = useState(() => host.shadowRoot ?? host.attachShadow({ mode: "open" }));
   const card = useRef<HTMLDivElement>(null);
   const next = useRef<HTMLButtonElement>(null);
-  const [geometry, setGeometry] = useState({
-    left: 16,
-    top: 16,
-    width: 0,
-    height: 0,
-    cardLeft: 16,
-    cardTop: 16,
-  });
+  const spotlight = useRef<HTMLDivElement>(null);
   const step = steps[Math.min(index, steps.length - 1)];
   const finish = useCallback(
     async (status: UpdateOnboardingBody["status"]) => {
@@ -275,10 +268,10 @@ function TourOverlay({
         .flatMap((selector) => [...(workspace?.querySelectorAll(selector) ?? [])])
         .find((element) => visible(element, workspace ?? undefined));
       const rect = target?.getBoundingClientRect();
-      const left = Math.max(8, (rect?.left ?? 8) - 5);
-      const top = Math.max(8, (rect?.top ?? 8) - 5);
-      const right = Math.min(innerWidth - 8, (rect?.right ?? 8) + 5);
-      const bottom = Math.min(innerHeight - 8, (rect?.bottom ?? 8) + 5);
+      const left = Math.max(0, (rect?.left ?? 0) - 5);
+      const top = Math.max(0, (rect?.top ?? 0) - 5);
+      const right = Math.min(innerWidth, (rect?.right ?? 0) + 5);
+      const bottom = Math.min(innerHeight, (rect?.bottom ?? 0) + 5);
       const width = Math.max(0, right - left);
       const height = Math.max(0, bottom - top);
       const cardWidth = card.current?.offsetWidth ?? 360;
@@ -299,22 +292,20 @@ function TourOverlay({
           cardTop = bottom - cardHeight - 16;
         }
       }
-      const measured = {
-        left,
-        top,
-        width,
-        height,
-        cardLeft: Math.max(16, Math.min(innerWidth - cardWidth - 16, cardLeft)),
-        cardTop: Math.max(16, Math.min(innerHeight - cardHeight - 16, cardTop)),
-      };
-      setGeometry((previous) =>
-        Object.keys(measured).every(
-          (key) =>
-            previous[key as keyof typeof measured] === measured[key as keyof typeof measured],
-        )
-          ? previous
-          : measured,
-      );
+      // Commit measured coordinates before this frame paints. React state from
+      // requestAnimationFrame can commit a frame later, behind a moving target.
+      if (spotlight.current)
+        Object.assign(spotlight.current.style, {
+          left: `${left}px`,
+          top: `${top}px`,
+          width: `${width}px`,
+          height: `${height}px`,
+        });
+      if (card.current)
+        Object.assign(card.current.style, {
+          left: `${Math.max(16, Math.min(innerWidth - cardWidth - 16, cardLeft))}px`,
+          top: `${Math.max(16, Math.min(innerHeight - cardHeight - 16, cardTop))}px`,
+        });
       frame = requestAnimationFrame(measure);
     };
     // Tracks native dock transitions, resizing, and asynchronously hydrated rows.
@@ -327,16 +318,7 @@ function TourOverlay({
       <style>{tourStyles}</style>
       <div className={`tour-layer ${dark ? "dark" : ""}`}>
         <div className="tour-shield" />
-        <div
-          className="tour-spotlight"
-          aria-hidden="true"
-          style={{
-            left: geometry.left,
-            top: geometry.top,
-            width: geometry.width,
-            height: geometry.height,
-          }}
-        />
+        <div ref={spotlight} className="tour-spotlight" aria-hidden="true" />
         <div
           ref={card}
           role="dialog"
@@ -345,7 +327,6 @@ function TourOverlay({
           aria-describedby="tour-body"
           className="tour-card"
           data-step={step.id}
-          style={{ left: geometry.cardLeft, top: geometry.cardTop }}
         >
           <div aria-live="polite" aria-atomic="true">
             <div className="tour-heading">

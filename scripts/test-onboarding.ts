@@ -203,6 +203,55 @@ try {
       true,
       "tour fits the viewport",
     );
+  const checkSpotlight = async (selector: string) => {
+    const geometry = await page.evaluate(`(() => {
+      const target = [...document.querySelectorAll(${JSON.stringify(selector)})].find(element => element.checkVisibility()).getBoundingClientRect();
+      const spot = ${shadow}.querySelector('.tour-spotlight').getBoundingClientRect();
+      const expected = [Math.max(0, target.left - 5), Math.max(0, target.top - 5), Math.min(innerWidth, target.right + 5), Math.min(innerHeight, target.bottom + 5)];
+      return { target: [target.left, target.top, target.right, target.bottom], expected, actual: [spot.left, spot.top, spot.right, spot.bottom] };
+    })()`);
+    assert.ok(
+      geometry.actual.every(
+        (edge: number, index: number) => Math.abs(edge - geometry.expected[index]) < 1,
+      ),
+      `Spotlight must align with ${selector}: ${JSON.stringify(geometry)}`,
+    );
+  };
+  const checkMovingSpotlight = async () => {
+    const samples = await page.evaluate(`new Promise(resolve => {
+      const samples = []; const start = performance.now();
+      const sample = () => {
+        const target = document.querySelector('[data-tour=comment]').getBoundingClientRect();
+        const spot = ${shadow}.querySelector('.tour-spotlight').getBoundingClientRect();
+        if (target.top >= 0 && target.bottom <= innerHeight && target.left >= 0 && target.right <= innerWidth) {
+          const expected = [Math.max(0, target.left - 5), Math.max(0, target.top - 5), Math.min(innerWidth, target.right + 5), Math.min(innerHeight, target.bottom + 5)];
+          const actual = [spot.left, spot.top, spot.right, spot.bottom];
+          samples.push({ targetTop: target.top, spotTop: spot.top, error: Math.max(...actual.map((edge,index)=>Math.abs(edge-expected[index]))) });
+        }
+        if (performance.now()-start < 350) requestAnimationFrame(sample); else resolve(samples);
+      }; requestAnimationFrame(sample);
+    })`);
+    assert.ok(samples.length > 0, "native comment button becomes visible");
+    const worst = samples.reduce((a: { error: number }, b: { error: number }) =>
+      a.error > b.error ? a : b,
+    );
+    assert.ok(
+      worst.error < 1,
+      `Spotlight must follow each animation frame: ${JSON.stringify(worst)}`,
+    );
+  };
+  const stepTarget = (id: string, kind: string) =>
+    (
+      ({
+        versions: '[data-tour="versions"], [data-tour="details"]',
+        files: '[data-tour="files"]',
+        anchor: kind === "html" ? '[data-tour="comment-mode"]' : "[data-gutter]",
+        comment: '[data-tour="comment"]',
+        handoff: "[data-discussion-header] [data-artifact-handoff]",
+        threads: '[data-discussion-header] [role="tablist"]',
+        settings: '[data-tour="details"]',
+      }) as Record<string, string>
+    )[id]!;
   const restart = async () => {
     await click('document.querySelector("[data-tour=details]")');
     await eventually(
@@ -254,6 +303,7 @@ try {
     true,
   );
   assert.equal(await page.evaluate('document.querySelector("[data-tour=versions]").value'), "1");
+  await checkSpotlight("[data-artifact-content-view]");
   await screenshot("onboarding-desktop");
   for (const key of ["n", "S", ">", "f", "?"]) await press(key);
   assert.equal(
@@ -271,6 +321,21 @@ try {
     await next();
     await step(id);
     await checkBounds();
+    if (id === "comment") await checkMovingSpotlight();
+    await checkSpotlight(stepTarget(id, "diff"));
+    if (id === "versions") {
+      await page.command("Emulation.setDeviceMetricsOverride", {
+        width: 1100,
+        height: 800,
+        deviceScaleFactor: 1,
+        mobile: false,
+      });
+      await page.evaluate(
+        "new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))",
+      );
+      await checkSpotlight(stepTarget(id, "diff"));
+      await checkBounds();
+    }
   }
   rejectSave = true;
   await next();
@@ -361,6 +426,7 @@ try {
       await step(id);
       await checkBounds();
       if (id === "comment") {
+        await checkMovingSpotlight();
         await eventually(
           () =>
             page.evaluate(
@@ -379,6 +445,7 @@ try {
         );
         await screenshot(`onboarding-phone-${artifact.kind}`);
       }
+      await checkSpotlight(stepTarget(id, artifact.kind));
     }
     await next();
     await eventually(() => page.evaluate(`!${shadow}`), "phone finish");

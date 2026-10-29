@@ -405,8 +405,10 @@ R3_TEST_BROWSER=/path/to/chromium bun scripts/test-onboarding.ts
 
 This runs the real application with temporary storage and fresh browser profiles.
 It checks library exclusion, real selected content and version, the eight-step
-walkthrough, Shadow DOM focus containment, blocked background shortcuts, retry
-after save failure, restored panel state, preserved drafts, Settings replay,
+walkthrough, spotlight alignment at viewport edges and during each animation
+frame (including resize and the opening phone sheet), Shadow DOM focus containment,
+blocked background shortcuts, retry after save failure, restored panel state,
+preserved drafts, Settings replay,
 cross-browser completion, and phone tours for diff, files, and HTML. Only the
 onboarding state is written during the initial walkthrough. Optional
 `R3_TEST_SCREENSHOTS=/tmp/r3-tour-screens` captures desktop and phone evidence.
