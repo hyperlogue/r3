@@ -35,6 +35,7 @@ export type ArtifactPageActions = Pick<
 >;
 export type ArtifactPageClient = ArtifactPageData & ArtifactPageActions;
 export interface ArtifactTourWorkspace {
+  commentModeAvailable: boolean;
   detail: ArtifactDetail;
   root: RefObject<HTMLDivElement | null>;
   ready: boolean;

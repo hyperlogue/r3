@@ -18,7 +18,7 @@ type Step = {
   discussion?: boolean;
 };
 const content = "[data-artifact-content-view]";
-function stepsFor(kind: ArtifactKind, active: boolean): Step[] {
+function stepsFor(kind: ArtifactKind, active: boolean, commentModeAvailable: boolean): Step[] {
   return [
     { id: "content", title: "tour.contentTitle", body: "tour.contentBody", selectors: [content] },
     {
@@ -40,15 +40,16 @@ function stepsFor(kind: ArtifactKind, active: boolean): Step[] {
     ...(active
       ? [
           {
-            id: "anchor",
-            title: "tour.anchorTitle",
-            body:
-              kind === "diff"
+            id: commentModeAvailable ? "comment-mode" : "anchor",
+            title: commentModeAvailable ? "tour.commentModeTitle" : "tour.anchorTitle",
+            body: commentModeAvailable
+              ? "tour.commentModeBody"
+              : kind === "diff"
                 ? "tour.anchorDiff"
-                : kind === "html"
-                  ? "tour.anchorHtml"
-                  : "tour.anchorFiles",
-            selectors: [kind === "html" ? '[data-tour="comment-mode"]' : "[data-gutter]", content],
+                : "tour.anchorFiles",
+            selectors: commentModeAvailable
+              ? ['[data-tour="comment-mode"]']
+              : ["[data-gutter]", content],
           } satisfies Step,
           {
             id: "comment",
@@ -75,12 +76,6 @@ function stepsFor(kind: ArtifactKind, active: boolean): Step[] {
       body: "tour.threadsBody",
       selectors: ['[data-discussion-header] [role="tablist"]'],
       discussion: true,
-    },
-    {
-      id: "settings",
-      title: "tour.settingsTitle",
-      body: "tour.settingsBody",
-      selectors: ['[data-tour="details"]'],
     },
   ];
 }
@@ -168,6 +163,7 @@ export function ArtifactTour(props: ArtifactTourWorkspace) {
 
 function TourOverlay({
   detail,
+  commentModeAvailable,
   root,
   revealDiscussion,
   index,
@@ -182,7 +178,9 @@ function TourOverlay({
 }) {
   const { t } = useTranslation();
   const dark = useDarkTheme();
-  const [steps] = useState(() => stepsFor(detail.kind, detail.state === "active"));
+  const [steps] = useState(() =>
+    stepsFor(detail.kind, detail.state === "active", commentModeAvailable),
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
   const saving = useRef(false);

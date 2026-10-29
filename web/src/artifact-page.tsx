@@ -1344,6 +1344,7 @@ function Workspace({
       {quote && <QuoteBubble pos={quote} label={t("common.quoteInNote")} onQuote={appendQuote} />}
       {chrome?.tour?.({
         detail,
+        commentModeAvailable: !!toggleCommenting,
         root: workspaceRoot,
         ready:
           !!version &&

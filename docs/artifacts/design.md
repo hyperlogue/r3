@@ -46,8 +46,10 @@ opaque preview renderer and enforce its existing security gate.
 
 The connected app offers a short tour on the first open of a published artifact,
 never in the library. It uses that artifact's real content and current version.
-There are at most eight stops: content, versions, file navigation, native anchoring,
-general comments, agent handoff, discussion queues, and Settings. HTML omits file
+There are at most seven stops: content, versions, file navigation, targeted comments,
+general comments, agent handoff, and discussion queues. The targeted-comment step
+names and highlights **Comment mode** when that control is available (HTML and
+rendered files); source and diff views introduce line comments. HTML omits file
 navigation; archived artifacts omit commenting and handoff. On phones the version
 step points to the details menu and discussion uses the existing sheet.
 

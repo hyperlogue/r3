@@ -83,6 +83,28 @@ await storage.artifacts.publish(files.id, {
     ],
   },
 });
+const renderedFiles = storage.artifacts.create({
+  kind: "files",
+  actor,
+  title: "Actual Markdown publication",
+});
+await storage.artifacts.publish(renderedFiles.id, {
+  actor,
+  expectedSeq: 0,
+  publicationKey: "markdown",
+  content: {
+    kind: "files",
+    files: [
+      {
+        path: "README.md",
+        mediaType: "text/markdown",
+        base64: Buffer.from("# Published document\n\nComment on this passage.\n").toString(
+          "base64",
+        ),
+      },
+    ],
+  },
+});
 const preview = new PreviewHost(storage.artifacts, previewSupport);
 const api = createArtifactApi(
   storage,
@@ -119,7 +141,7 @@ const app = Bun.serve({
     if (asset) return new Response(asset);
     return new Response(
       `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/${css}"></head><body><div id="root"></div><script type="module" src="/${js}"></script></body></html>`,
-      { headers: { "content-type": "text/html" } },
+      { headers: { "content-type": "text/html", "cache-control": "no-store" } },
     );
   },
 });
@@ -240,16 +262,16 @@ try {
       `Spotlight must follow each animation frame: ${JSON.stringify(worst)}`,
     );
   };
-  const stepTarget = (id: string, kind: string) =>
+  const stepTarget = (id: string) =>
     (
       ({
         versions: '[data-tour="versions"], [data-tour="details"]',
         files: '[data-tour="files"]',
-        anchor: kind === "html" ? '[data-tour="comment-mode"]' : "[data-gutter]",
+        anchor: "[data-gutter]",
+        "comment-mode": '[data-tour="comment-mode"]',
         comment: '[data-tour="comment"]',
         handoff: "[data-discussion-header] [data-artifact-handoff]",
         threads: '[data-discussion-header] [role="tablist"]',
-        settings: '[data-tour="details"]',
       }) as Record<string, string>
     )[id]!;
   const restart = async () => {
@@ -317,12 +339,12 @@ try {
     true,
     "Tab wraps within the tour",
   );
-  for (const id of ["versions", "files", "anchor", "comment", "handoff", "threads", "settings"]) {
+  for (const id of ["versions", "files", "anchor", "comment", "handoff", "threads"]) {
     await next();
     await step(id);
     await checkBounds();
     if (id === "comment") await checkMovingSpotlight();
-    await checkSpotlight(stepTarget(id, "diff"));
+    await checkSpotlight(stepTarget(id));
     if (id === "versions") {
       await page.command("Emulation.setDeviceMetricsOverride", {
         width: 1100,
@@ -333,7 +355,7 @@ try {
       await page.evaluate(
         "new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))",
       );
-      await checkSpotlight(stepTarget(id, "diff"));
+      await checkSpotlight(stepTarget(id));
       await checkBounds();
     }
   }
@@ -404,7 +426,8 @@ try {
     deviceScaleFactor: 1,
     mobile: true,
   });
-  for (const artifact of [diff, files, html]) {
+  for (const artifact of [diff, files, html, renderedFiles]) {
+    const hasCommentMode = artifact.kind === "html" || artifact.id === renderedFiles.id;
     // Remembered preview compatibility consent is confined to this fresh test profile.
     await page.evaluate(`localStorage.setItem('r3:preview-compatibility:v1', 'accepted')`);
     await page.command("Page.navigate", { url: `${url}/${artifact.id}` });
@@ -413,14 +436,20 @@ try {
       "phone artifact",
     );
     await restart();
+    assert.equal(
+      await page.evaluate(
+        `${shadow}.querySelector('.tour-heading').textContent.includes(${JSON.stringify(`1 of ${artifact.kind === "html" ? 6 : 7}`)})`,
+      ),
+      true,
+      "tour count excludes the removed Settings stop",
+    );
     for (const id of [
       "versions",
       ...(artifact.kind === "html" ? [] : ["files"]),
-      "anchor",
+      hasCommentMode ? "comment-mode" : "anchor",
       "comment",
       "handoff",
       "threads",
-      "settings",
     ]) {
       await next();
       await step(id);
@@ -445,8 +474,27 @@ try {
         );
         await screenshot(`onboarding-phone-${artifact.kind}`);
       }
-      await checkSpotlight(stepTarget(id, artifact.kind));
+      await checkSpotlight(stepTarget(id));
+      if (id === "comment-mode") {
+        assert.equal(
+          await page.evaluate(`${shadow}.querySelector('#tour-title').textContent`),
+          "Use Comment mode",
+        );
+        assert.equal(
+          await page.evaluate(
+            'document.querySelector("[data-tour=comment-mode]").getAttribute("aria-pressed")',
+          ),
+          "false",
+          "tour explains Comment mode without activating it",
+        );
+        await screenshot(`onboarding-comment-mode-${artifact.kind}`);
+      }
     }
+    assert.equal(
+      await page.evaluate(`${shadow}.querySelector('.tour-primary').textContent`),
+      "Finish",
+      "finish at discussion instead of a replay reminder",
+    );
     await next();
     await eventually(() => page.evaluate(`!${shadow}`), "phone finish");
     assert.equal(
