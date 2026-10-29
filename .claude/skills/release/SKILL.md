@@ -2,14 +2,15 @@
 name: release
 metadata:
   internal: true
-description: Cut an r3 release — draft the CHANGELOG entry, bump every version string in lockstep, commit, then cut the annotated `vX.Y.Z` tag on that commit (the release CI lifts the changelog section into the GitHub release notes). Use when the user wants to release a new version, bump the version, write or update the changelog, or tag a release.
+description: Prepare or cut an r3 release — write concise release notes, publish the new changelog as an r3 files artifact for review, bump versions together, commit, and tag. Use when preparing a release, bumping the version, updating the changelog, or tagging a release.
 ---
 
 # Releasing r3
 
 A release is one version-bump commit plus an annotated tag on it. The whole job
 is: write the changelog, move **every** version string to the new number
-together, commit, and tag that commit. Push remains a separate user action.
+together, verify, publish the changelog as an r3 files artifact for review,
+commit, and tag that commit. Push remains a separate user action.
 The release CI reads `CHANGELOG.md` **out of the tagged tree** for the GitHub release notes, so the
 changelog entry is the release's public face and the tag carries no notes of its
 own.
@@ -39,26 +40,23 @@ if they drift, so keep them in lockstep:
 
 1. **Pick the version** (SemVer). Previous tag: `git describe --tags --abbrev=0`.
 
-2. **Draft the CHANGELOG entry** (`CHANGELOG.md`, [Keep a Changelog] format).
+2. **Draft the CHANGELOG entry** (`CHANGELOG.md`, adapted from [Keep a Changelog]).
    Survey what shipped since the last tag — `git log v<prev>..HEAD --oneline` —
    then:
    - Insert a new `## [X.Y.Z] - YYYY-MM-DD` section directly under the intro
      block, above the previous version. Use the release date.
-   - Group bullets under `### Added` / `### Changed` / `### Fixed` / `### Removed`
-     — only the groups that apply, in that order.
-   - Write from the **user's** vantage point: what they can now do, or no longer
-     run into — not the internal mechanics, refactors, or scaffolding that got it
-     there. Frame each entry as what *shipped*, not what was turned off or reworked
-     mid-development; internal churn a user never observes doesn't belong in the
-     log at all. Match the existing voice: a bold lead-in (`**Feature.**`) then a
-     sentence or two on the change and why it matters; fold related commits into
-     one bullet.
+   - Use only `### New`, `### Fixed`, and `### Removed`, in that order. Omit
+     sections with no entries. New includes additions and improvements; Fixed
+     describes corrected behavior; Removed covers capabilities users lose.
+   - Keep it short and concise: a bold lead-in (`**Feature.**`) and one short
+     sentence per bullet, combining related commits. Focus on user-visible
+     changes and their practical effect. Include upgrade instructions only when
+     users need to act. Omit internal refactors, tests, release tooling, and
+     development churn. Preserve earlier releases' entries as written.
    - Add the compare link at the very bottom, with the others:
      `[X.Y.Z]: https://github.com/hyperlogue/r3/compare/v<prev>...vX.Y.Z`
 
-   This entry is the release's public face — the CI publishes this exact section
-   as the GitHub release notes. **Show the draft to the user and get their
-   sign-off before you commit.**
+   The CI publishes this exact section as the GitHub release notes.
 
 3. **Bump all three version sources** to `X.Y.Z` — do not forget the four npm
    pins in `npm/package.json`.
@@ -72,14 +70,36 @@ if they drift, so keep them in lockstep:
    biome check .
    ```
 
-5. **Commit** — follow `AGENTS.md` for scope, authorship, and explicit staging.
+5. **Publish the changelog for review.** Follow the repository's
+   [publish-artifacts-to-r3 skill](../../../skills/publish-artifacts-to-r3/SKILL.md)
+   for executable discovery and the files preparation guide.
+   Extract only the new version's section from `CHANGELOG.md` into a temporary
+   directory containing `CHANGELOG.md`. Preserve its version/date heading and
+   exact bullets; include the matching compare-link definition so the heading's
+   link resolves. Set `V` to the release version and `release_notes_dir` to the
+   prepared directory. Publish it as a **files** artifact, titled
+   `r3 vX.Y.Z changelog`, with version label `vX.Y.Z`:
+   ```sh
+   r3 create --kind files --dir "$release_notes_dir" \
+     --title "r3 v$V changelog" --version-label "v$V"
+   ```
+   Share the returned stable URL and retain the artifact ID. If review changes
+   the notes, update `CHANGELOG.md` and publish a new version of that same artifact
+   so the reviewed text and release commit agree. Report publication failures;
+   preparation is incomplete until the artifact is published successfully.
+
+   **Show the draft to the user and get their sign-off before you commit.**
+   Request sign-off after the version bump, checks, and artifact publication are
+   ready for review. If the user already approved this exact draft, proceed.
+
+6. **Commit** — follow `AGENTS.md` for scope, authorship, and explicit staging.
    Preserve existing authorship metadata; do not add an unrelated agent trailer.
    ```sh
    git add CHANGELOG.md shared/version.ts package.json npm/package.json
    git commit -m "chore(release): release vX.Y.Z"
    ```
 
-6. **Tag** — annotated, on the commit you just made (the `r3 vX.Y.Z` subject is
+7. **Tag** — annotated, on the commit you just made (the `r3 vX.Y.Z` subject is
    the convention since v0.2.0). The tag needs no body: CI reads the changelog
    section from the tagged tree. The awk is the same extraction CI runs, used
    here only as a **guard** — it refuses to tag when the `## [X.Y.Z]` section is
@@ -95,7 +115,7 @@ if they drift, so keep them in lockstep:
    Eyeball what CI will publish before pushing — that's `$NOTES`, or
    `git show "v$V":CHANGELOG.md | head -40`.
 
-7. **Push** — leave the actual push to the user unless they ask. Report any
+8. **Push** — leave the actual push to the user unless they ask. Report any
    authentication or transport failure; never imply a failed push succeeded:
    ```sh
    git push origin main && git push origin vX.Y.Z
@@ -140,12 +160,12 @@ release exists, expired build artifacts do not block the npm retry.
 ## If you botch a release
 
 **Immutable releases are enabled**, so a published `vX.Y.Z` tag can't be moved or
-deleted through the normal path — which is the whole reason steps 1–6 get it right
+deleted through the normal path — which is the whole reason steps 1–7 get it right
 the first time (bump before tag, changelog into the tag). Recovery depends on how
 far it got:
 
 - **Not pushed yet** — the tag is still local. Delete and recut it: `git tag -d
-vX.Y.Z`, fix, then redo step 6. Cheap.
+vX.Y.Z`, fix, then redo step 7. Cheap.
 - **Already pushed / released** — don't fight the immutability. **Cut the next
   patch version** (`vX.Y.(Z+1)`) carrying the fix; that is the intended recovery.
   Force-moving a published tag is a rare escape hatch that needs the user to
