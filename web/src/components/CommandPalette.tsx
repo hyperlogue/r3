@@ -50,7 +50,6 @@ function PaletteContent({ onClose }: { onClose: () => void }) {
   const search = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const bound = useBoundKeys();
-  const titleId = useId();
   const listId = useId();
   useEscape(true, onClose);
   usePopoverFocus(true, content);
@@ -122,18 +121,12 @@ function PaletteContent({ onClose }: { onClose: () => void }) {
         ref={content}
         role="dialog"
         aria-modal="true"
-        aria-labelledby={titleId}
+        aria-label={t("commandPalette.title")}
         tabIndex={-1}
         onKeyDown={onKeyDown}
         className="relative flex max-h-[min(80dvh,42rem)] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-neutral-300 bg-white r3-modal dark:border-neutral-700 dark:bg-neutral-900"
       >
         <div className="shrink-0 border-b border-neutral-200 p-3 dark:border-neutral-700">
-          <h2
-            id={titleId}
-            className="mb-2 text-xs font-semibold text-neutral-800 dark:text-neutral-100"
-          >
-            {t("commandPalette.title")}
-          </h2>
           <div className="flex items-center gap-2">
             <StrokeIcon className="size-4 shrink-0 text-neutral-400">
               <circle cx="10.5" cy="10.5" r="6.5" />
