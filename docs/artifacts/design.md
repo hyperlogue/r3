@@ -581,7 +581,7 @@ While any thread has an active agent claim, a small agent icon appears immediate
 left of the navbar discussion toggle, including while the panel is hidden. Its
 tooltip names the working agents and the number of threads they have claimed.
 
-The workspace navbar has a command-icon button opening a searchable command
+The workspace navbar has a terminal-icon button opening a searchable command
 palette; `?` remains its keyboard entry point. Each command retains its shortcut
 labels and runs the same registered action when clicked. Commands without a handler
 in the current view are disabled. Arrow keys navigate available commands, Enter

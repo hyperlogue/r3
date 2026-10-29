@@ -29,7 +29,8 @@ export function CommandPaletteButton({ onClick }: { onClick: () => void }) {
       onClick={onClick}
     >
       <StrokeIcon className="size-4">
-        <path d="M9 7V4.5A2.5 2.5 0 1 0 6.5 7H17.5A2.5 2.5 0 1 0 15 4.5v15a2.5 2.5 0 1 0 2.5-2.5H6.5A2.5 2.5 0 1 0 9 19.5V7Z" />
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <path d="m7 9 3 3-3 3m6 0h4" />
       </StrokeIcon>
     </HeaderIconButton>
   );
