@@ -1,4 +1,5 @@
 import { createContext, type ReactNode, type RefObject, useContext } from "react";
+import type { ArtifactDetail } from "../../shared/artifacts.ts";
 import type { api } from "./api.ts";
 import type { artifactApi } from "./artifact-api.ts";
 
@@ -33,7 +34,14 @@ export type ArtifactPageActions = Pick<
   | "setViewed"
 >;
 export type ArtifactPageClient = ArtifactPageData & ArtifactPageActions;
+export interface ArtifactTourWorkspace {
+  detail: ArtifactDetail;
+  root: RefObject<HTMLDivElement | null>;
+  ready: boolean;
+  revealDiscussion: (visible: boolean) => void;
+}
 export interface ArtifactPageChrome {
+  tour?: (props: ArtifactTourWorkspace) => ReactNode;
   header?: (children: ReactNode) => ReactNode;
   settings?: (props: {
     onClose: () => void;

@@ -42,6 +42,31 @@ and the app stylesheet. The site's renderer is an authored React example, not a
 way to execute arbitrary published content. Production continues to supply its
 opaque preview renderer and enforce its existing security gate.
 
+## First artifact tour
+
+The connected app offers a short tour on the first open of a published artifact,
+never in the library. It uses that artifact's real content and current version.
+There are at most eight stops: content, versions, file navigation, native anchoring,
+general comments, agent handoff, discussion queues, and Settings. HTML omits file
+navigation; archived artifacts omit commenting and handoff. On phones the version
+step points to the details menu and discussion uses the existing sheet.
+
+The tour uses shared buttons in an open Shadow DOM with a dim backdrop and one
+spotlight. Focus stays in the dialog; Tab wraps, Escape skips, and background
+shortcuts stand down. Existing dialogs and preview consent take precedence. The
+tour never enters an opaque preview, grants consent, selects another version,
+creates comments, or sends feedback. A hidden discussion temporarily appears as
+a floating panel (or phone sheet) without writing display preferences or moving
+content. Closing restores the previous panel state and focus; drafts stay intact.
+
+Completion or skipping is persisted once per backend installation, across browsers.
+A skipped tour can later become completed; completion cannot be downgraded by a
+skipped replay or stale browser. **Settings → Take the product tour** replays it
+on the current artifact. Library Settings explains that an artifact must be open.
+Failed saves offer retry and an unsaved Close action. Standalone workspace hosts
+opt into the tour through the optional chrome slot; the scripted demo disables
+automatic onboarding.
+
 ## Three kinds, one publication model
 
 | Kind | Published content | Workspace |

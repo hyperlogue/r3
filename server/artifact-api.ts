@@ -158,6 +158,16 @@ export function createArtifactApi(
   installArtifactAuth(app, storage.authentication, policy, storage.clientAuth);
   workers.install(app);
 
+  app.get("/api/onboarding", (c) => {
+    c.header("Cache-Control", "no-store");
+    return c.json(storage.onboarding.read());
+  });
+  app.put("/api/onboarding", async (c) => {
+    const state = storage.onboarding.update(await artifactJson(c.req.raw));
+    c.header("Cache-Control", "no-store");
+    return c.json(state);
+  });
+
   app.get("/api/library-summary", (c) => {
     const window = c.req.query("window") ?? "daily";
     if (window !== "daily" && window !== "weekly")

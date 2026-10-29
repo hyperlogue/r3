@@ -573,3 +573,12 @@ export function artifactMediaKind(mediaType: string): "image" | "audio" | "video
   const kind = mediaType.split("/")[0];
   return kind === "image" || kind === "audio" || kind === "video" ? kind : null;
 }
+
+// One product tour per backend installation, shared by all browsers.
+export interface OnboardingState {
+  status: "new" | "skipped" | "completed";
+  updatedAt: string | null;
+}
+export interface UpdateOnboardingBody {
+  status: "skipped" | "completed";
+}

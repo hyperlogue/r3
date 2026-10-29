@@ -1,3 +1,4 @@
+import type { OnboardingState, UpdateOnboardingBody } from "../../shared/artifacts.ts";
 import { applicationFetch } from "./application-fetch.ts";
 import { draftImages } from "./attachment-drafts.ts";
 import { t } from "./i18n.ts";
@@ -140,6 +141,9 @@ const qs = (params: Record<string, string | number | boolean | undefined>) => {
 };
 
 export const api = {
+  onboarding: () => req<OnboardingState>("GET", "/api/onboarding"),
+  updateOnboarding: (body: UpdateOnboardingBody) =>
+    req<OnboardingState>("PUT", "/api/onboarding", body),
   inspectClientAuthorization: (userCode: string) =>
     req<{ label: string | null; expiresAt: number; requestIp: string | null }>(
       "POST",

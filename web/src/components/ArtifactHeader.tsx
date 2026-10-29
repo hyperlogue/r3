@@ -394,6 +394,7 @@ export function ArtifactHeader({
           disabled={commentingLocked}
           variant={commenting ? "primary-outline" : "nav"}
           className="h-[calc(1.75rem-2px)] w-7 shrink-0 justify-center p-0! max-md:size-9"
+          data-tour="comment-mode"
           aria-label={commenting ? t("header.exitCommentMode") : t("header.commentMode")}
           title={commenting ? t("header.exitCommentModeC") : t("header.commentModeC")}
           aria-pressed={commenting}
@@ -415,6 +416,7 @@ export function ArtifactHeader({
       {onOpenCommandPalette && <CommandPaletteButton onClick={onOpenCommandPalette} />}
       <MoreActionsButton
         ref={detailsTrigger}
+        data-tour="details"
         aria-label={t("header.artifactDetailsAndActions")}
         title={t("header.artifactDetailsAndActions")}
         aria-expanded={detailsOpen}

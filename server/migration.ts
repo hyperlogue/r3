@@ -10,6 +10,7 @@ import { installArtifactUsage } from "./artifact-usage-schema.ts";
 import { CLIENT_AUTH_SCHEMA } from "./client-auth.ts";
 import { renameConversations } from "./conversation-migration.ts";
 import { nowIso } from "./ids.ts";
+import { ONBOARDING_SCHEMA } from "./onboarding.ts";
 import { renameThreads } from "./thread-migration.ts";
 import { WORKER_SCHEMA } from "./worker-records.ts";
 
@@ -63,7 +64,7 @@ export async function upgradeArtifactStore(
   if (tables.includes("reviews"))
     throw new Error("Upgrade live-review stores with r3 1.5.0 before opening them here");
   if (
-    ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17].includes(schemaVersion) ||
+    ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18].includes(schemaVersion) ||
     !tables.includes("artifacts")
   )
     throw new Error("Unrecognized store schema; migration did not modify it");
@@ -92,6 +93,7 @@ export async function upgradeArtifactStore(
       db.exec(`UPDATE artifacts SET legacy_json = json_set(COALESCE(legacy_json, '{}'), '$.retiredOverview', summary) WHERE summary IS NOT NULL;
         ALTER TABLE artifacts DROP COLUMN summary;`);
     }
+    db.exec(ONBOARDING_SCHEMA);
     db.exec(PROJECT_REMOTE_SCHEMA);
     db.exec(ARTIFACT_ID_SCHEMA);
     // Legacy notification routes are disposable; users establish fresh subscriptions.

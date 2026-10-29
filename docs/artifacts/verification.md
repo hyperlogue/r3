@@ -391,3 +391,24 @@ browser-clock response timing, temporary quote/outline/page feedback,
 Escape/click-away, canceled hydration, tall-paragraph alignment and mobile
 navigation. Use `R3_TEST_BROWSER` as for the other isolated browser acceptance
 scripts.
+
+## First artifact onboarding
+
+`bun test server/onboarding.test.ts` covers persistence across restart, terminal
+completion under stale skips, schema-18 migration with a retained backup, and
+API authentication/origin/body guards. The full suite retains older migration
+coverage.
+
+```sh
+R3_TEST_BROWSER=/path/to/chromium bun scripts/test-onboarding.ts
+```
+
+This runs the real application with temporary storage and fresh browser profiles.
+It checks library exclusion, real selected content and version, the eight-step
+walkthrough, Shadow DOM focus containment, blocked background shortcuts, retry
+after save failure, restored panel state, preserved drafts, Settings replay,
+cross-browser completion, and phone tours for diff, files, and HTML. Only the
+onboarding state is written during the initial walkthrough. Optional
+`R3_TEST_SCREENSHOTS=/tmp/r3-tour-screens` captures desktop and phone evidence.
+The shared preview-workspace fixture opts out unless its URL contains `tour`, so
+other acceptance scripts remain focused on their own interactions.

@@ -16,6 +16,7 @@ import { BlobStore } from "./blobs.ts";
 import { ClientAuth } from "./client-auth.ts";
 import { nowIso } from "./ids.ts";
 import { type ArtifactMigrationResult, upgradeArtifactStore } from "./migration.ts";
+import { OnboardingStore } from "./onboarding.ts";
 import type { DocumentRenderer } from "./publication.ts";
 import { WorkerRecords } from "./worker-records.ts";
 
@@ -32,6 +33,7 @@ export interface ArtifactStorageOptions {
 }
 
 export interface ArtifactStorage {
+  onboarding: OnboardingStore;
   usage: ArtifactUsageStore;
   search: ArtifactSearch;
   artifacts: ArtifactStore;
@@ -137,6 +139,7 @@ export async function openArtifactStorage(
     conversations.expireClaims();
     authentication.cleanupOnStartup();
     return {
+      onboarding: new OnboardingStore(db, clock),
       usage: new ArtifactUsageStore(db, artifacts, clock, options.archiveTtlDays, options.timezone),
       search: new ArtifactSearch(db, artifacts, conversations),
       artifacts,

@@ -287,6 +287,7 @@ export function JumpToFile({
       <button
         type="button"
         title={t("jumpToFile.jumpToFileF")}
+        data-tour="files"
         aria-label={t("jumpToFile.jumpToFile")}
         onClick={() => (shown && visible ? closePicker() : openPicker())}
         className={btnClassName}

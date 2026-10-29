@@ -71,6 +71,7 @@ export function ArtifactVersionSelect({
         aria-expanded={open}
         aria-controls={listId}
         value={version?.seq ?? selected ?? ""}
+        data-tour="versions"
         data-version-count={versions.length}
         title={t("versionSelect.chooseAPublishedVersion")}
         onClick={() => setOpen((value) => !value)}

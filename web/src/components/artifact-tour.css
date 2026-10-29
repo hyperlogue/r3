@@ -1,0 +1,114 @@
+:host {
+  all: initial;
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  font-family: system-ui, sans-serif;
+}
+* {
+  box-sizing: border-box;
+}
+.tour-layer {
+  --surface: #fff;
+  --text: #171717;
+  --muted: #525252;
+  --border: #d4d4d4;
+  --button: #f5f5f5;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.tour-layer.dark {
+  --surface: #171717;
+  --text: #f5f5f5;
+  --muted: #b8b8b8;
+  --border: #525252;
+  --button: #262626;
+}
+.tour-shield {
+  position: fixed;
+  inset: 0;
+  touch-action: none;
+}
+.tour-spotlight {
+  position: fixed;
+  pointer-events: none;
+  border: 2px solid #a5b4fc;
+  border-radius: 6px;
+  box-shadow: 0 0 0 9999px rgb(10 12 24 / 62%);
+}
+.tour-card {
+  position: fixed;
+  width: min(360px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow:
+    0 16px 48px rgb(0 0 0 / 24%),
+    0 0 0 1px rgb(255 255 255 / 6%);
+}
+.tour-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--muted);
+  font-size: 12px;
+}
+h2 {
+  margin: 14px 0 8px;
+  font-size: 20px;
+  line-height: 1.25;
+  font-weight: 600;
+}
+p {
+  margin: 0;
+  color: var(--muted);
+}
+.tour-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 22px;
+}
+.tour-button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--button);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.tour-button:hover {
+  filter: brightness(0.95);
+}
+.tour-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.tour-button:focus-visible {
+  outline: 2px solid #818cf8;
+  outline-offset: 3px;
+}
+.tour-primary {
+  background: #4f46e5;
+  color: #fff;
+  border-color: #6366f1;
+}
+.tour-skip {
+  margin-right: auto;
+  border-color: transparent;
+  background: transparent;
+  padding-left: 0;
+}
+.tour-error {
+  color: #dc2626;
+  margin-top: 12px;
+}

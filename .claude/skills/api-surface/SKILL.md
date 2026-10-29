@@ -27,6 +27,13 @@ authored messages, including archive messages directly in the discussion.
 `server/artifact-daemon.ts` opens and migrates storage before accepting requests.
 The CLI, browser, and demo all use this protocol; legacy routes are removed.
 
+- `GET /api/onboarding` reads installation-wide `OnboardingState` (`status`:
+  `new|skipped|completed`, `updatedAt`: UTC string or null). `PUT /api/onboarding`
+  accepts `UpdateOnboardingBody` (`status: skipped|completed`). Skipping/finishing
+  persists across browsers; completed state cannot be downgraded, and repeated
+  writes keep the timestamp. Reads never initialize or reset progress. Both routes
+  use normal authentication and origin guards, bounded JSON, and `no-store`.
+  This is application onboarding, with no artifact, delivery, or CLI mutation.
 - `GET /api/library-summary?window=daily|weekly` returns `ArtifactUsage`: current backend-wide
   inventory, published versions, conversation counts, deduplicated content bytes,
   default-TTL GC eligibility, and activity buckets. Windows are fixed at 14 calendar

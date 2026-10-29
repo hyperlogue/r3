@@ -609,3 +609,15 @@ The read-only anchor-resolution projection carries the inspected revision, reque
 version, native candidate and anchored/ambiguous/unplaced/runtime-required result.
 Runtime-required candidates are validated only for document membership until the
 trusted preview runtime reports a unique match. No lookup result is persisted.
+
+## Installation onboarding (schema 19)
+
+`onboarding` stores one optional row (`id = 1`), independent of artifacts and
+sessions. No row means `new`; the row holds `skipped|completed` and a server UTC
+`updated_at`. Reads are side-effect free. Repeated writes preserve the timestamp;
+only `skipped → completed` advances it. Completed state is terminal, including
+when a stale browser skips after another browser finishes. Manual replay does not
+reset stored state. Deleting artifacts leaves installation onboarding intact.
+
+Fresh stores create the table. Existing artifact stores receive it through the
+normal backed-up schema migration, without changing content or conversation data.

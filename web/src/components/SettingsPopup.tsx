@@ -3,6 +3,7 @@ import { type RefObject, useRef, useState } from "react";
 import { api, CAN_MANAGE_TOKENS, TOKEN } from "../api.ts";
 import { useTheme } from "../hooks.ts";
 import { useTranslation } from "../i18n.ts";
+import { useProductTour } from "../product-tour-context.tsx";
 import {
   FONT_MAX,
   FONT_MIN,
@@ -139,6 +140,7 @@ export function SettingsDialog({
   trigger: RefObject<HTMLButtonElement | null>;
 }) {
   const { t: translate } = useTranslation();
+  const tour = useProductTour();
   const popup = useRef<HTMLDivElement>(null);
   const [gcOpen, setGcOpen] = useState(false);
   usePopoverFocus(true, popup, trigger);
@@ -247,6 +249,24 @@ export function SettingsDialog({
             {translate("settingsPopup.autoThemesFollowLightDarkModeThe")}
           </p>
         </Section>
+
+        {tour && (
+          <Section label={translate("tour.gettingStarted")}>
+            <Button
+              className="w-full justify-center"
+              disabled={!tour.restart}
+              onClick={() => {
+                onClose();
+                tour.restart?.();
+              }}
+            >
+              {translate("tour.restart")}
+            </Button>
+            {!tour.restart && (
+              <p className="mt-1.5 text-xs text-neutral-500">{translate("tour.openArtifact")}</p>
+            )}
+          </Section>
+        )}
 
         <Section label={translate("settingsPopup.storage")}>
           <Button className="w-full justify-center" onClick={() => setGcOpen(true)}>

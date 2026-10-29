@@ -4,9 +4,11 @@ import { artifactApi } from "./artifact-api.ts";
 import { libraryReturnRoute } from "./artifact-library.ts";
 import { type ArtifactUIEnvironment, ArtifactUIProvider } from "./artifact-ui-context.tsx";
 import { AppHeader } from "./components/AppHeader.tsx";
+import { ArtifactTour } from "./components/ArtifactTour.tsx";
 import { NotificationProvider } from "./components/Notifications.tsx";
 import { ServerVersionNotification } from "./components/ServerVersionNotification.tsx";
 import { SettingsDialog } from "./components/SettingsPopup.tsx";
+import { ProductTourProvider } from "./product-tour-context.tsx";
 import { navigate } from "./router.ts";
 
 // The connected application owns the HTTP implementation, router, and settings.
@@ -14,6 +16,7 @@ import { navigate } from "./router.ts";
 export const applicationUI: ArtifactUIEnvironment = {
   client: { ...artifactApi, themeStyle: api.themeStyle },
   chrome: {
+    tour: (props) => <ArtifactTour {...props} />,
     header: (children) => <AppHeader showSettings={false}>{children}</AppHeader>,
     settings: (props) => <SettingsDialog {...props} />,
     onDeleted: () => navigate(libraryReturnRoute(location.search) ?? "/"),
@@ -23,7 +26,9 @@ export function ApplicationUIProvider({ children }: { children: ReactNode }) {
   return (
     <NotificationProvider>
       <ServerVersionNotification />
-      <ArtifactUIProvider value={applicationUI}>{children}</ArtifactUIProvider>
+      <ProductTourProvider>
+        <ArtifactUIProvider value={applicationUI}>{children}</ArtifactUIProvider>
+      </ProductTourProvider>
     </NotificationProvider>
   );
 }

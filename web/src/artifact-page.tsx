@@ -30,6 +30,7 @@ import {
   type ArtifactPageData,
   ArtifactUIProvider,
   useArtifactClient,
+  useArtifactUI,
 } from "./artifact-ui-context.tsx";
 import { artifactViewForTarget, stepArtifactVersion } from "./artifact-version.ts";
 import { artifactWorkspaceSelections } from "./artifact-workspace-state.ts";
@@ -190,6 +191,9 @@ function Workspace({
   onLocationChange,
 }: ArtifactWorkspaceProps) {
   const { t } = useTranslation();
+  const { chrome } = useArtifactUI();
+  const workspaceRoot = useRef<HTMLDivElement>(null);
+  const [tourDiscussion, setTourDiscussion] = useState(false);
   const [view, setView] = useState(() => {
     const restored =
       initialView ??
@@ -990,7 +994,7 @@ function Workspace({
     [canonicalJump],
   );
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div ref={workspaceRoot} className="flex min-h-0 flex-1 flex-col">
       <ArtifactHeader
         detail={detail}
         version={version}
@@ -1292,7 +1296,13 @@ function Workspace({
         </div>
         {!mobile && (
           <ArtifactDiscussionPanel
-            mode={comparison.active ? "expanded" : discussionMode}
+            mode={
+              comparison.active
+                ? "expanded"
+                : tourDiscussion && discussionMode === "hidden"
+                  ? "floating"
+                  : discussionMode
+            }
             locked={comparison.active}
             onModeChange={setDiscussionMode}
           >
@@ -1321,7 +1331,7 @@ function Workspace({
       {mobile && (
         <MobileReviewChrome
           openCount={detail.threads.filter((threads) => threads.status === "open").length}
-          sheet={sheet}
+          sheet={tourDiscussion ? "full" : sheet}
           docked={comparison.active}
           onSetSheet={setSheet}
         >
@@ -1332,6 +1342,16 @@ function Workspace({
         <AddCommentPill scopeRef={paneRef} composing={hasNote} onAdd={selectText} />
       )}
       {quote && <QuoteBubble pos={quote} label={t("common.quoteInNote")} onQuote={appendQuote} />}
+      {chrome?.tour?.({
+        detail,
+        root: workspaceRoot,
+        ready:
+          !!version &&
+          !comparison.active &&
+          !commandPaletteOpen &&
+          !(detail.kind === "diff" ? diffQuery.isPending : filesQuery.isPending),
+        revealDiscussion: setTourDiscussion,
+      })}
       <CommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} />
     </div>
   );

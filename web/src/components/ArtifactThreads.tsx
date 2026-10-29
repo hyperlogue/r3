@@ -963,6 +963,7 @@ export function ArtifactThreads({
           <div className="flex shrink-0 items-center gap-1.5">
             <Button
               variant="ghost"
+              data-tour="comment"
               aria-label={t("thread.addComment")}
               title={t("threads.addCommentN")}
               onClick={newNote}
