@@ -1,7 +1,7 @@
 // One flat KEYMAP + one window listener. KEYMAP is the source for both the
-// dispatcher and the `?` overlay. Handlers register per-component.
+// dispatcher and the command palette. Handlers register per-component.
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import type { AppMessageKey } from "./i18n.ts";
 
 export type KeyId =
@@ -43,7 +43,7 @@ export interface Binding {
 }
 
 export const KEYMAP: readonly Binding[] = [
-  { id: "help", keys: ["?"], label: "shortcutsOverlay.keyboardShortcuts", group: "Review" },
+  { id: "help", keys: ["?"], label: "commandPalette.title", group: "Review" },
   { id: "generalNote", keys: ["n"], label: "common.newGeneralComment", group: "Review" },
   { id: "commentModeToggle", keys: ["c"], label: "common.toggleCommentMode", group: "Review" },
   // Shifted on purpose: the only binding that sends data out of the app, with no
@@ -137,7 +137,7 @@ function chordOf(e: KeyboardEvent): string | null {
 
 const handlers = new Map<KeyId, () => void>();
 
-// While a modal owns the screen (the shortcuts overlay), everything but `help`
+// While a modal owns the screen (the command palette), everything but `help`
 // stands down — otherwise `j` would be quietly walking the threads list behind
 // the sheet. A counter, not a boolean, so overlapping suspensions can't leave the
 // map dead.
@@ -153,16 +153,37 @@ export function suspendKeys(): () => void {
 }
 
 // For the OTHER global key listeners this map doesn't own — notably the
-// composer's Escape action in ArtifactView. Without this the shortcuts sheet's
+// composer's Escape action in ArtifactView. Without this the command palette's
 // own Esc and the composer's would both fire on one press: the sheet closes AND
 // the open composer is discarded.
 export function keysSuspended(): boolean {
   return suspended > 0;
 }
 
-// The shortcuts sheet dims actions that have no owner in the current view.
-export function isBound(id: KeyId): boolean {
-  return handlers.has(id);
+// The palette follows handler ownership even if the workspace changes while open.
+const bindingListeners = new Set<() => void>();
+const emptyBindings: ReadonlySet<KeyId> = new Set();
+let boundKeys = emptyBindings;
+const subscribeBindings = (listener: () => void) => {
+  bindingListeners.add(listener);
+  return () => bindingListeners.delete(listener);
+};
+function bindingsChanged() {
+  boundKeys = new Set(handlers.keys());
+  for (const listener of bindingListeners) listener();
+}
+export function useBoundKeys(): ReadonlySet<KeyId> {
+  return useSyncExternalStore(
+    subscribeBindings,
+    () => boundKeys,
+    () => emptyBindings,
+  );
+}
+
+// Explicit palette activation uses the same live handler as its keyboard chord.
+// The caller closes the palette first so focus cleanup precedes the action.
+export function runKeyAction(id: KeyId): void {
+  handlers.get(id)?.();
 }
 
 let attached = false;
@@ -213,10 +234,12 @@ export function useKeyBindings(map: KeyHandlers): void {
       handlers.set(id, fn);
       return [id, fn] as const;
     });
+    if (mine.length) bindingsChanged();
     return () => {
       // Only drop our own entry: a component unmounting after another registered
       // the same id (a remount overlapping its predecessor) must not clear theirs.
       for (const [id, fn] of mine) if (handlers.get(id) === fn) handlers.delete(id);
+      if (mine.length) bindingsChanged();
     };
   }, [idsKey]);
 }

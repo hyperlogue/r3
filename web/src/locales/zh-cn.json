@@ -480,12 +480,16 @@
     "useInAgent": "在智能体中使用",
     "yourThreadIsReadyForTheAgent": "你的主题已就绪，等待智能体获取。"
   },
-  "shortcutsOverlay": {
-    "anchoringThreadsToALineRangeIs": "将主题锚定到行范围是一个鼠标手势——在代码中拖拽，或点击并拖拽行号。键入时快捷键会暂时失效。",
-    "closeKeyboardShortcuts": "关闭键盘快捷键",
-    "closeKeyboardShortcutsEsc": "关闭键盘快捷键 (Esc)",
-    "keyboardShortcuts": "键盘快捷键",
-    "keyboardShortcuts2": "键盘快捷键 (?)",
+  "commandPalette": {
+    "title": "命令面板",
+    "openShortcut": "命令面板 (?)",
+    "close": "关闭命令面板",
+    "closeShortcut": "关闭命令面板 (Esc)",
+    "search": "搜索命令…",
+    "unavailable": "当前视图不可用",
+    "noResults": "没有匹配的命令",
+    "navigate": "导航",
+    "run": "执行",
     "or": "或"
   },
   "workspaceHeader": {

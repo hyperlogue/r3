@@ -139,8 +139,16 @@ try {
   const { targetId } = await browser.send("Target.createTarget", { url: "about:blank" });
   const page = await browser.attach(targetId);
   const pressKey = async (key: string, autoRepeat = false) => {
-    await page.command("Input.dispatchKeyEvent", { type: "keyDown", key, autoRepeat });
-    await page.command("Input.dispatchKeyEvent", { type: "keyUp", key });
+    const native =
+      key === "Enter" ? { code: "Enter", windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13 } : {};
+    await page.command("Input.dispatchKeyEvent", {
+      type: "keyDown",
+      key,
+      autoRepeat,
+      ...native,
+      ...(key === "Enter" ? { text: "\r", unmodifiedText: "\r" } : {}),
+    });
+    await page.command("Input.dispatchKeyEvent", { type: "keyUp", key, ...native });
   };
   const screenshot = async (name: string) => {
     const directory = process.env.R3_TEST_SCREENSHOTS;
@@ -168,70 +176,124 @@ try {
       "syntax palette",
     );
     await page.evaluate(`(() => {
-      const button = document.querySelector('[data-app-header] [aria-label="Keyboard shortcuts"]');
+      const button = document.querySelector('[data-app-header] [aria-label="Command palette"]');
       button.focus();
       button.click();
     })()`);
     await eventually(
       () =>
-        page.evaluate(
-          '!!document.querySelector(\'[role="dialog"][aria-label="Keyboard shortcuts"]\')',
-        ),
-      "keyboard icon opens shortcuts without knowing the key",
+        page.evaluate('!!document.querySelector(\'[role="dialog"]:has(input[type="search"])\')'),
+      "command icon opens the palette without knowing the key",
     );
     await pressKey("n");
     assert.equal(
       await page.evaluate("!!document.querySelector('textarea[aria-label=\"Comment\"]')"),
       false,
-      "shortcut sheet suspends workspace actions",
+      "command palette suspends workspace actions",
     );
-    await screenshot(`${artifact.kind}-shortcuts`);
+    assert.equal(
+      await page.evaluate("document.activeElement?.getAttribute('aria-label')"),
+      "Search commands…",
+      "palette focuses command search",
+    );
+    assert.equal(
+      await page.evaluate("document.querySelector('[data-command=generalNote] kbd').textContent"),
+      "n",
+      "clickable commands retain their shortcut labels",
+    );
+    await screenshot(`${artifact.kind}-commands`);
     await pressKey("Escape");
     await eventually(
       () =>
         page.evaluate(
-          "document.activeElement?.matches('[data-app-header] [aria-label=\"Keyboard shortcuts\"]')",
+          "document.activeElement?.matches('[data-app-header] [aria-label=\"Command palette\"]')",
         ),
-      "closing shortcuts returns focus to the keyboard icon",
+      "closing palette returns focus to the command icon",
     );
     await page.evaluate(`(() => {
-      const button = document.querySelector('[data-app-header] [aria-label="Keyboard shortcuts"]');
+      const button = document.querySelector('[data-app-header] [aria-label="Command palette"]');
       button.focus();
       button.click();
     })()`);
     await eventually(
       () =>
+        page.evaluate('!!document.querySelector(\'[role="dialog"]:has(input[type="search"])\')'),
+      "command icon reopens the palette",
+    );
+    await page.evaluate("document.querySelector('[aria-label=\"Close command palette\"]').click()");
+    await eventually(
+      () =>
         page.evaluate(
-          '!!document.querySelector(\'[role="dialog"][aria-label="Keyboard shortcuts"]\')',
+          "document.activeElement?.matches('[data-app-header] [aria-label=\"Command palette\"]')",
         ),
-      "keyboard icon reopens the sheet",
+      "visible close returns focus to the command icon",
+    );
+    await pressKey("?");
+    await eventually(
+      () =>
+        page.evaluate('!!document.querySelector(\'[role="dialog"]:has(input[type="search"])\')'),
+      "question mark still opens the palette",
+    );
+    await page.command("Input.insertText", { text: "no matching action?" });
+    await eventually(
+      () => page.evaluate("document.body.textContent.includes('No matching commands')"),
+      "search owns question marks and explains empty results",
+    );
+    await pressKey("Escape");
+    await page.evaluate(
+      "document.querySelector('[data-app-header] [aria-label=\"Command palette\"]').click()",
+    );
+    assert.equal(
+      await page.evaluate("document.querySelector('input[aria-label=\"Search commands…\"]').value"),
+      "",
+      "reopening starts a fresh search",
+    );
+    await page.command("Input.insertText", { text: "fold all" });
+    await eventually(
+      () => page.evaluate("document.querySelectorAll('[data-command]').length === 1"),
+      "search matches all words in a command",
+    );
+    await pressKey("ArrowDown");
+    assert.equal(
+      await page.evaluate("document.activeElement?.dataset.command"),
+      "foldAll",
+      "arrows focus the matching action",
+    );
+    await pressKey("Enter");
+    await eventually(
+      () =>
+        page.evaluate(
+          "document.querySelectorAll('[data-file] button[title=\"Expand\"]').length === 2",
+        ),
+      "Enter executes the registered fold command",
+    );
+    assert.equal(
+      await page.evaluate("!!document.querySelector('input[aria-label=\"Search commands…\"]')"),
+      false,
+      "executing a command closes the palette",
     );
     await page.evaluate(
-      "document.querySelector('[aria-label=\"Close keyboard shortcuts\"]').click()",
+      "document.querySelector('[data-app-header] [aria-label=\"Command palette\"]').click()",
     );
+    await page.evaluate("document.querySelector('[data-command=foldAll]').click()");
     await eventually(
       () =>
         page.evaluate(
-          "document.activeElement?.matches('[data-app-header] [aria-label=\"Keyboard shortcuts\"]')",
+          "document.querySelectorAll('[data-file] button[title=\"Collapse\"]').length === 2",
         ),
-      "visible close returns focus to the keyboard icon",
+      "click executes the same fold command",
     );
-    await pressKey("?");
+    await page.evaluate(
+      "document.querySelector('[data-app-header] [aria-label=\"Command palette\"]').click()",
+    );
+    await page.command("Input.insertText", { text: "jump to file" });
+    await pressKey("Enter");
     await eventually(
       () =>
-        page.evaluate(
-          '!!document.querySelector(\'[role="dialog"][aria-label="Keyboard shortcuts"]\')',
-        ),
-      "question mark still opens the sheet",
+        page.evaluate("document.activeElement?.getAttribute('placeholder') === 'Filter files…'"),
+      "palette hands focus to the command's file picker",
     );
-    await pressKey("?");
-    await eventually(
-      () =>
-        page.evaluate(
-          '!document.querySelector(\'[role="dialog"][aria-label="Keyboard shortcuts"]\')',
-        ),
-      "question mark closes the sheet",
-    );
+    await pressKey("Escape");
     for (const dark of [false, true]) {
       await page.evaluate(`document.documentElement.classList.toggle('dark', ${dark})`);
       const colors = await page.evaluate<string[]>(
@@ -290,7 +352,14 @@ try {
         false,
         "composer opens on demand",
       );
-      await page.evaluate("document.querySelector('[aria-label=\"Add comment\"]').click()");
+      await page.evaluate(
+        "document.querySelector('[data-app-header] [aria-label=\"Command palette\"]').click()",
+      );
+      await page.evaluate("document.querySelector('[data-command=generalNote]').click()");
+      await eventually(
+        () => page.evaluate("document.activeElement?.getAttribute('aria-label') === 'Comment'"),
+        "palette hands focus to the new comment composer",
+      );
       await eventually(
         () => page.evaluate("!!document.querySelector('[aria-label=\"Comment\"]')"),
         "general composer",
@@ -308,10 +377,10 @@ try {
       await pressKey("?");
       assert.equal(
         await page.evaluate(
-          '!!document.querySelector(\'[role="dialog"][aria-label="Keyboard shortcuts"]\')',
+          '!!document.querySelector(\'[role="dialog"]:has(input[type="search"])\')',
         ),
         false,
-        "typing a question mark does not open shortcuts",
+        "typing a question mark does not open the palette",
       );
       assert(
         await page.evaluate(
@@ -405,11 +474,33 @@ try {
       );
       assert(
         await page.evaluate(
-          `document.querySelector('[data-app-header] [aria-label="Keyboard shortcuts"]').getBoundingClientRect().width >= 36`,
+          `document.querySelector('[data-app-header] [aria-label="Command palette"]').getBoundingClientRect().width >= 36`,
         ),
-        "phone keeps a touch-sized keyboard button",
+        "phone keeps a touch-sized command button",
       );
       await screenshot("files-mobile");
+      await page.evaluate(
+        "document.querySelector('[data-app-header] [aria-label=\"Command palette\"]').click()",
+      );
+      assert.equal(
+        await page.evaluate("document.querySelector('[data-command=fbResolve]').disabled"),
+        true,
+        "closed discussion disables its palette commands",
+      );
+      assert.equal(
+        await page.evaluate("document.querySelector('[data-command=layoutToggle]').disabled"),
+        true,
+        "phone palette disables desktop diff layout",
+      );
+      assert(
+        await page.evaluate(`(() => {
+          const rect = document.querySelector('[role="dialog"]:has(input[type="search"])').getBoundingClientRect();
+          return rect.left >= 0 && rect.right <= innerWidth && rect.bottom <= innerHeight;
+        })()`),
+        "phone palette fits the viewport",
+      );
+      await screenshot("files-mobile-commands");
+      await pressKey("Escape");
       await page.command("Input.dispatchKeyEvent", { type: "keyDown", key: "e", code: "KeyE" });
       await page.command("Input.dispatchKeyEvent", { type: "keyUp", key: "e", code: "KeyE" });
       await Bun.sleep(200);

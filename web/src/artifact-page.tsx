@@ -47,6 +47,7 @@ import {
   ArtifactThreads,
   type ArtifactThreadTab,
 } from "./components/ArtifactThreads.tsx";
+import { CommandPalette } from "./components/CommandPalette.tsx";
 import { DiffView } from "./components/DiffView.tsx";
 import { FileBrowser } from "./components/FileBrowser.tsx";
 import type { FoldSignal } from "./components/FileCard.tsx";
@@ -55,7 +56,6 @@ import { JumpToFile } from "./components/JumpToFile.tsx";
 import { QuoteBubble, type QuotePos } from "./components/Message.tsx";
 import { Notification, NotificationProvider } from "./components/Notifications.tsx";
 import { DiffLayoutToggle, PaneToolbar, TOOLBAR_BTN } from "./components/PaneToolbar.tsx";
-import { ShortcutsOverlay } from "./components/ShortcutsOverlay.tsx";
 import { useTranslation } from "./i18n.ts";
 import { keysSuspended, useKeyBindings } from "./keys.ts";
 import { AddCommentPill } from "./mobile/AddCommentPill.tsx";
@@ -207,7 +207,7 @@ function Workspace({
   });
   const [entry] = useState(initialEntry);
   const [activeCommentId, setActiveCommentId] = useState(entry?.commentId ?? null);
-  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const comparison = useArtifactComparison(detail, initialSearch, persistLocation);
   const [comparisonTab, setComparisonTab] = useState<ArtifactThreadTab>("active");
   const [comparisonSide, setComparisonSide] = useState<ComparisonSide>("proposed");
@@ -1009,7 +1009,7 @@ function Workspace({
         onToggleCommenting={toggleCommenting}
         commentingLocked={comparison.active || detail.state !== "active"}
         captureRef={setCaptureContainer}
-        onOpenShortcuts={() => setShortcutsOpen(true)}
+        onOpenCommandPalette={() => setCommandPaletteOpen(true)}
       />
       <main ref={splitRef} className="relative flex min-h-0 flex-1">
         {!mobile && !comparison.active && detail.kind !== "html" && (
@@ -1332,7 +1332,7 @@ function Workspace({
         <AddCommentPill scopeRef={paneRef} composing={hasNote} onAdd={selectText} />
       )}
       {quote && <QuoteBubble pos={quote} label={t("common.quoteInNote")} onQuote={appendQuote} />}
-      <ShortcutsOverlay open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+      <CommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} />
     </div>
   );
 }

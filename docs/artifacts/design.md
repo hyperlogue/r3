@@ -556,12 +556,17 @@ While any thread has an active agent claim, a small agent icon appears immediate
 left of the navbar discussion toggle, including while the panel is hidden. Its
 tooltip names the working agents and the number of threads they have claimed.
 
-The workspace navbar has a keyboard-icon button opening the shortcuts sheet;
-`?` remains its keyboard entry point. Button hover tooltips include their keyboard
-shortcuts; thread action tooltips explain when a key acts on the selected thread.
-The workspace has no inline keycaps or bottom shortcut strip. The keyboard-icon
-button remains available on phone layouts. Opening the sheet suspends other
-shortcuts, and closing it returns focus to its opener.
+The workspace navbar has a command-icon button opening a searchable command
+palette; `?` remains its keyboard entry point. Each command retains its shortcut
+labels and runs the same registered action when clicked. Commands without a handler
+in the current view are disabled. Arrow keys navigate available commands, Enter
+runs the focused command (or the first available search result), and Escape closes
+the palette. Opening it suspends workspace shortcuts; dismissing it returns focus
+to its opener, while running a command lets that action choose focus. Search owns
+typed characters, including `?`. The palette button remains available on phones.
+Button hover tooltips include their keyboard shortcuts; thread action tooltips
+explain when a key acts on the selected thread. The workspace has no inline
+keycaps or bottom shortcut strip outside the palette.
 
 Within one browser origin, tabs share one new-comment draft per artifact and one
 comment draft per thread. Edits persist after a 400 ms debounce and update other

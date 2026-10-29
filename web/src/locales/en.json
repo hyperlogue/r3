@@ -480,12 +480,16 @@
     "useInAgent": "Use in agent",
     "yourThreadIsReadyForTheAgent": "Your thread is ready for the agent to fetch."
   },
-  "shortcutsOverlay": {
-    "anchoringThreadsToALineRangeIs": "Anchoring threads to a line range is a mouse gesture — drag in the code, or click-and-drag the line numbers. Shortcuts stand down while you're typing.",
-    "closeKeyboardShortcuts": "Close keyboard shortcuts",
-    "closeKeyboardShortcutsEsc": "Close keyboard shortcuts (Esc)",
-    "keyboardShortcuts": "Keyboard shortcuts",
-    "keyboardShortcuts2": "Keyboard shortcuts (?)",
+  "commandPalette": {
+    "title": "Command palette",
+    "openShortcut": "Command palette (?)",
+    "close": "Close command palette",
+    "closeShortcut": "Close command palette (Esc)",
+    "search": "Search commands…",
+    "unavailable": "Unavailable in this view",
+    "noResults": "No matching commands",
+    "navigate": "Navigate",
+    "run": "Run",
     "or": "or"
   },
   "workspaceHeader": {

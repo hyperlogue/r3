@@ -28,9 +28,9 @@ import { ArtifactHandoffNotice } from "./ArtifactHandoffNotice.tsx";
 import { ArtifactKindIcon } from "./ArtifactKindIcon.tsx";
 import { ArtifactPreviewSecurity } from "./ArtifactPreviewSecurity.tsx";
 import { ArtifactOpenLatest, ArtifactVersionSelect } from "./ArtifactVersionSelect.tsx";
+import { CommandPaletteButton } from "./CommandPalette.tsx";
 import { MessageProse } from "./Message.tsx";
 import { Notification, type NotificationProps } from "./Notifications.tsx";
-import { ShortcutsButton } from "./ShortcutsOverlay.tsx";
 import { WorkspaceHeader } from "./WorkspaceHeader.tsx";
 
 function ArtifactSendComments({ detail, visible }: { detail: ArtifactDetail; visible: boolean }) {
@@ -237,7 +237,7 @@ export function ArtifactHeader({
   discussionVisible,
   discussionLocked,
   onToggleDiscussion,
-  onOpenShortcuts,
+  onOpenCommandPalette,
 }: {
   detail: ArtifactDetail;
   version?: ArtifactVersion | null;
@@ -252,7 +252,7 @@ export function ArtifactHeader({
   discussionVisible?: boolean;
   discussionLocked?: boolean;
   onToggleDiscussion?: () => void;
-  onOpenShortcuts?: () => void;
+  onOpenCommandPalette?: () => void;
 }) {
   const { t } = useTranslation();
   const { chrome } = useArtifactUI();
@@ -412,7 +412,7 @@ export function ArtifactHeader({
           className="relative shrink-0 empty:hidden"
         />
       )}
-      {onOpenShortcuts && <ShortcutsButton onClick={onOpenShortcuts} />}
+      {onOpenCommandPalette && <CommandPaletteButton onClick={onOpenCommandPalette} />}
       <MoreActionsButton
         ref={detailsTrigger}
         aria-label={t("header.artifactDetailsAndActions")}
