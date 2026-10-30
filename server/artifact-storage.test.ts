@@ -41,6 +41,29 @@ const publication = () => ({
   },
 });
 describe("private artifact storage bootstrap", () => {
+  test("restart forgets temporary browser access while retaining reusable login sessions", async () => {
+    const settings = options();
+    storage = await openArtifactStorage(settings);
+    const regular = storage.authentication.createLoginToken("Browser");
+    const persisted = storage.authentication.mintSession(regular.info.id);
+    const temporary = storage.authentication.mintTemporarySession();
+    expect(storage.authentication.sessionValid(temporary.cookieValue)).toBe(true);
+    storage.close();
+    storage = await openArtifactStorage(settings);
+    expect(storage.migration).toMatchObject({ migrated: false });
+    expect(storage.authentication.sessionValid(temporary.cookieValue)).toBe(false);
+    expect(storage.authentication.sessionValid(persisted.cookieValue)).toBe(true);
+    const probe = new Database(settings.databasePath, { readonly: true });
+    try {
+      expect(probe.query("SELECT id FROM auth_tokens").all()).toEqual([{ id: regular.info.id }]);
+      expect(probe.query("SELECT token_id FROM auth_sessions").all()).toEqual([
+        { token_id: regular.info.id },
+      ]);
+    } finally {
+      probe.close();
+    }
+  });
+
   test("graceful close saves deferred cookie use before restart applies inactivity expiry", async () => {
     let currentTime = time;
     const settings = { ...options(), clock: () => currentTime };

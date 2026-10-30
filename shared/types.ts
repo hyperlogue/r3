@@ -143,7 +143,8 @@ export interface ApplicationBootstrap {
   } | null;
 }
 
-// A login token's metadata (GET /api/auth/tokens, `r3 auth list-tokens`). The token
+// A reusable login token's metadata (GET /api/auth/tokens, `r3 auth list-tokens`).
+// Temporary local browser grants are excluded from these listings. The token
 // value itself is hashed at rest and shown only once at creation — never returned.
 export interface AuthTokenInfo {
   id: string; // authtok_<short> — the handle used to revoke

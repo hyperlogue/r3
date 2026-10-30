@@ -28,6 +28,7 @@ import {
   stateDir,
   writeDaemonJson,
 } from "./config.ts";
+import { LocalBrowserAccess } from "./local-access.ts";
 import { startLocalBootstrap } from "./local-bootstrap.ts";
 
 // Migration occurs only after this process holds the per-user daemon lock.
@@ -66,6 +67,7 @@ export async function startArtifactDaemon(): Promise<void> {
     // Legacy notification routes are disposable; fresh listen establishes a subscription.
     rmSync(join(stateDir(), "worker-import.json"), { force: true });
     const token = getToken();
+    const localAccess = new LocalBrowserAccess();
     const bootstrapSocket = join(dirname(daemonJsonPath()), "server", "bootstrap.sock");
     runtime = startArtifactServer({
       storage,
@@ -74,6 +76,7 @@ export async function startArtifactDaemon(): Promise<void> {
       port: PORT,
       authentication: {
         token,
+        localAccess,
         requireLogin: REQUIRE_LOGIN,
         refuseProxied: REFUSE_PROXIED,
         disableLoginNotice: DISABLE_LOGIN_NOTICE,
@@ -89,6 +92,7 @@ export async function startArtifactDaemon(): Promise<void> {
       url: LOCAL_URL,
       publicUrl: PUBLIC_URL,
       token,
+      browser: REQUIRE_LOGIN ? localAccess : undefined,
     });
     writeDaemonJson({
       url: LOCAL_URL,

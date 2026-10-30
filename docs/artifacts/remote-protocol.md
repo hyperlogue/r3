@@ -113,21 +113,33 @@ API credential without OAuth polling. The socket path is announced in daemon.jso
 the credential itself is not. `r3 login` in automatic local mode uses that same setup.
 `create` and `publish` always print the backend's stable page URL unchanged in
 text and JSON. With login disabled, ordinary links work without any browser token,
-ticket, or persisted auth record. `r3 open [artifact-id]` prints the ordinary URL
-for both local and explicitly selected backends without creating browser tokens
-or sessions. When login is required, the browser uses its existing session or
-shows the normal sign-in screen. Retired `#r3-login` fragments are removed before
-rendering and grant no access. Browser boot always returns `token:null` and never
-exposes the API credential.
+ticket, or persisted auth record. In protected automatic-local mode,
+`r3 open [artifact-id]` prints a one-use browser sign-in link valid for 60 seconds.
+The browser removes its `#r3-login` fragment before exchange. A valid existing
+session is reused without replacing its cookie or extending its lifetime;
+otherwise, exchange creates temporary browser access with a fixed 24-hour deadline
+that also ends on server restart.
+Expired or replayed links can fall back to an existing valid browser session.
+No-login and explicitly selected backends print ordinary URLs. Browser boot always
+returns `token:null` and never exposes the API credential.
 
 The private sidecar offers only POST `/api/local/bootstrap` and
 `/api/local/browser { path?: "/" | "/artifact_<id>" | "/review_<id>" }`. The first returns the
-local service URL, public URL and API token; the second returns an ordinary browser URL
-without creating any browser credentials, including for older CLI clients.
+local service URL, public URL and API token; the second returns a browser link,
+including a one-use ticket only when local login is required.
 These routes exist only on an owned 0600 socket in an owned 0700 directory and
-reject any Origin or Sec-Fetch-Site header. The former network
-POST `/api/auth/local { ticket }` exchange is removed. Browser sign-in uses
-POST `/api/auth/login` under the usual Host/Origin guards.
+reject any Origin or Sec-Fetch-Site header. Network POST `/api/auth/local { ticket }`
+consumes the ticket under the usual Host/Origin guards, returning 401 for an invalid,
+expired, or replayed ticket. With login disabled it succeeds without auth records.
+New temporary access uses an HttpOnly, SameSite=Strict cookie, Secure over HTTPS.
+The server retains only its cookie hash and expiry in memory, with no login-token
+or session database records and no schema change. Restart forgets temporary access
+and pending sign-in tickets. The minute-by-minute sweep removes expired memory
+entries; requests reject expiry immediately even during active browsing. Temporary
+access is excluded from `/api/auth/tokens` listings and cannot be used at
+`/api/auth/login`; that endpoint remains for explicitly created reusable tokens.
+Logout and revoke-all also invalidate temporary access. Unused in-memory tickets
+are swept each minute and on issue/consume; at most 32 pending tickets are retained.
 
 ## Client authorization
 

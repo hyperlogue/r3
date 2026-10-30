@@ -8,8 +8,10 @@ import { artifactJson } from "./artifact-http.ts";
 import { type AuthService, COOKIE_NAME, cookieOptions } from "./auth.ts";
 import type { ClientAuth } from "./client-auth.ts";
 import { installClientAuth } from "./client-auth-api.ts";
+import type { LocalBrowserAccess } from "./local-access.ts";
 
 export interface ArtifactAuthPolicy {
+  localAccess?: LocalBrowserAccess;
   token: string;
   requireLogin: boolean;
   // Reject forwarded requests when no-login mode is only the loopback default.
@@ -140,7 +142,10 @@ export function installArtifactAuth(
     const publicRead =
       (c.req.method === "GET" || c.req.method === "HEAD") &&
       ["/api/health", "/api/boot"].includes(c.req.path);
-    const login = c.req.method === "POST" && c.req.path === "/api/auth/login";
+    const login =
+      c.req.method === "POST" &&
+      (c.req.path === "/api/auth/login" ||
+        (policy.localAccess && c.req.path === "/api/auth/local"));
     const oauth =
       clients &&
       c.req.method === "POST" &&
@@ -166,6 +171,27 @@ export function installArtifactAuth(
     const boot = artifactBoot(authentication, policy, getCookie(c, COOKIE_NAME));
     return c.json(boot, boot.needsAuth ? 401 : 200);
   });
+  if (policy.localAccess)
+    app.post("/api/auth/local", async (c) => {
+      const input = await artifactJson(c.req.raw, 4096);
+      if (!policy.requireLogin) return c.json({ ok: true });
+      if (
+        typeof input.ticket !== "string" ||
+        input.ticket.length > 100 ||
+        !policy.localAccess!.consume(input.ticket)
+      )
+        return c.json(
+          { error: "Local browser link expired or was already used; run r3 open again" },
+          401,
+        );
+      // Opening another local link must not replace or extend a valid session.
+      if (authentication.sessionValid(getCookie(c, COOKIE_NAME))) return c.json({ ok: true });
+      const session = authentication.mintTemporarySession();
+      const https =
+        c.req.header("x-forwarded-proto") === "https" || new URL(c.req.url).protocol === "https:";
+      setCookie(c, COOKIE_NAME, session.cookieValue, cookieOptions(https, session.maxAgeSeconds));
+      return c.json({ ok: true });
+    });
   app.post("/api/auth/login", async (c) => {
     // A login token from an earlier protected period must not mint a session.
     if (!policy.requireLogin) return c.json({ error: LOGIN_DISABLED_ERROR }, 409);

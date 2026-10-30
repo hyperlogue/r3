@@ -371,10 +371,13 @@ recovery after gaps/restart) and `scripts/test-artifact-sync.ts`
 
 Private local setup is covered by `server/local-bootstrap.test.ts`,
 `cli/artifact-main.test.ts`, and `scripts/test-local-browser.ts`: socket ownership,
-Origin rejection, credential-free boot, stable `r3 open` URLs without token/session
-creation, explicit browser sign-in, retained sessions across repeated opens, logout,
-and automatic CLI setup. `scripts/test-application-startup.ts` checks that retired
-sign-in fragments use normal authentication without a ticket exchange.
+Origin rejection, credential-free boot, one-use local links, existing-session reuse,
+fixed temporary expiry, passive cleanup, logout, and automatic CLI setup.
+`server/auth.test.ts` and `server/artifact-storage.test.ts` cover temporary access
+without database writes, passive memory cleanup, and restart forgetting temporary
+access while preserving reusable login sessions.
+`scripts/test-application-startup.ts` checks ticket expiry/replay with an existing
+session and a fresh browser.
 `server/client-auth-api.test.ts` and `cli/login.test.ts` cover OAuth errors, cache
 headers and the default poll interval.
 

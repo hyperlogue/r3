@@ -224,7 +224,8 @@ export function installArtifactConversations(
     for (const artifactId of conversations.expireClaims())
       collaboration.broadcast({ type: "presence-changed", artifactId });
     try {
-      storage.authentication.flushLastUsed();
+      storage.authentication.housekeep();
+      policy.localAccess?.cleanup();
     } catch {
       console.error("r3: authentication housekeeping failed");
     }

@@ -1,6 +1,7 @@
 import type { OnboardingState, UpdateOnboardingBody } from "../../shared/artifacts.ts";
 import { applicationFetch } from "./application-fetch.ts";
 import { draftImages } from "./attachment-drafts.ts";
+import { t } from "./i18n.ts";
 // Application bootstrap, theme settings, and login-token access.
 // Artifact operations use artifact-api.ts and the shared ArtifactClient.
 
@@ -31,17 +32,32 @@ export let CAN_MANAGE_TOKENS = true;
 // and its owner has not turned the notice off. The static demo has no server.
 export let LOGIN_NOTICE = false;
 
-// Bootstrap before first render using the server's normal browser login policy.
+// Bootstrap before first render. Local one-time links and remote login both
+// establish an HttpOnly browser session before accessing application data.
 export async function loadBoot(initial?: ApplicationBootstrap): Promise<{
   needsAuth: boolean;
   artifact?: ArtifactDetail;
   manifest?: ApplicationBootstrap["manifest"];
   preview?: ApplicationBootstrap["preview"];
 }> {
+  let rejectedLocalTicket = false;
   if (location.hash.startsWith("#r3-login=")) {
-    // Retired local sign-in links behave like ordinary URLs. Discard their
-    // fragment before rendering; only the normal browser session grants access.
+    const ticket = location.hash.slice("#r3-login=".length);
+    // Clear the one-time fragment before any application rendering or requests.
     history.replaceState(history.state, "", location.pathname + location.search);
+    const response = await applicationFetch("/api/auth/local", {
+      method: "POST",
+      redirect: "error",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ticket }),
+    });
+    if (!response.ok) {
+      if (response.status !== 401) throw new Error(t("api.localBrowserLinkExpiredOrWasAlready"));
+      // A saved link may outlive its ticket while this browser's session is valid.
+      // Only a fresh authenticated boot can establish access after rejection.
+      rejectedLocalTicket = true;
+    }
+    initial = undefined;
   }
   if (initial) {
     const suspended = await Promise.all([
@@ -69,6 +85,7 @@ export async function loadBoot(initial?: ApplicationBootstrap): Promise<{
   if (r.status === 401) {
     await markdownCache.suspend();
     await draftImages.clear();
+    if (rejectedLocalTicket) throw new Error(t("api.localBrowserLinkExpiredOrWasAlready"));
     const b = (await r.json().catch(() => ({}))) as Partial<BootResponse>;
     return { needsAuth: b.needsAuth ?? true };
   }
@@ -77,6 +94,7 @@ export async function loadBoot(initial?: ApplicationBootstrap): Promise<{
   if (b.needsAuth) {
     await markdownCache.suspend();
     await draftImages.clear();
+    if (rejectedLocalTicket) throw new Error(t("api.localBrowserLinkExpiredOrWasAlready"));
     return { needsAuth: true };
   }
   TOKEN = b.token ?? "";

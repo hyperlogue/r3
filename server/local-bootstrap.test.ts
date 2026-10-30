@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { localBootstrap } from "../cli/local-bootstrap.ts";
 import { createArtifactApi } from "./artifact-api.ts";
 import { type ArtifactStorage, openArtifactStorage } from "./artifact-storage.ts";
+import { LocalBrowserAccess } from "./local-access.ts";
 import { startLocalBootstrap } from "./local-bootstrap.ts";
 
 let root: string,
@@ -16,7 +17,9 @@ beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), "r3-local-bootstrap-"));
   socket = join(root, "private", "bootstrap.sock");
   storage = await openArtifactStorage({ databasePath: join(root, "store.sqlite") });
+  const browser = new LocalBrowserAccess();
   api = createArtifactApi(storage, {
+    localAccess: browser,
     token: "local-api-secret",
     requireLogin: true,
     version: "test",
@@ -27,6 +30,7 @@ beforeEach(async () => {
     url: "http://localhost:8000",
     publicUrl: "http://localhost:8000",
     token: "local-api-secret",
+    browser,
   });
 });
 afterEach(async () => {
@@ -72,16 +76,22 @@ test("only an owner-only Unix socket supplies automatic local access", async () 
   await expect(localBootstrap(alias, "bootstrap")).rejects.toThrow("owner-only");
 });
 
-test("browser links are stable URLs and create no browser credentials", async () => {
+test("browser links exchange a one-use ticket for temporary access without reusable tokens", async () => {
   const result = await localBootstrap<{ url: string }>(socket, "browser", {
     path: "/artifact_example",
   });
-  expect(result.url).toBe("http://localhost:8000/artifact_example");
-  expect(
-    await localBootstrap<{ url: string }>(socket, "browser", { path: "/artifact_example" }),
-  ).toEqual(result);
+  const url = new URL(result.url);
+  expect(url.pathname).toBe("/artifact_example");
+  expect(url.hash.startsWith("#r3-login=")).toBe(true);
   expect(storage.authentication.listTokens()).toEqual([]);
   expect((await http("/api/boot")).status).toBe(401);
+  const ticket = url.hash.slice("#r3-login=".length);
+  const exchange = await http("/api/auth/local", "POST", { ticket });
+  expect(exchange.status).toBe(200);
+  const cookie = exchange.headers.get("set-cookie")!.split(";")[0]!;
+  expect((await http("/api/boot", "GET", undefined, { cookie })).status).toBe(200);
+  expect((await http("/api/auth/local", "POST", { ticket })).status).toBe(401);
+  expect(storage.authentication.listTokens()).toEqual([]);
   await expect(localBootstrap(socket, "browser", { path: "//other.example" })).rejects.toThrow(
     "setup failed",
   );

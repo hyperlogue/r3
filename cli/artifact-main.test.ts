@@ -331,7 +331,7 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
   }
 }, 60_000);
 
-test("r3 open preserves required login without creating tokens and refuses exposure without login", async () => {
+test("r3 open grants temporary browser access without reusable tokens and refuses exposure without login", async () => {
   const root = await mkdtemp(join(tmpdir(), "r3-cli-protected-"));
   const directory = join(root, "publication");
   await mkdir(directory);
@@ -399,11 +399,26 @@ test("r3 open preserves required login without creating tokens and refuses expos
     expect(await boot.json()).toEqual({ needsAuth: true, token: null, loginRequired: true });
     expect((await fetch(`${origin}/api/artifacts/${artifact.id}`)).status).toBe(401);
 
+    let temporaryCookie = "";
+    const exchange = (url: string, cookie = "") =>
+      fetch(`${origin}/api/auth/local`, {
+        method: "POST",
+        headers: { "content-type": "application/json", cookie },
+        body: JSON.stringify({ ticket: new URL(url).hash.slice("#r3-login=".length) }),
+      });
     for (let attempt = 0; attempt < 3; attempt++) {
       const opened = await run("open", artifact.id);
       expect(opened.code).toBe(0);
-      expect(opened.output.trim()).toBe(link);
+      expect(new URL(opened.output.trim()).pathname).toBe(`/${artifact.id}`);
+      expect(new URL(opened.output.trim()).hash.startsWith("#r3-login=")).toBe(true);
       expect((await fetch(opened.output.trim())).headers.get("set-cookie")).toBeNull();
+      const signedIn = await exchange(opened.output.trim(), temporaryCookie);
+      expect(signedIn.status).toBe(200);
+      if (attempt === 0) temporaryCookie = signedIn.headers.get("set-cookie")!.split(";", 1)[0]!;
+      else expect(signedIn.headers.get("set-cookie")).toBeNull();
+      expect(
+        (await fetch(`${origin}/api/boot`, { headers: { cookie: temporaryCookie } })).status,
+      ).toBe(200);
     }
     expect(JSON.parse((await run("auth", "list-tokens", "--json")).output)).toEqual([]);
     expect((await fetch(`${origin}/api/boot`)).status).toBe(401);
@@ -421,7 +436,9 @@ test("r3 open preserves required login without creating tokens and refuses expos
     const read = await fetch(`${origin}/api/artifacts/${artifact.id}`, { headers: { cookie } });
     expect(read.status).toBe(200);
     const reopened = await run("open", artifact.id);
-    expect(reopened.output.trim()).toBe(link);
+    const reused = await exchange(reopened.output.trim(), cookie);
+    expect(reused.status).toBe(200);
+    expect(reused.headers.get("set-cookie")).toBeNull();
     expect((await fetch(reopened.output.trim(), { headers: { cookie } })).status).toBe(200);
     expect(JSON.parse((await run("auth", "list-tokens", "--json")).output)).toHaveLength(1);
 

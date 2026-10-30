@@ -15,6 +15,58 @@ beforeEach(() => {
 afterEach(() => db.close());
 
 describe("injected authentication store", () => {
+  test("temporary browser access stays in memory and expires without database writes", () => {
+    const regular = auth.createLoginToken("Browser");
+    const changes = db.query("SELECT total_changes() AS n").get();
+    db.exec("PRAGMA query_only = ON");
+    const temporary = auth.mintTemporarySession();
+    const unused = auth.mintTemporarySession();
+    expect(temporary.maxAgeSeconds).toBe(86_400);
+    expect(auth.sessionValid(temporary.cookieValue)).toBe(true);
+    expect(auth.sessionTokenId(temporary.cookieValue)).toBeNull();
+    expect(auth.verifyLogin(temporary.cookieValue)).toBeNull();
+    expect(auth.listTokens()).toEqual([regular.info]);
+    time = "2026-09-01T23:59:59.999Z";
+    expect(auth.sessionValid(temporary.cookieValue)).toBe(true);
+    auth.housekeep();
+    time = "2026-09-02T00:00:00.000Z";
+    expect(auth.sessionValid(temporary.cookieValue)).toBe(false);
+    auth.housekeep();
+    auth.destroySession(temporary.cookieValue);
+    expect(db.query("SELECT total_changes() AS n").get()).toEqual(changes);
+    expect(db.query("SELECT id FROM auth_tokens").all()).toEqual([{ id: regular.info.id }]);
+    expect(db.query("SELECT * FROM auth_sessions").all()).toEqual([]);
+    db.exec("PRAGMA query_only = OFF");
+    // Housekeeping removed even the temporary grant that was never checked.
+    expect(auth.revokeAllTokens()).toBe(1);
+    expect(auth.sessionValid(unused.cookieValue)).toBe(false);
+  });
+
+  test("temporary access is revoked by logout and revoke-all", () => {
+    const first = auth.mintTemporarySession();
+    auth.destroySession(first.cookieValue);
+    expect(auth.sessionValid(first.cookieValue)).toBe(false);
+    const second = auth.mintTemporarySession();
+    const regular = auth.createLoginToken("Browser");
+    const session = auth.mintSession(regular.info.id);
+    expect(auth.revokeAllTokens()).toBe(2);
+    expect(auth.sessionValid(second.cookieValue)).toBe(false);
+    expect(auth.sessionValid(session.cookieValue)).toBe(false);
+    expect(auth.revokeAllTokens()).toBe(0);
+  });
+
+  test("replacing the auth service forgets temporary access and preserves reusable sessions", () => {
+    const regular = auth.createLoginToken("Browser");
+    const session = auth.mintSession(regular.info.id);
+    const temporary = auth.mintTemporarySession();
+    auth = new AuthService(db, () => time);
+    expect(auth.sessionValid(temporary.cookieValue)).toBe(false);
+    expect(auth.sessionValid(session.cookieValue)).toBe(true);
+    expect(auth.verifyLogin(regular.token)).toEqual({ tokenId: regular.info.id });
+    expect(db.query("SELECT COUNT(*) AS n FROM auth_tokens").get()).toEqual({ n: 1 });
+    expect(db.query("SELECT COUNT(*) AS n FROM auth_sessions").get()).toEqual({ n: 1 });
+  });
+
   test("browsing coalesces cookie uses across sessions without writing until housekeeping", () => {
     const issued = auth.createLoginToken(null);
     const first = auth.mintSession(issued.info.id);

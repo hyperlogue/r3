@@ -50,7 +50,8 @@ its transport URL uses the application address.
 
 ## Browser login and configuration
 
-`AuthService` owns hashed login tokens and sessions on an injected SQLite connection.
+`AuthService` owns reusable hashed login tokens and their sessions on an injected
+SQLite connection, plus temporary browser sessions held only in memory.
 Importing it opens no database. Revocation and session deletion are transactional;
 migration preserves their existing records. A token is shown only when minted.
 
@@ -67,7 +68,7 @@ authentication state without writing SQLite. Never-used tokens age from
 configured window is later than the current time. Check before recording use,
 so overdue credentials cannot refresh themselves. Inactivity checks and listings
 do not write an expiry marker; `revoked_at` records manual revocation only.
-Automatic cleanup retains token/session rows during the run. Storage startup
+Automatic cleanup retains reusable token/session rows during the run. Storage startup
 deletes inactive or manually revoked tokens, their sessions, and expired sessions.
 Manual revocation retains its transactional session deletion, including inactive
 tokens when revoking all.
@@ -98,16 +99,29 @@ and pass Host/origin checks, including other local OS users. Boot always returns
 `token:null`; the server never exposes the master credential to browser code.
 
 Create/publish always return stable backend page URLs. Automatic CLI setup obtains
-its API credential through the server's private Unix socket. `r3 open [artifact-id]`
-prints the ordinary browser URL for both local and explicitly selected backends.
-Opening it uses an existing browser session or the normal sign-in screen when
-login is required; it creates no login token or session. The SPA strips retired
-`#r3-login` fragments before rendering and follows normal authenticated bootstrap.
-The ticket issuer and `/api/auth/local` exchange are removed. Browser links and
-boot carry no API or login credentials.
+its API credential through the server's private Unix socket. In protected automatic
+local mode, `r3 open [artifact-id]` prints a random, one-use sign-in ticket in the
+URL fragment, valid for 60 seconds. No-login and explicitly selected backends
+return ordinary URLs. The SPA removes the fragment before exchanging it at
+`/api/auth/local` under the normal Host/origin guards. An invalid ticket can fall
+back only to an existing valid browser session. API and reusable login credentials
+never enter browser links or boot.
+
+A valid ticket preserves an existing browser cookie without extending its lifetime.
+Otherwise, the server creates an HttpOnly, SameSite=Strict temporary session with
+a fixed 24-hour deadline. Its cookie hash and expiry live only in the owning
+AuthService's memory; no login token or session row is written, and no schema
+change is needed. Restart forgets temporary access and pending sign-in tickets.
+Temporary cookies have a distinct prefix so they never fall through to persisted
+session lookup; they confer no reusable login token identity and stay out of token
+listings. Requests and SSE enforce expiry before housekeeping, and browsing cannot
+extend it. The existing once-per-minute sweep removes expired memory entries and
+unused tickets. Logout removes the current temporary session; revoke-all includes
+temporary grants. Existing reusable tokens retain their persisted sessions,
+inactivity policy, and manual revocation semantics.
 The socket's owned directory is 0700 and the socket is 0600. Both peers check
 ownership/types; the server rejects any Origin or Sec-Fetch-Site header. Its
-only operations are credential bootstrap and ordinary browser-URL lookup. Startup
+only operations are credential bootstrap and browser-ticket minting. Startup
 holds the server start lock before replacing an owned stale socket. Application HTTP exposes
 neither private operation. Other local UIDs cannot acquire local credentials;
 processes running as the same OS user remain trusted.
@@ -123,6 +137,7 @@ application HTTP diagnostic endpoint is added.
 Ordinary login tokens continue to create revocable browser sessions, Secure at an
 HTTPS edge. The proxy must set X-Forwarded-Proto correctly. Individual revocation
 of the caller's current token is refused; revoke-all remains the escape hatch.
+With login disabled, local ticket exchange is a no-op that creates no credentials.
 No-login servers refuse with 409 to create login tokens,
 API keys, or device codes, to inspect/decide device requests, to exchange device or
 refresh grants, or to sign in with an existing login token: a credential minted

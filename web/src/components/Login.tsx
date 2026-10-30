@@ -53,7 +53,7 @@ export function Login() {
           <Trans
             i18n={appI18n}
             ns="app"
-            i18nKey="common.createALoginTokenOnTheServer"
+            i18nKey="common.openTemporaryLocalLink"
             components={{
               code: (
                 <code className="rounded bg-neutral-100 px-1 py-0.5 font-mono text-[0.7rem] dark:bg-neutral-800">

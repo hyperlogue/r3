@@ -5,6 +5,7 @@ import { Hono } from "hono";
 import { type ArtifactAuthPolicy, installArtifactAuth } from "./artifact-auth.ts";
 import { createArtifactTables } from "./artifact-schema.ts";
 import { AuthService } from "./auth.ts";
+import { LocalBrowserAccess } from "./local-access.ts";
 
 let db: Database;
 let authentication: AuthService;
@@ -19,6 +20,7 @@ beforeEach(() => {
   policy = {
     token: randomBytes(32).toString("base64url"),
     requireLogin: true,
+    localAccess: new LocalBrowserAccess(() => Date.parse(time)),
     version: "test",
     allowedHost: (host) => host === "localhost",
     applicationOrigins: new Set(["https://app.example"]),
@@ -38,21 +40,72 @@ function request(path: string, init: RequestInit = {}) {
 
 describe("artifact application auth boundary", () => {
   test.each([false, true])(
-    "retired local tickets grant no access with requireLogin=%s",
+    "local tickets obey login policy and repeated opens reuse sessions with requireLogin=%s",
     async (requireLogin) => {
       policy.requireLogin = requireLogin;
-      const response = await request("/api/auth/local", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ticket: "retired-local-ticket" }),
+      let cookie = "";
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const response = await request("/api/auth/local", {
+          method: "POST",
+          headers: { "content-type": "application/json", cookie, "x-forwarded-proto": "https" },
+          body: JSON.stringify({ ticket: policy.localAccess!.issue() }),
+        });
+        expect(response.status).toBe(200);
+        if (requireLogin && attempt === 0) {
+          const value = response.headers.get("set-cookie")!;
+          expect(value).toContain("HttpOnly");
+          expect(value).toContain("SameSite=Strict");
+          expect(value).toContain("Secure");
+          expect(value).toContain("Max-Age=86400");
+          cookie = value.split(";", 1)[0]!;
+        } else expect(response.headers.get("set-cookie")).toBeNull();
+        expect((await request("/api/boot", { headers: { cookie } })).status).toBe(200);
+        time = "2026-09-01T23:00:00.000Z";
+      }
+      expect(authentication.listTokens()).toEqual([]);
+      expect(db.query("SELECT COUNT(*) AS n FROM auth_tokens").get()).toEqual({
+        n: 0,
       });
-      expect(response.status).toBe(requireLogin ? 401 : 404);
-      expect(response.headers.get("set-cookie")).toBeNull();
+      expect(db.query("SELECT COUNT(*) AS n FROM auth_sessions").get()).toEqual({
+        n: 0,
+      });
+      time = "2026-09-02T00:00:00.000Z";
+      expect((await request("/api/boot", { headers: { cookie } })).status).toBe(
+        requireLogin ? 401 : 200,
+      );
+      expect((await request("/api/events", { headers: { cookie } })).status).toBe(
+        requireLogin ? 401 : 200,
+      );
+      authentication.housekeep();
       expect(db.query("SELECT COUNT(*) AS n FROM auth_tokens").get()).toEqual({ n: 0 });
       expect(db.query("SELECT COUNT(*) AS n FROM auth_sessions").get()).toEqual({ n: 0 });
-      expect((await request("/api/boot")).status).toBe(requireLogin ? 401 : 200);
     },
   );
+
+  test("local tickets preserve a reusable browser login and enforce one-use expiry and origin guards", async () => {
+    const regular = authentication.createLoginToken("Browser");
+    const session = authentication.mintSession(regular.info.id);
+    const cookie = `r3_session=${session.cookieValue}`;
+    const ticket = policy.localAccess!.issue();
+    const exchange = (value: string, origin = "http://localhost:8791") =>
+      request("/api/auth/local", {
+        method: "POST",
+        headers: { cookie, origin, "content-type": "application/json" },
+        body: JSON.stringify({ ticket: value }),
+      });
+    expect((await exchange(ticket, "null")).status).toBe(403);
+    expect((await exchange(ticket, "http://localhost:8792")).status).toBe(403);
+    const accepted = await exchange(ticket);
+    expect(accepted.status).toBe(200);
+    expect(accepted.headers.get("set-cookie")).toBeNull();
+    expect((await exchange(ticket)).status).toBe(401);
+    const expired = policy.localAccess!.issue();
+    time = "2026-09-01T00:01:00.000Z";
+    expect((await exchange(expired)).status).toBe(401);
+    expect(db.query("SELECT COUNT(*) AS n FROM auth_tokens").get()).toEqual({ n: 1 });
+    expect(db.query("SELECT COUNT(*) AS n FROM auth_sessions").get()).toEqual({ n: 1 });
+    expect(authentication.sessionTokenId(session.cookieValue)).toBe(regular.info.id);
+  });
 
   test("cookie requests refresh last use only after origin checks and expired cookies cannot log in", async () => {
     policy.requireLogin = true;
