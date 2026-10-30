@@ -1,8 +1,23 @@
 # Changelog
 
-All notable changes to r3 are documented here. The format follows
+All notable changes to r3 are documented here. The format is adapted from
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
+
+## [2.5.0] - 2026-10-30
+
+### New
+
+- **User onboarding.** Learn the artifact controls with a guided tour.
+- **Command palette.** Press `?` to search and run workspace actions, with keyboard
+  shortcuts shown alongside each command.
+
+### Fixed
+
+- **Local sign-in.** `r3 open` links last five minutes and reuse existing browser
+  sessions without creating extra login tokens.
+- **Homepage preview.** Show multiple prototype views and a review conversation
+  instead of a warning screen.
 
 ## [2.4.0] - 2026-10-26
 
@@ -807,6 +822,7 @@ and files reviews, anchored discussions with quote-first re-anchoring, comments,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 
+[2.5.0]: https://github.com/hyperlogue/r3/compare/v2.4.0...v2.5.0
 [2.4.0]: https://github.com/hyperlogue/r3/compare/v2.3.1...v2.4.0
 [2.3.1]: https://github.com/hyperlogue/r3/compare/v2.3.0...v2.3.1
 [2.3.0]: https://github.com/hyperlogue/r3/compare/v2.2.1...v2.3.0
