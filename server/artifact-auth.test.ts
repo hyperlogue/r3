@@ -56,29 +56,37 @@ describe("artifact application auth boundary", () => {
           expect(value).toContain("HttpOnly");
           expect(value).toContain("SameSite=Strict");
           expect(value).toContain("Secure");
-          expect(value).toContain("Max-Age=86400");
+          expect(value).toContain("Max-Age=2592000");
           cookie = value.split(";", 1)[0]!;
         } else expect(response.headers.get("set-cookie")).toBeNull();
         expect((await request("/api/boot", { headers: { cookie } })).status).toBe(200);
         time = "2026-09-01T23:00:00.000Z";
       }
-      expect(authentication.listTokens()).toEqual([]);
+      expect(authentication.listTokens()).toHaveLength(requireLogin ? 1 : 0);
       expect(db.query("SELECT COUNT(*) AS n FROM auth_tokens").get()).toEqual({
-        n: 0,
+        n: requireLogin ? 1 : 0,
       });
       expect(db.query("SELECT COUNT(*) AS n FROM auth_sessions").get()).toEqual({
-        n: 0,
+        n: requireLogin ? 1 : 0,
       });
       time = "2026-09-02T00:00:00.000Z";
+      expect((await request("/api/boot", { headers: { cookie } })).status).toBe(200);
+      time = "2026-09-16T00:00:00.000Z";
       expect((await request("/api/boot", { headers: { cookie } })).status).toBe(
         requireLogin ? 401 : 200,
       );
       expect((await request("/api/events", { headers: { cookie } })).status).toBe(
         requireLogin ? 401 : 200,
       );
-      authentication.housekeep();
-      expect(db.query("SELECT COUNT(*) AS n FROM auth_tokens").get()).toEqual({ n: 0 });
-      expect(db.query("SELECT COUNT(*) AS n FROM auth_sessions").get()).toEqual({ n: 0 });
+      // Expired browser access does not prevent a fresh ticket from signing in.
+      const reopened = await request("/api/auth/local", {
+        method: "POST",
+        headers: { "content-type": "application/json", cookie },
+        body: JSON.stringify({ ticket: policy.localAccess!.issue() }),
+      });
+      expect(reopened.status).toBe(200);
+      expect(Boolean(reopened.headers.get("set-cookie"))).toBe(requireLogin);
+      expect(authentication.listTokens()).toHaveLength(requireLogin ? 1 : 0);
     },
   );
 
@@ -100,7 +108,7 @@ describe("artifact application auth boundary", () => {
     expect(accepted.headers.get("set-cookie")).toBeNull();
     expect((await exchange(ticket)).status).toBe(401);
     const expired = policy.localAccess!.issue();
-    time = "2026-09-01T00:01:00.000Z";
+    time = "2026-09-01T00:05:00.000Z";
     expect((await exchange(expired)).status).toBe(401);
     expect(db.query("SELECT COUNT(*) AS n FROM auth_tokens").get()).toEqual({ n: 1 });
     expect(db.query("SELECT COUNT(*) AS n FROM auth_sessions").get()).toEqual({ n: 1 });

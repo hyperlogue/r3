@@ -117,14 +117,13 @@ for (const requireLogin of [false, true]) {
       }
       const records = new Database(join(root, "store.sqlite"), { readonly: true });
       try {
-        assert.equal(storage.authentication.listTokens().length, 0);
-        assert.deepEqual(records.query("SELECT COUNT(*) AS n FROM auth_tokens").get(), { n: 0 });
-        assert.deepEqual(records.query("SELECT COUNT(*) AS n FROM auth_sessions").get(), { n: 0 });
+        assert.equal(storage.authentication.listTokens().length, 1);
+        assert.deepEqual(records.query("SELECT COUNT(*) AS n FROM auth_tokens").get(), { n: 1 });
+        assert.deepEqual(records.query("SELECT COUNT(*) AS n FROM auth_sessions").get(), { n: 1 });
         now += 86_400_000;
-        assert.equal(await page.evaluate("fetch('/api/artifacts').then(r=>r.status)"), 401);
-        storage.authentication.housekeep();
-        assert.deepEqual(records.query("SELECT COUNT(*) AS n FROM auth_tokens").get(), { n: 0 });
-        assert.deepEqual(records.query("SELECT COUNT(*) AS n FROM auth_sessions").get(), { n: 0 });
+        assert.equal(await page.evaluate("fetch('/api/artifacts').then(r=>r.status)"), 200);
+        assert.deepEqual(records.query("SELECT COUNT(*) AS n FROM auth_tokens").get(), { n: 1 });
+        assert.deepEqual(records.query("SELECT COUNT(*) AS n FROM auth_sessions").get(), { n: 1 });
       } finally {
         records.close();
       }
@@ -135,7 +134,7 @@ for (const requireLogin of [false, true]) {
       await page.command("Page.navigate", { url: fresh.url });
       await eventually(
         () => page.evaluate("document.body.textContent.includes('Private local workspace')"),
-        "a fresh local link restores access after expiry",
+        "a fresh local link preserves the existing login after 24 hours",
       );
       await page.evaluate("fetch('/api/auth/logout',{method:'POST'})");
       await page.command("Page.navigate", { url: "about:blank" });

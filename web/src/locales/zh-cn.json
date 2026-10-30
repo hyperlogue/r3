@@ -347,7 +347,7 @@
     "nextDiffRoundVersion": "下一轮差异 / 版本",
     "nextFile": "下一个文件",
     "nextThread": "下一个主题",
-    "openTemporaryLocalLink": "在服务器上运行 r3 open 获取临时浏览器访问权限，或使用 <code/> 创建登录令牌并粘贴在下方。",
+    "openLocalSignInLink": "在服务器上运行 r3 open，并在五分钟内打开登录链接，或使用 <code/> 创建登录令牌并粘贴在下方。",
     "original": "原始版本",
     "pen": "画笔",
     "previewNotRunning": "预览未运行",

@@ -17,7 +17,7 @@ r3 config set requireLogin true
 r3 server restart
 ```
 
-运行 `r3 open`，在 60 秒内打开打印出的登录链接。它会复用现有的浏览器会话，或授予仅保存在服务器内存中的临时访问权限，有效期为 24 小时，服务器重启时也会失效。过期的临时访问会自动清理，不会出现在可重复使用的令牌列表中。如需可重复使用的访问凭据，可运行 `r3 auth create-token --label browser` 创建登录令牌。`r3 config unset requireLogin` 恢复默认设置。
+运行 `r3 open`，在五分钟内打开打印出的登录链接。它会保留现有的浏览器登录状态；只有浏览器尚未登录时，才会创建普通的持久化登录令牌和会话。链接票据仅保存在内存中；已建立的登录在服务器重启后仍然有效，并遵循正常的闲置过期和会话有效期策略。也可以运行 `r3 auth create-token --label browser` 创建登录令牌。`r3 config unset requireLogin` 恢复默认设置。
 
 ## 连接到远程服务器
 

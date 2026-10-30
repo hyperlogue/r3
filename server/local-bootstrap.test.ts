@@ -76,7 +76,7 @@ test("only an owner-only Unix socket supplies automatic local access", async () 
   await expect(localBootstrap(alias, "bootstrap")).rejects.toThrow("owner-only");
 });
 
-test("browser links exchange a one-use ticket for temporary access without reusable tokens", async () => {
+test("browser links create a login token only when redeemed by a signed-out browser", async () => {
   const result = await localBootstrap<{ url: string }>(socket, "browser", {
     path: "/artifact_example",
   });
@@ -91,7 +91,8 @@ test("browser links exchange a one-use ticket for temporary access without reusa
   const cookie = exchange.headers.get("set-cookie")!.split(";")[0]!;
   expect((await http("/api/boot", "GET", undefined, { cookie })).status).toBe(200);
   expect((await http("/api/auth/local", "POST", { ticket })).status).toBe(401);
-  expect(storage.authentication.listTokens()).toEqual([]);
+  expect(storage.authentication.listTokens()).toHaveLength(1);
+  expect(storage.authentication.listTokens()[0].label).toBe("Local browser");
   await expect(localBootstrap(socket, "browser", { path: "//other.example" })).rejects.toThrow(
     "setup failed",
   );

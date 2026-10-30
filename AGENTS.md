@@ -57,8 +57,8 @@ opaque preview document → scoped version bytes + trusted r3 runtime
   refuses `requireLogin=false`. No-login mode refuses forwarded requests, issues no
   credentials, and the browser warns once about it unless `disableLoginNotice`
   is set. Publication URLs stay stable; protected local `r3 open` supplies a one-use
-  sign-in link, reusing an existing session or granting temporary browser access
-  held only in memory until expiry or restart. Browser boot
+  five-minute sign-in link held in memory. Opening it reuses a valid browser session
+  or creates a normal persisted login token and session when signed out. Browser boot
   never exposes the API credential. Backend selection is `R3_URL`, nearest project
   `.r3.json`, user `backendUrl`, then automatic local. Saved credentials are keyed
   by the complete normalized URL; `r3 login` supports browser approval or an API key.

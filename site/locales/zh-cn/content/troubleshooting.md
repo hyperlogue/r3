@@ -16,9 +16,9 @@
 
 ## 登录或数据变更失效
 
-仅供本机访问的服务器默认无需登录。如果看到令牌提示，请用 `r3 config show` 检查是否设置了 `requireLogin=true`、`publicUrl` 或 `allowedHosts` 中的外部主机名，或配置了 `trustedProxies`。如需立即在本地登录，运行 `r3 open`，并在 60 秒内打开生成的链接。如果关闭登录后服务器拒绝启动，请移除外部 `bind`、`publicUrl`、`allowedHosts` 或 `trustedProxies` 配置，或者运行 `r3 config unset requireLogin`；同时检查 `R3_REQUIRE_LOGIN` 是否覆盖了保存的设置。关闭登录时，服务器会以 HTTP 403 拒绝转发请求；设置反向代理时，请配置 `publicUrl` 并保持登录开启。升级 r3 或修改服务器配置后，需要重启服务器才能生效。登录策略与覆盖设置请参阅[配置](/docs/configuration/)。
+仅供本机访问的服务器默认无需登录。如果看到令牌提示，请用 `r3 config show` 检查是否设置了 `requireLogin=true`、`publicUrl` 或 `allowedHosts` 中的外部主机名，或配置了 `trustedProxies`。如需立即在本地登录，运行 `r3 open`，并在五分钟内打开生成的链接。如果关闭登录后服务器拒绝启动，请移除外部 `bind`、`publicUrl`、`allowedHosts` 或 `trustedProxies` 配置，或者运行 `r3 config unset requireLogin`；同时检查 `R3_REQUIRE_LOGIN` 是否覆盖了保存的设置。关闭登录时，服务器会以 HTTP 403 拒绝转发请求；设置反向代理时，请配置 `publicUrl` 并保持登录开启。升级 r3 或修改服务器配置后，需要重启服务器才能生效。登录策略与覆盖设置请参阅[配置](/docs/configuration/)。
 
-浏览器需要登录时，请使用该服务器的浏览器登录令牌。在服务器所在机器上运行 `r3 auth create-token --label browser` 创建令牌，并将其粘贴到登录页面。也可以在本地运行 `r3 open`，通过有效期为 60 秒的一次性链接获取仅保存在服务器内存中的临时访问权限，有效期为 24 小时，服务器重启时也会失效。重复打开会复用有效会话，不会延长其有效期；过期的临时凭据会自动清理。临时访问到期或服务器重启后，可再次运行 `r3 open`。智能体提供的普通 Artifact 链接不会过期，也不会自动完成登录。如果 CLI 访问被拒绝，请检查选中的后端 URL 并重新运行 `r3 login`；这个命令授权的是 CLI 访问，不是浏览器登录。
+浏览器需要登录时，请使用该服务器的浏览器登录令牌。在服务器所在机器上运行 `r3 auth create-token --label browser` 创建令牌，并将其粘贴到登录页面。也可以在本地运行 `r3 open`，获取有效期为五分钟的一次性登录链接。它会保留现有的浏览器登录状态，只有浏览器尚未登录时才创建普通的持久化令牌和会话。待使用的链接仅保存在内存中并自动过期；已建立的浏览器登录在服务器重启后仍然有效，并遵循正常的过期策略。如果链接在使用前已过期，可再次运行 `r3 open`。智能体提供的普通 Artifact 链接不会过期，也不会自动完成登录。如果 CLI 访问被拒绝，请检查选中的后端 URL 并重新运行 `r3 login`；这个命令授权的是 CLI 访问，不是浏览器登录。
 
 在尝试编辑或评论之前，请确保已归档的 Artifact 已被**恢复**。
 

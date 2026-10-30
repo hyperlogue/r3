@@ -286,10 +286,10 @@ subscriptions; restore requires a fresh publication or subscription.
   Version precedence and direction-specific CLI recovery belong to the
   [remote protocol](../../../docs/artifacts/remote-protocol.md#backend-selection-and-transport).
   Browser login uses POST `/api/auth/login` with an explicitly created login token.
-  POST `/api/auth/local { ticket }` consumes a one-use, 60-second local ticket.
-  It preserves an existing browser session or establishes temporary access held
-  only in server memory for 24 hours or until restart, with automatic expiry cleanup
-  and no database records or reusable-token listing entry.
+  POST `/api/auth/local { ticket }` consumes a one-use, five-minute local ticket.
+  It preserves an existing valid browser session without creating credentials.
+  Only a signed-out browser receives a new persisted login token and session,
+  created atomically under the normal inactivity, expiry, and revocation policy.
   With login disabled it creates no credentials. Private CLI setup uses Unix IPC,
   as specified in the remote protocol. All HTTP remains Host/origin gated.
   Application HTML admitted by the login policy may inline that bootstrap plus the current
@@ -399,9 +399,9 @@ Use a distinct harness identity or `R3_AGENT_SESSION` per logical writing agent.
 registers that session before writes. No
 artifact owner or generic shared agent identity is inferred. Backend selection is `R3_URL`, nearest project `.r3.json`, user `backendUrl`, then
 automatic local. `r3 open [artifact-id]` prints a one-use sign-in link in protected
-automatic-local mode; the link lasts 60 seconds and new temporary browser access
-lasts 24 hours or until server restart. Existing valid sessions are reused without
-extension. No-login and
+automatic-local mode; the link lasts five minutes and its ticket stays in memory.
+Opening it preserves an existing valid browser session or creates a normal persisted
+login token and session for a signed-out browser. No-login and
 explicitly selected backends print ordinary URLs. `r3 login` saves credentials for the
 complete normalized URL; `R3_TOKEN` is not a client override.
 

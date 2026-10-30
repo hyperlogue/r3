@@ -331,7 +331,7 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
   }
 }, 60_000);
 
-test("r3 open grants temporary browser access without reusable tokens and refuses exposure without login", async () => {
+test("r3 open creates a login token only when signed out and refuses exposure without login", async () => {
   const root = await mkdtemp(join(tmpdir(), "r3-cli-protected-"));
   const directory = join(root, "publication");
   await mkdir(directory);
@@ -399,7 +399,7 @@ test("r3 open grants temporary browser access without reusable tokens and refuse
     expect(await boot.json()).toEqual({ needsAuth: true, token: null, loginRequired: true });
     expect((await fetch(`${origin}/api/artifacts/${artifact.id}`)).status).toBe(401);
 
-    let temporaryCookie = "";
+    let browserCookie = "";
     const exchange = (url: string, cookie = "") =>
       fetch(`${origin}/api/auth/local`, {
         method: "POST",
@@ -412,15 +412,15 @@ test("r3 open grants temporary browser access without reusable tokens and refuse
       expect(new URL(opened.output.trim()).pathname).toBe(`/${artifact.id}`);
       expect(new URL(opened.output.trim()).hash.startsWith("#r3-login=")).toBe(true);
       expect((await fetch(opened.output.trim())).headers.get("set-cookie")).toBeNull();
-      const signedIn = await exchange(opened.output.trim(), temporaryCookie);
+      const signedIn = await exchange(opened.output.trim(), browserCookie);
       expect(signedIn.status).toBe(200);
-      if (attempt === 0) temporaryCookie = signedIn.headers.get("set-cookie")!.split(";", 1)[0]!;
+      if (attempt === 0) browserCookie = signedIn.headers.get("set-cookie")!.split(";", 1)[0]!;
       else expect(signedIn.headers.get("set-cookie")).toBeNull();
       expect(
-        (await fetch(`${origin}/api/boot`, { headers: { cookie: temporaryCookie } })).status,
+        (await fetch(`${origin}/api/boot`, { headers: { cookie: browserCookie } })).status,
       ).toBe(200);
     }
-    expect(JSON.parse((await run("auth", "list-tokens", "--json")).output)).toEqual([]);
+    expect(JSON.parse((await run("auth", "list-tokens", "--json")).output)).toHaveLength(1);
     expect((await fetch(`${origin}/api/boot`)).status).toBe(401);
 
     // Browser sign-in remains explicit; opening URLs leaves that session intact.
@@ -440,7 +440,7 @@ test("r3 open grants temporary browser access without reusable tokens and refuse
     expect(reused.status).toBe(200);
     expect(reused.headers.get("set-cookie")).toBeNull();
     expect((await fetch(reopened.output.trim(), { headers: { cookie } })).status).toBe(200);
-    expect(JSON.parse((await run("auth", "list-tokens", "--json")).output)).toHaveLength(1);
+    expect(JSON.parse((await run("auth", "list-tokens", "--json")).output)).toHaveLength(2);
 
     // An explicitly selected backend never inherits automatic-local credentials.
     environment.R3_URL = origin;

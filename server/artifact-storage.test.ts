@@ -41,24 +41,23 @@ const publication = () => ({
   },
 });
 describe("private artifact storage bootstrap", () => {
-  test("restart forgets temporary browser access while retaining reusable login sessions", async () => {
+  test("local browser access survives restart alongside existing login sessions", async () => {
     const settings = options();
     storage = await openArtifactStorage(settings);
     const regular = storage.authentication.createLoginToken("Browser");
     const persisted = storage.authentication.mintSession(regular.info.id);
-    const temporary = storage.authentication.mintTemporarySession();
-    expect(storage.authentication.sessionValid(temporary.cookieValue)).toBe(true);
+    const local = storage.authentication.mintLocalSession();
+    const localTokenId = storage.authentication.sessionTokenId(local.cookieValue);
     storage.close();
     storage = await openArtifactStorage(settings);
     expect(storage.migration).toMatchObject({ migrated: false });
-    expect(storage.authentication.sessionValid(temporary.cookieValue)).toBe(false);
+    expect(storage.authentication.sessionValid(local.cookieValue)).toBe(true);
     expect(storage.authentication.sessionValid(persisted.cookieValue)).toBe(true);
     const probe = new Database(settings.databasePath, { readonly: true });
     try {
-      expect(probe.query("SELECT id FROM auth_tokens").all()).toEqual([{ id: regular.info.id }]);
-      expect(probe.query("SELECT token_id FROM auth_sessions").all()).toEqual([
-        { token_id: regular.info.id },
-      ]);
+      expect(probe.query("SELECT COUNT(*) AS n FROM auth_tokens").get()).toEqual({ n: 2 });
+      expect(probe.query("SELECT COUNT(*) AS n FROM auth_sessions").get()).toEqual({ n: 2 });
+      expect(storage.authentication.sessionTokenId(local.cookieValue)).toBe(localTokenId);
     } finally {
       probe.close();
     }

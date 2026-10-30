@@ -151,7 +151,7 @@ try {
   await localPage.goto(browserLink);
   await localReady();
   const expiredLink = `${url}#r3-login=${localAccess.issue()}`;
-  localNow += 60_001;
+  localNow += 300_001;
   await localPage.goto("about:blank");
   await localPage.goto(expiredLink);
   await localReady();
@@ -161,7 +161,7 @@ try {
   await freshPage.getByText(/Local browser link expired or was already used/).waitFor();
   assert.equal(await freshPage.evaluate(async () => (await fetch("/api/boot")).status), 401);
   await freshContext.close();
-  assert.equal(storage.authentication.listTokens().length, 0);
+  assert.equal(storage.authentication.listTokens().length, 1);
   await localContext.close();
 
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
@@ -434,7 +434,7 @@ try {
     );
   }
   console.log(
-    "Application startup: temporary local sign-in links and authenticated reopening, stable preview URL and conditional revalidation, zero setup request, missing-hint renewal, independent tabs, origin fallback, Strict-cookie entry, logout races with working/unavailable storage, and cache resumption passed",
+    "Application startup: five-minute local sign-in links and authenticated reopening, stable preview URL and conditional revalidation, zero setup request, missing-hint renewal, independent tabs, origin fallback, Strict-cookie entry, logout races with working/unavailable storage, and cache resumption passed",
   );
 } finally {
   await browser.close();

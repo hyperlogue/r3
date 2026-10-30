@@ -114,11 +114,11 @@ the credential itself is not. `r3 login` in automatic local mode uses that same 
 `create` and `publish` always print the backend's stable page URL unchanged in
 text and JSON. With login disabled, ordinary links work without any browser token,
 ticket, or persisted auth record. In protected automatic-local mode,
-`r3 open [artifact-id]` prints a one-use browser sign-in link valid for 60 seconds.
+`r3 open [artifact-id]` prints a one-use browser sign-in link valid for five minutes.
 The browser removes its `#r3-login` fragment before exchange. A valid existing
 session is reused without replacing its cookie or extending its lifetime;
-otherwise, exchange creates temporary browser access with a fixed 24-hour deadline
-that also ends on server restart.
+otherwise, exchange atomically creates a normal persisted login token and browser
+session. The new token is labeled `Local browser` and appears in access management.
 Expired or replayed links can fall back to an existing valid browser session.
 No-login and explicitly selected backends print ordinary URLs. Browser boot always
 returns `token:null` and never exposes the API credential.
@@ -131,15 +131,14 @@ These routes exist only on an owned 0600 socket in an owned 0700 directory and
 reject any Origin or Sec-Fetch-Site header. Network POST `/api/auth/local { ticket }`
 consumes the ticket under the usual Host/Origin guards, returning 401 for an invalid,
 expired, or replayed ticket. With login disabled it succeeds without auth records.
-New temporary access uses an HttpOnly, SameSite=Strict cookie, Secure over HTTPS.
-The server retains only its cookie hash and expiry in memory, with no login-token
-or session database records and no schema change. Restart forgets temporary access
-and pending sign-in tickets. The minute-by-minute sweep removes expired memory
-entries; requests reject expiry immediately even during active browsing. Temporary
-access is excluded from `/api/auth/tokens` listings and cannot be used at
-`/api/auth/login`; that endpoint remains for explicitly created reusable tokens.
-Logout and revoke-all also invalidate temporary access. Unused in-memory tickets
-are swept each minute and on issue/consume; at most 32 pending tickets are retained.
+New sessions use an HttpOnly, SameSite=Strict cookie, Secure over HTTPS. The token
+and session use the existing tables and survive restart without a schema change.
+They follow the normal token inactivity policy (14 days by default), 30-day session
+limit, logout, and revocation behavior. There is no separate 24-hour session limit.
+The raw token secret is discarded; the exchange returns only the browser cookie.
+Only pending ticket hashes and expiry timestamps live in memory. Issuing a link
+creates no auth records; restart forgets pending links. Expired tickets are swept
+each minute and on issue/consume; at most 32 pending tickets are retained.
 
 ## Client authorization
 

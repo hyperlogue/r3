@@ -186,7 +186,7 @@ export function installArtifactAuth(
         );
       // Opening another local link must not replace or extend a valid session.
       if (authentication.sessionValid(getCookie(c, COOKIE_NAME))) return c.json({ ok: true });
-      const session = authentication.mintTemporarySession();
+      const session = authentication.mintLocalSession();
       const https =
         c.req.header("x-forwarded-proto") === "https" || new URL(c.req.url).protocol === "https:";
       setCookie(c, COOKIE_NAME, session.cookieValue, cookieOptions(https, session.maxAgeSeconds));

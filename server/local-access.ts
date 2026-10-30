@@ -17,7 +17,7 @@ export class LocalBrowserAccess {
     this.cleanup();
     if (this.tickets.size >= 32) this.tickets.delete(this.tickets.keys().next().value!);
     const ticket = randomBytes(32).toString("base64url");
-    this.tickets.set(digest(ticket), this.clock() + 60_000);
+    this.tickets.set(digest(ticket), this.clock() + 5 * 60_000);
     return ticket;
   }
 

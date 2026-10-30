@@ -347,7 +347,7 @@
     "nextDiffRoundVersion": "Next diff round / version",
     "nextFile": "Next file",
     "nextThread": "Next thread",
-    "openTemporaryLocalLink": "Run r3 open on the server for temporary browser access, or create a login token with <code/> and paste it below.",
+    "openLocalSignInLink": "Run r3 open on the server and open its sign-in link within five minutes, or create a login token with <code/> and paste it below.",
     "original": "Original",
     "pen": "Pen",
     "previewNotRunning": "Preview not running",

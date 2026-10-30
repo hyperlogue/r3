@@ -142,10 +142,10 @@ The worker retries temporary connection/refresh failures, including rate limits.
 Rejected credentials require r3 login again.
 Create/publish return stable artifact URLs in text and --json output.
 A loopback-only server needs no login by default; requireLogin=true opts in.
-Protected local r3 open prints a one-use sign-in link valid for 60 seconds.
-It reuses an existing browser session or grants temporary access held only in server
-memory for 24 hours or until restart. Temporary access is cleaned up automatically; it does
-not appear in the reusable-token list. No-login and selected backends use ordinary URLs.
+Protected local r3 open prints a one-use sign-in link valid for five minutes.
+Link tickets stay in memory and expire automatically. Opening one reuses a valid
+browser login; only a signed-out browser gets a new persisted login token and session.
+Normal inactivity and session expiry apply. No-login and selected backends use ordinary URLs.
 An external bind, publicUrl, allowedHosts, or trusted proxies always require login;
 requireLogin=false is refused.
 Without login the server refuses proxied requests and creates no login tokens or API
@@ -164,7 +164,7 @@ confirmation before restarting. Server start/status also report mismatches.
   auth create-key [--label L] [--expires-days N] | list-clients | revoke-client <id> | audit
   auth create-token [--label L] | list-tokens | revoke-token <id> | revoke-token --all
   config show|get|set|unset ...
-  open [artifact-id]                        # local sign-in link: 60s; temporary access: 24h
+  open [artifact-id]                        # local sign-in links expire after five minutes
   server start|stop|status|restart            # local storage and browser server
   worker start|stop|status|restart            # local notification delivery
   start | stop | status | restart            # deprecated aliases; use server <command>
@@ -271,7 +271,7 @@ If the server is newer, prompt the user to upgrade or switch the CLI. Do not res
 
 \`r3 create --kind <kind> <capture flags> [--title T]\` publishes version 1. The preparation guide supplies capture flags. \`--kind\` is required; the kind stays fixed. Share the returned URL.
 
-Share the stable URL returned by create/publish. A loopback-only local server opens it without sign-in by default; servers with login enabled need a signed-in browser. For immediate local sign-in, the human can run \`r3 open <id>\`: its one-use link lasts 60 seconds and reuses an existing session or grants temporary access held in server memory for 24 hours or until restart. Expired temporary access is cleaned up automatically. Agents should share the stable publication URL, since the human may read their reply later.
+Share the stable URL returned by create/publish. A loopback-only local server opens it without sign-in by default; servers with login enabled need a signed-in browser. For immediate local sign-in, the human can run \`r3 open <id>\`: its one-use link lasts five minutes and preserves an existing browser login. Only a signed-out browser gets a new persisted login token and session, under the normal expiry policy. The link ticket stays in memory and expires automatically. Agents should share the stable publication URL, since the human may read their reply later.
 
 \`r3 publish <id> <capture flags> [--expected <seq>] [--key K]\` adds a version containing the complete file set or independent patch. Prepare builds before capture. \`--expected\` checks the latest published sequence, not which version you revised; if omitted, r3 reads the latest sequence. On conflict, inspect the newer publication. For a lost-response retry, preserve captured bytes, expected sequence, key, and metadata.
 

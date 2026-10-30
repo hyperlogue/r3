@@ -17,7 +17,7 @@ r3 config set requireLogin true
 r3 server restart
 ```
 
-Run `r3 open` and open the printed sign-in link within 60 seconds. It reuses your existing browser session or grants temporary access held only in server memory for 24 hours or until restart. Expired access is cleaned up automatically and does not appear in the reusable-token list. For reusable access, create a login token with `r3 auth create-token --label browser`. `r3 config unset requireLogin` restores the default.
+Run `r3 open` and open the printed sign-in link within five minutes. It keeps your existing browser login. If you are signed out, it creates a normal persisted login token and session. The link ticket stays in memory; the resulting login survives server restart and follows the normal inactivity and session expiry policy. You can also create a login token with `r3 auth create-token --label browser`. `r3 config unset requireLogin` restores the default.
 
 ## Connect to a remote server
 

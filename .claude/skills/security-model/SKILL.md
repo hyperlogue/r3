@@ -50,8 +50,8 @@ its transport URL uses the application address.
 
 ## Browser login and configuration
 
-`AuthService` owns reusable hashed login tokens and their sessions on an injected
-SQLite connection, plus temporary browser sessions held only in memory.
+`AuthService` owns hashed login tokens and their sessions on an injected SQLite
+connection. Only unredeemed local sign-in tickets are held in memory.
 Importing it opens no database. Revocation and session deletion are transactional;
 migration preserves their existing records. A token is shown only when minted.
 
@@ -101,24 +101,22 @@ and pass Host/origin checks, including other local OS users. Boot always returns
 Create/publish always return stable backend page URLs. Automatic CLI setup obtains
 its API credential through the server's private Unix socket. In protected automatic
 local mode, `r3 open [artifact-id]` prints a random, one-use sign-in ticket in the
-URL fragment, valid for 60 seconds. No-login and explicitly selected backends
+URL fragment, valid for five minutes. No-login and explicitly selected backends
 return ordinary URLs. The SPA removes the fragment before exchanging it at
 `/api/auth/local` under the normal Host/origin guards. An invalid ticket can fall
 back only to an existing valid browser session. API and reusable login credentials
 never enter browser links or boot.
 
-A valid ticket preserves an existing browser cookie without extending its lifetime.
-Otherwise, the server creates an HttpOnly, SameSite=Strict temporary session with
-a fixed 24-hour deadline. Its cookie hash and expiry live only in the owning
-AuthService's memory; no login token or session row is written, and no schema
-change is needed. Restart forgets temporary access and pending sign-in tickets.
-Temporary cookies have a distinct prefix so they never fall through to persisted
-session lookup; they confer no reusable login token identity and stay out of token
-listings. Requests and SSE enforce expiry before housekeeping, and browsing cannot
-extend it. The existing once-per-minute sweep removes expired memory entries and
-unused tickets. Logout removes the current temporary session; revoke-all includes
-temporary grants. Existing reusable tokens retain their persisted sessions,
-inactivity policy, and manual revocation semantics.
+A valid ticket preserves an existing browser cookie and creates no token or session
+when the browser is already authenticated. Otherwise, the server atomically creates
+a normal persisted `Local browser` login token and HttpOnly, SameSite=Strict session.
+Only the cookie is returned; the reusable token secret is discarded. The resulting
+token appears in access management and follows the existing inactivity and revocation
+policy; its session uses the normal 30-day limit. There is no separate 24-hour
+session or schema change. Logout removes the session, and token revocation removes
+its sessions. Restart preserves these records but forgets pending sign-in tickets.
+The existing once-per-minute sweep removes expired ticket hashes from memory;
+issue and consume also clean them up. Merely issuing a link writes no auth records.
 The socket's owned directory is 0700 and the socket is 0600. Both peers check
 ownership/types; the server rejects any Origin or Sec-Fetch-Site header. Its
 only operations are credential bootstrap and browser-ticket minting. Startup

@@ -15,10 +15,6 @@ export const COOKIE_NAME = "r3_session";
 // kills its sessions immediately (revokeToken); this only bounds how long an
 // un-revoked one stays logged in.
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-const TEMPORARY_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
-// A dot cannot occur in persisted base64url cookies, so temporary cookies never
-// fall through to SQLite after expiry, logout, or restart.
-const TEMPORARY_SESSION_PREFIX = "r3tmp.";
 export const DEFAULT_AUTH_TOKEN_IDLE_DAYS = 14;
 
 type TokenActivity = Pick<AuthTokenInfo, "id" | "createdAt" | "lastUsedAt">;
@@ -34,7 +30,6 @@ function hashSecret(secret: string): string {
 // The schema migration preserves these hash-only tables without changing cookies.
 export class AuthService {
   private readonly pendingUses = new Map<string, string>();
-  private readonly temporarySessions = new Map<string, number>();
 
   constructor(
     private readonly db: Database,
@@ -55,16 +50,13 @@ export class AuthService {
     return { token, info: { id, label, createdAt, lastUsedAt: null } };
   }
 
-  // Local sign-in grants live only in this service instance. Store the cookie
-  // hash and fixed deadline; there is no reusable login token or database row.
-  mintTemporarySession(): { cookieValue: string; maxAgeSeconds: number } {
-    this.expireTemporarySessions();
-    const cookieValue = `${TEMPORARY_SESSION_PREFIX}${randomBytes(32).toString("base64url")}`;
-    this.temporarySessions.set(
-      hashSecret(cookieValue),
-      Date.parse(this.clock()) + TEMPORARY_SESSION_TTL_MS,
-    );
-    return { cookieValue, maxAgeSeconds: TEMPORARY_SESSION_TTL_MS / 1000 };
+  // Redeeming a local ticket while signed out creates a normal persisted grant.
+  // Keep token and session creation atomic; only the session cookie is returned.
+  mintLocalSession(): { cookieValue: string; maxAgeSeconds: number } {
+    return this.db.transaction(() => {
+      const { info } = this.createLoginToken("Local browser");
+      return this.mintSession(info.id);
+    })();
   }
 
   verifyLogin(token: string): { tokenId: string } | null {
@@ -114,18 +106,11 @@ export class AuthService {
   }
 
   sessionValid(cookieValue: string | undefined): boolean {
-    if (cookieValue?.startsWith(TEMPORARY_SESSION_PREFIX)) {
-      const hash = hashSecret(cookieValue);
-      const expiresAt = this.temporarySessions.get(hash);
-      if (expiresAt !== undefined && expiresAt > Date.parse(this.clock())) return true;
-      this.temporarySessions.delete(hash);
-      return false;
-    }
     return this.sessionTokenId(cookieValue) !== null;
   }
 
   sessionTokenId(cookieValue: string | undefined): string | null {
-    if (!cookieValue || cookieValue.startsWith(TEMPORARY_SESSION_PREFIX)) return null;
+    if (!cookieValue) return null;
     const usedAt = this.clock();
     const row = this.db
       .query<TokenActivity, [string, string]>(`SELECT t.id,
@@ -140,10 +125,6 @@ export class AuthService {
   }
 
   destroySession(cookieValue: string | undefined): void {
-    if (cookieValue?.startsWith(TEMPORARY_SESSION_PREFIX)) {
-      this.temporarySessions.delete(hashSecret(cookieValue));
-      return;
-    }
     if (cookieValue)
       this.db
         .query("DELETE FROM auth_sessions WHERE session_hash = ?")
@@ -194,24 +175,11 @@ export class AuthService {
       return count;
     })();
     for (const { id } of tokens) this.pendingUses.delete(id);
-    const temporaryCount = this.temporarySessions.size;
-    this.temporarySessions.clear();
-    return revoked + temporaryCount;
+    return revoked;
   }
 
   expireSessions(): void {
     this.db.query("DELETE FROM auth_sessions WHERE expires_at <= ?").run(this.clock());
-  }
-
-  housekeep(): void {
-    this.expireTemporarySessions();
-    this.flushLastUsed();
-  }
-
-  private expireTemporarySessions(): void {
-    const now = Date.parse(this.clock());
-    for (const [hash, expiresAt] of this.temporarySessions)
-      if (expiresAt <= now) this.temporarySessions.delete(hash);
   }
 
   // Batch the latest cookie use per token. Failed writes keep their pending values.

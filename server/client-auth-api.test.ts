@@ -189,7 +189,7 @@ for (const ended of [
   "logout",
   "browser-revoked",
   "browser-expired",
-  "temporary-browser-expired",
+  "local-browser-expired",
 ]) {
   test(`an open event stream stops before disclosing an archive comment after ${ended}`, async () => {
     let headers: HeadersInit;
@@ -212,11 +212,11 @@ for (const ended of [
         if (ended.endsWith("revoked")) storage.clientAuth.revoke(principal.id);
         else now += 900_001;
       };
-    } else if (ended === "temporary-browser-expired") {
-      const session = storage.authentication.mintTemporarySession();
+    } else if (ended === "local-browser-expired") {
+      const session = storage.authentication.mintLocalSession();
       headers = { cookie: `${COOKIE_NAME}=${session.cookieValue}` };
       invalidate = () => {
-        now += 86_400_000;
+        now += 14 * 86_400_000;
       };
     } else {
       const login = storage.authentication.createLoginToken(null);
