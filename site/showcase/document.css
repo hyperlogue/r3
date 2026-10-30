@@ -1,0 +1,513 @@
+/* Authored examples share no layout or annotation styles with the workspace. */
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+body {
+  font-family: "r3 Example Sans", sans-serif;
+  line-height: 1.5;
+}
+h1,
+h2,
+p {
+  margin: 0;
+}
+button,
+input,
+select {
+  font: inherit;
+}
+button {
+  border: 0;
+}
+#root {
+  display: flex;
+  min-height: 100vh;
+}
+.fieldwork-document {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: #f2f0fb;
+  color: #2c2643;
+  font-size: 14px;
+}
+.fieldwork-brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 26px;
+  border-bottom: 1px solid #e5e1f2;
+  background: #fff;
+  font-size: 11px;
+  color: #746d88;
+}
+.fieldwork-brand strong,
+.fieldwork-brand > span {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.fieldwork-brand strong {
+  font-size: 17px;
+  color: #2c2643;
+}
+.fieldwork-mark {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: #7051d6;
+  color: white;
+  font-size: 16px;
+}
+.fieldwork-avatar {
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  background: #eee9fc;
+  color: #7051d6;
+  font-size: 10px;
+  font-weight: 600;
+}
+.fieldwork-body {
+  max-width: 470px;
+  padding: 32px 24px 40px;
+  margin: auto;
+}
+.fieldwork-eyebrow {
+  font-size: 10px;
+  color: #75678f;
+}
+.fieldwork-body h1 {
+  margin: 8px 0;
+  font-size: 30px;
+  line-height: 1.15;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+}
+.fieldwork-intro {
+  margin-bottom: 22px;
+  color: #746d88;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.fieldwork-body form {
+  padding: 24px;
+  border: 1px solid #e3def0;
+  border-radius: 12px;
+  background: #fff;
+}
+.fieldwork-body label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 17px;
+}
+.fieldwork-body label > span {
+  color: #8a829b;
+  margin-left: 4px;
+  font-size: 10px;
+  font-weight: 400;
+}
+.fieldwork-body input,
+.fieldwork-body select {
+  display: block;
+  width: 100%;
+  background: #fcfbff;
+  border: 1px solid #d8d2e8;
+  padding: 10px 12px;
+  margin-top: 7px;
+  border-radius: 6px;
+  font: inherit;
+  font-weight: 400;
+  color: #443a5d;
+}
+.fieldwork-body input:focus-visible,
+.fieldwork-body select:focus-visible {
+  outline: 2px solid #7051d6;
+  outline-offset: 2px;
+}
+.fieldwork-visibility {
+  position: relative;
+}
+.fieldwork-help {
+  margin: -7px 0 19px;
+  color: #746d88;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.fieldwork-create {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  margin: 24px 0 0;
+  padding: 11px 14px;
+  border-radius: 6px;
+  background: #7051d6;
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.fieldwork-create:hover {
+  background: #6142c5;
+}
+.fieldwork-create + .fieldwork-help {
+  margin: 16px 0 0;
+}
+@media (max-width: 767px) {
+  .fieldwork-brand {
+    padding-inline: 20px;
+  }
+  .fieldwork-body {
+    padding: 26px 20px;
+  }
+  .fieldwork-body form {
+    padding: 20px;
+  }
+  .fieldwork-body input,
+  .fieldwork-body select {
+    font-size: 16px;
+  }
+}
+
+.prompt-document {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  font-size: 13px;
+}
+.prompt-document-brand {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 18px 26px;
+  border-bottom: 1px solid;
+  font-size: 10px;
+}
+.prompt-document-brand strong {
+  font-size: 15px;
+  font-weight: 550;
+}
+.prompt-document-body {
+  max-width: 660px;
+  margin: auto;
+  padding: 30px 32px;
+}
+.prompt-document-eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.prompt-document h1 {
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  margin: 10px 0;
+}
+.prompt-document-intro {
+  line-height: 1.6;
+  margin: 0 0 24px;
+}
+.prompt-document-target {
+  position: relative;
+}
+.prompt-document-note {
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 14px 0;
+}
+.prompt-document-footer {
+  margin-top: 24px;
+  font-size: 10px;
+}
+
+/* A dark teaching canvas: the two signal colors also label their contributions. */
+.prompt-document-explainer {
+  background: #101b2d;
+  color: #edf4fc;
+  color-scheme: dark;
+}
+.prompt-document-explainer .prompt-document-brand {
+  border-color: #29364a;
+  color: #8fa2be;
+}
+.prompt-document-explainer .prompt-document-eyebrow {
+  color: #6bddd5;
+}
+.prompt-document-explainer .prompt-document-intro,
+.prompt-document-explainer .prompt-document-note,
+.prompt-document-explainer .prompt-document-footer {
+  color: #a1b1c8;
+}
+.ranking-query {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  border: 1px solid #3a4a63;
+  border-radius: 6px;
+  color: #8fa2be;
+  font-size: 10px;
+}
+.ranking-query code {
+  flex: 1;
+  color: #edf4fc;
+  font-size: 12px;
+}
+.ranking-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+  padding: 20px;
+  background: #1b2a40;
+  border-radius: 8px;
+}
+.ranking-controls label {
+  font-size: 12px;
+  font-weight: 500;
+}
+.ranking-controls output {
+  float: right;
+  font-weight: 400;
+  color: #d1dced;
+  font-variant-numeric: tabular-nums;
+}
+.ranking-signal-relevance {
+  color: #6bddd5;
+}
+.ranking-signal-freshness {
+  color: #f6b47b;
+}
+.ranking-controls input {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  accent-color: #6bddd5;
+  cursor: pointer;
+}
+.ranking-controls label:last-child input {
+  accent-color: #f6b47b;
+}
+.ranking-results-heading {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 7px;
+  padding-bottom: 4px;
+  color: #8396b2;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.ranking-results > div {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 14px 0;
+  border-bottom: 1px solid #29364a;
+}
+.ranking-position {
+  color: #6d829f;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.ranking-result-detail {
+  flex: 1;
+  min-width: 0;
+}
+.ranking-results strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+}
+.ranking-results small {
+  display: block;
+  color: #8fa2be;
+  font-size: 10px;
+  margin-top: 4px;
+}
+.ranking-bar {
+  display: flex;
+  height: 4px;
+  margin-top: 10px;
+  background: #26364e;
+  border-radius: 2px;
+  overflow: hidden;
+}
+.ranking-bar i {
+  background: #6bddd5;
+  transition: width 150ms;
+}
+.ranking-bar i + i {
+  background: #f6b47b;
+}
+.ranking-results b {
+  color: #edf4fc;
+  font-size: 22px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+/* A reading-first proposal with document metadata and a compact decision table. */
+.prompt-document-brief {
+  background: #fff;
+  color: #33363d;
+}
+.prompt-document-brief .prompt-document-brand {
+  border-color: #e6e7e9;
+  color: #787d87;
+  background: #fafafa;
+}
+.prompt-document-brief .prompt-document-body {
+  max-width: 720px;
+  padding: 28px 42px 36px;
+}
+.prompt-document-brief .prompt-document-eyebrow {
+  color: #898e98;
+  font-size: 9px;
+}
+.prompt-document-brief h1 {
+  font-size: 28px;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+}
+.prompt-document-brief .prompt-document-intro {
+  color: #787d87;
+  margin-bottom: 20px;
+  font-size: 12px;
+}
+.design-doc-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 32px;
+  margin-bottom: 22px;
+  padding: 13px 0;
+  border-top: 1px solid #e6e7e9;
+  border-bottom: 1px solid #e6e7e9;
+  font-size: 10px;
+}
+.design-doc-meta dt {
+  color: #898e98;
+  margin-bottom: 5px;
+}
+.design-doc-meta dd {
+  margin: 0;
+  color: #4e535e;
+}
+.design-doc-meta dd span {
+  border-radius: 3px;
+  background: #fff1cc;
+  color: #8c681b;
+  padding: 2px 6px;
+}
+.design-doc-section {
+  margin-top: 20px;
+}
+.design-doc-section h2 {
+  font-size: 14px;
+  font-weight: 650;
+  margin-bottom: 8px;
+  color: #24272e;
+}
+.design-doc-section p {
+  font-size: 12px;
+  line-height: 1.7;
+  color: #5e646f;
+}
+.design-doc-section p strong {
+  font-weight: 550;
+  color: #373c46;
+}
+.design-doc-decision {
+  padding: 0;
+}
+.design-doc-decision .prompt-document-note {
+  margin-top: 12px;
+  padding: 10px 13px;
+  background: #f5f6f8;
+  border-left: 2px solid #9aa1ae;
+  font-size: 11px;
+}
+.design-doc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+  line-height: 1.5;
+}
+.design-doc-table th {
+  font-weight: 500;
+  text-align: left;
+  color: #787d87;
+  background: #f7f8f9;
+}
+.design-doc-table th,
+.design-doc-table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid #e6e7e9;
+  vertical-align: top;
+}
+.design-doc-table td:first-child {
+  width: 43%;
+  color: #424852;
+}
+.design-doc-table td + td {
+  color: #737985;
+}
+.design-doc-table td span {
+  display: block;
+  color: #537263;
+  font-size: 9px;
+}
+.prompt-document-brief .prompt-document-footer {
+  color: #898e98;
+  padding-top: 12px;
+  border-top: 1px solid #e6e7e9;
+}
+.prompt-document-brief .prompt-document-brand strong {
+  font-size: 11px;
+  color: #595f6a;
+}
+.prompt-document-explainer .prompt-document-brand strong {
+  color: #6bddd5;
+}
+@media (max-width: 767px) {
+  .prompt-document-body {
+    padding: 26px 22px;
+  }
+  .prompt-document-brand {
+    padding-inline: 22px;
+  }
+  .prompt-document-brand span {
+    max-width: 130px;
+    text-align: right;
+  }
+  .prompt-document-brief .prompt-document-body {
+    padding: 24px;
+  }
+  .prompt-document-brief h1 {
+    font-size: 26px;
+  }
+  .design-doc-meta {
+    gap: 16px 22px;
+  }
+  .ranking-controls {
+    gap: 18px;
+    padding: 18px 14px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ranking-bar i {
+    transition: none;
+  }
+}

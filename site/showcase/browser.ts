@@ -60,7 +60,7 @@ async function runtimeNode(frame: Page, className: string) {
     .objectId;
 }
 
-export async function annotationState(frame: Page, className: "box" | "marker") {
+export async function annotationState(frame: Page, className: "box" | "marker" | "location") {
   const objectId = await runtimeNode(frame, className);
   if (!objectId) return null;
   const { result } = await frame.command("Runtime.callFunctionOn", {

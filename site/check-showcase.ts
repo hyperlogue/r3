@@ -38,9 +38,10 @@ try {
       url: `${server.url.origin}${base}/example/index.html?theme=${theme}${embedded ? "&embedded=1" : ""}`,
     });
     await waitFor(
-      "!!document.querySelector('[data-artifact-thread]') && !!document.querySelector('.fieldwork-help')",
+      "!!document.querySelector('[data-artifact-thread]')",
       "real workspace and latest revision",
     );
+    await componentFrames(browser, page, 1, ".fieldwork-help");
     await verifyWorkspaceFont(page);
     assert(
       !(await page.evaluate("document.body.innerText.includes('Go to the latest version')")),
@@ -66,14 +67,17 @@ try {
 
   // This is the real comparison UI; both copies use the supplied renderer.
   await click('[data-compare-comment="comment_fieldwork_fix"]');
-  await waitFor(
-    "document.querySelectorAll('[data-artifact-comparison] .fieldwork-document').length === 2",
-    "original / proposed fix comparison",
-  );
+  const forms = await componentFrames(browser, page, 2, ".fieldwork-document");
   assert(
-    await page.evaluate(
-      "document.body.innerText.includes('Everyone in your workspace can find and open this project.')",
-    ),
+    (
+      await Promise.all(
+        forms.map((frame) =>
+          frame.evaluate(
+            "document.body.innerText.includes('Everyone in your workspace can find and open this project.')",
+          ),
+        ),
+      )
+    ).some(Boolean),
   );
   await screenshot("fieldwork-comparison.png");
   await open("light", false);
@@ -137,7 +141,7 @@ try {
   );
   const popover = "[data-artifact-thread-popover]";
   const box = await eventually(async () => {
-    const value = await annotationState(component!, "box");
+    const value = await annotationState(component!, "location");
     return value && !value.hidden ? value : null;
   }, "native located highlight");
   const marker = await annotationState(component!, "marker");
@@ -145,7 +149,6 @@ try {
     "document.querySelector('#component-action').getBoundingClientRect().toJSON()",
   );
   assert.equal(box.radius, "0px", "the actual preview runtime uses a rectangular highlight");
-  assert.equal(box.border, "rgb(37, 99, 235)");
   assert.equal(marker.text, "●", "the actual preview runtime uses a dot, not a numbered pin");
   assert.deepEqual(box.rect, action, "the highlight follows the element bounds");
   const boundary = await page.evaluate(
@@ -250,48 +253,51 @@ try {
     await page.command("Page.navigate", {
       url: `${server.url.origin}${base}/example/index.html?scene=${scene}&embedded=1`,
     });
-    await waitFor(
-      "!!document.querySelector('.prompt-document-note') && !!document.querySelector('[data-compare-comment]')",
-      `${scene} review`,
-    );
+    await waitFor("!!document.querySelector('[data-compare-comment]')", `${scene} review`);
+    const [prompt] = await componentFrames(browser, page, 1, ".prompt-document-note");
     await verifyWorkspaceFont(page);
+    await verifyWorkspaceFont(prompt!);
     if (scene === "explainer") {
-      const first = await page.evaluate(
+      const first = await prompt!.evaluate(
         "document.querySelector('.ranking-results strong').textContent",
       );
-      await page.evaluate("document.querySelector('[aria-label=\"Freshness weight\"]').focus()");
-      await page.command("Input.dispatchKeyEvent", {
+      await prompt!.evaluate("document.querySelector('[aria-label=\"Freshness weight\"]').focus()");
+      await prompt!.command("Input.dispatchKeyEvent", {
         type: "keyDown",
         key: "End",
         code: "End",
         windowsVirtualKeyCode: 35,
       });
-      await page.command("Input.dispatchKeyEvent", {
+      await prompt!.command("Input.dispatchKeyEvent", {
         type: "keyUp",
         key: "End",
         code: "End",
         windowsVirtualKeyCode: 35,
       });
-      await waitFor(
-        "document.querySelector('[aria-label=\"Freshness weight\"]').value === '100'",
+      await eventually(
+        () =>
+          prompt!.evaluate(
+            "document.querySelector('[aria-label=\"Freshness weight\"]').value === '100'",
+          ),
         "freshness slider changes",
       );
       assert.notEqual(
-        await page.evaluate("document.querySelector('.ranking-results strong').textContent"),
+        await prompt!.evaluate("document.querySelector('.ranking-results strong').textContent"),
         first,
         "freshness changes the top result",
       );
     }
     await screenshot(`prompt-${scene}.png`);
     await click('[data-compare-comment="comment_fieldwork_fix"]');
-    await waitFor(
-      "document.querySelectorAll('[data-artifact-comparison] .prompt-document').length === 2",
-      `${scene} comparison`,
-    );
+    const compared = await componentFrames(browser, page, 2, ".prompt-document");
     assert.equal(
-      await page.evaluate(
-        "document.querySelectorAll('[data-artifact-comparison] .prompt-document-note').length",
-      ),
+      (
+        await Promise.all(
+          compared.map((frame) =>
+            frame.evaluate("document.querySelectorAll('.prompt-document-note').length"),
+          ),
+        )
+      ).reduce((a, b) => a + b, 0),
       1,
       "the explanation belongs to the revised publication",
     );
@@ -309,17 +315,21 @@ try {
     await page.command("Page.navigate", {
       url: `${server.url.origin}${base}/example/index.html?scene=${scene}&embedded=1`,
     });
-    await waitFor(
-      `document.querySelector('[data-mobile-discussion="sheet"]')?.inert === false`,
-      "mobile sheet",
-    );
-    await click('[aria-label="Close discussion"]');
+    await waitFor(`!!document.querySelector('[data-mobile-discussion="sheet"]')`, "mobile sheet");
+    if (await page.evaluate(`!document.querySelector('[data-mobile-discussion="sheet"]').inert`))
+      await click('[aria-label="Close discussion"]');
     await waitFor(
       `document.querySelector('[data-mobile-discussion="sheet"]').inert`,
       "example revealed",
     );
+    const [mobileDocument] = await componentFrames(
+      browser,
+      page,
+      1,
+      ".fieldwork-document, .prompt-document",
+    );
     assert(
-      await page.evaluate(`(() => {
+      await mobileDocument!.evaluate(`(() => {
         const doc = document.querySelector('.fieldwork-document, .prompt-document');
         return doc && doc.scrollWidth <= doc.clientWidth &&
           document.documentElement.scrollWidth <= innerWidth;

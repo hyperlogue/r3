@@ -1,23 +1,16 @@
-import { useEffect, useRef, useState } from "react";
-import type { ArtifactRenderedPaneProps } from "../../web/src/artifact-page.tsx";
+import { useState } from "react";
 
-export function PromptDocument(
-  props: ArtifactRenderedPaneProps & { scene: "explainer" | "brief" },
-) {
-  const anchor = useRef<HTMLDivElement>(null);
-  const [selected, setSelected] = useState(false);
+export function PromptDocument({
+  scene,
+  revised,
+}: {
+  scene: "explainer" | "brief";
+  revised: boolean;
+}) {
   const [relevance, setRelevance] = useState(70);
   const [freshness, setFreshness] = useState(30);
-  const explainer = props.scene === "explainer";
+  const explainer = scene === "explainer";
   const id = explainer ? "ranking-signals" : "access-rules";
-  const label = explainer ? "Ranking signals" : "Access rules";
-  const revised = props.version.seq > 1;
-  useEffect(() => {
-    if (props.active === false || !props.jump) return;
-    const found = props.jump.locator?.selector === `#${id}`;
-    if (found) anchor.current?.scrollIntoView({ block: "nearest" });
-    props.onLocated?.(found ? "anchored" : "unplaced");
-  }, [id, props.active, props.jump, props.onLocated]);
   const results = [
     {
       name: "Planning a product launch",
@@ -46,7 +39,7 @@ export function PromptDocument(
     }))
     .sort((a, b) => b.score - a.score);
   return (
-    <div className={`prompt-document prompt-document-${props.scene}`}>
+    <div className={`prompt-document prompt-document-${scene}`}>
       <div className="prompt-document-brand">
         <strong>{explainer ? "∿ Search lab" : "Fieldwork / Engineering"}</strong>
         <span>{explainer ? "Interactive lesson 03" : "Design proposals / RFC 014"}</span>
@@ -90,11 +83,7 @@ export function PromptDocument(
             </section>
           </>
         )}
-        <div
-          ref={anchor}
-          id={id}
-          className={`prompt-document-target ${selected || (props.jump && props.highlightLocated !== false) ? "fieldwork-located" : ""}`}
-        >
+        <div id={id} className="prompt-document-target">
           {explainer ? (
             <>
               <div className="ranking-query">
@@ -182,37 +171,6 @@ export function PromptDocument(
               )}
             </section>
           )}
-          {props.commenting && (
-            <button
-              className="fieldwork-anchor"
-              type="button"
-              onClick={() => {
-                setSelected(true);
-                props.onTarget({
-                  kind: "rendered",
-                  versionSeq: props.version.seq,
-                  path: props.path,
-                  locator: { selector: `#${id}`, label },
-                });
-              }}
-            >
-              Comment on {label.toLowerCase()}
-            </button>
-          )}
-          {!props.commenting &&
-            props.targets.map(({ threadId, target }) =>
-              target.kind === "rendered" && target.locator?.selector === `#${id}` ? (
-                <button
-                  key={threadId}
-                  type="button"
-                  className="fieldwork-pin"
-                  aria-label={`Open ${label.toLowerCase()} thread`}
-                  onClick={() => props.onThread(threadId)}
-                >
-                  1
-                </button>
-              ) : null,
-            )}
         </div>
         {!explainer && (
           <>

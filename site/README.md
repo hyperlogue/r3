@@ -47,11 +47,11 @@ To publish the built text and layouts as an r3 HTML artifact, run
 `bun --no-env-file site/package-artifact.ts`, then publish `dist/site-artifact/`.
 Use the same `R3_SITE_BASE` as the preceding build. Packaging uses relative asset
 URLs and explicit document filenames, with no dependency on server directory
-redirects. Search runs without a worker in the opaque preview. The live demo
-opens separately because its own nested previews are unavailable inside an r3
-artifact. The homepage uses an actual workspace capture and a separate demo button opening the same
-interactive React page within the artifact; its authored React document needs no
-nested preview frame. `R3_SITE_DEMO_URL` defaults to the running local preview's demo URL.
+redirects. Search runs without a worker in the opaque preview. The live demo and
+interactive examples open separately because their nested previews are unavailable inside an r3
+artifact. The homepage retains the actual workspace captures and links its demo
+button to the selected example beside the configured live demo URL.
+`R3_SITE_DEMO_URL` defaults to the running local preview's demo URL.
 Set it to the deployed demo URL when sharing beyond the local machine.
 
 ## Author content
@@ -153,10 +153,11 @@ the card self-contained and the project mark consistent with the application.
 
 `showcase/index.tsx` mounts `ArtifactPage` from `web/src/artifact-page.tsx`, exactly
 as the connected r3 app does. It supplies a detail snapshot, reads, mutation
-handlers from the existing in-memory demo backend, and the authored
-`FieldworkDocument` renderer or `PromptDocument` for the search explainer and
-project-visibility design proposal. The prototype uses a violet app layout, the
-explainer a dark canvas with colored ranking signals, and the proposal a white
+handlers from the existing in-memory demo backend, and the same
+`DemoArtifactPreview` renderer as `/demo/`. Build-owned publications supply the
+authored `FieldworkDocument` and `PromptDocument` content for the project prototype,
+search explainer, and project-visibility design proposal. The prototype uses a
+violet app layout, the explainer a dark canvas with colored ranking signals, and the proposal a white
 document with metadata, access rules, tradeoffs, and rollout notes. The
 documentation’s component capture selects a separate component fixture and
 `ComponentsDocument` renderer
@@ -182,11 +183,14 @@ R3_TEST_BROWSER=/path/to/chromium bun --no-env-file site/capture-showcase.ts
 ```
 
 The generated PNG and WebM assets use Git LFS, as do the workspace captures.
-The prototype, explainer, and design doc use ordinary React controls. The component
-scene runs bundled authored HTML in an opaque iframe with the shared
-`installPreviewRuntime`: its blue rectangular highlight, dot marker, picking,
-and Locate behavior are actual product code. Its local message adapter connects
-only preview UI events to the fixture. No sample runs uploaded content or
+The prototype, explainer, and design doc bundle their React controls and styles
+into opaque preview documents. Comment mode, arbitrary element picking, native
+text selection, thread markers, and Locate come from the shared demo renderer and
+product runtime. `showcase/preview-fixtures.ts` admits only the shipped publication
+identities; practice state never supplies executable bytes. `showcase/document.css`
+styles authored content independently of the surrounding workspace. The component
+scene also uses the shared `installPreviewRuntime`, with a local message adapter
+connecting preview UI events to its fixture. No sample runs uploaded content or
 emulates the production preview security boundary. The component scene is used
 for captures and the standalone website; artifact previews show its PNG because
 their policy blocks nested frames.
@@ -242,13 +246,14 @@ article in both themes at desktop and phone widths, and loaded screenshots.
 Run `bun --no-env-file site/check-media.ts` for the launch walkthrough’s responsive
 screenshots, saved image/video evidence, comparisons, and actual clip playback.
 Run `bun --no-env-file site/check-showcase.ts` to exercise injected mutations,
-comparison, mobile layout, and the absence of backend requests. Run the
-repository-wide tests before committing.
+comparison, mobile layout, and the absence of backend requests. Run
+`bun --no-env-file site/check-example-comments.ts` for element picking, saved anchors, Locate, text selection, and normal document controls in all three prompt
+examples. Run the repository-wide tests before committing.
 
 After packaging, `bun --no-env-file site/check-artifact.ts` serves only the bundle
 through the real preview policy in an isolated browser. It checks relative
-navigation, theme, search, screenshot density at desktop/phone widths, and React
-interactions inside the opaque sandbox.
+navigation, theme, search, screenshot density at desktop/phone widths, and separate
+example links inside the opaque sandbox.
 
 ## Content boundary
 

@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import type { ArtifactDetail } from "../../shared/artifacts.ts";
 import { artifactApi } from "../../web/demo/artifact-api.ts";
 import { demo } from "../../web/demo/artifact-backend.ts";
+import { DemoArtifactPreview } from "../../web/demo/artifact-renderer.tsx";
 import { artifactDrafts } from "../../web/src/artifact-drafts.ts";
 import { ArtifactPage } from "../../web/src/artifact-page.tsx";
 import { initializeLocale, useLocale } from "../../web/src/i18n.ts";
@@ -10,10 +11,9 @@ import { setDiscussionMode } from "../../web/src/settings.ts";
 import { t } from "../i18n.ts";
 import "../../web/src/showcase/forms.ts";
 import { ComponentsDocument } from "./ComponentsDocument.tsx";
-import { FieldworkDocument } from "./FieldworkDocument.tsx";
 import { componentsSeed, fieldworkSeed } from "./fixture.ts";
 import { mediaFrames, mediaSeed } from "./media-fixture.ts";
-import { PromptDocument } from "./PromptDocument.tsx";
+import { examplePreview } from "./preview-fixtures.ts";
 import { storyDocument } from "./story-document.ts";
 import { storySeed } from "./story-fixture.ts";
 
@@ -132,10 +132,8 @@ function Example() {
               ) : null
             ) : mediaScene ? null : componentScene ? (
               <ComponentsDocument {...props} />
-            ) : promptScene === "prototype" ? (
-              <FieldworkDocument {...props} />
             ) : (
-              <PromptDocument {...props} scene={promptScene} />
+              <DemoArtifactPreview {...props} loadPreview={examplePreview} />
             )
           }
         />

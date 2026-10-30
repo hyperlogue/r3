@@ -42,7 +42,7 @@ try {
       (spec) =>
         !("recorded" in spec) &&
         (!storiesOnly || "step" in spec) &&
-        (!selectedScene || ("scene" in spec && spec.scene === selectedScene)),
+        (!selectedScene || ("scene" in spec ? spec.scene : "prototype") === selectedScene),
     )) {
       // Each capture gets an independent browser profile and rendering surface.
       // Separate iframe renderers inherit the browser scale, not the parent's
@@ -51,7 +51,7 @@ try {
       try {
         const { targetId } = await browser.send("Target.createTarget", { url: "about:blank" });
         const page = await browser.attach(targetId);
-        const scene = "scene" in spec ? spec.scene : "prototype";
+        const scene = ("scene" in spec ? spec.scene : undefined) ?? "prototype";
         const comment = scene === "components";
         const media = scene === "media" || scene === "media-video";
         await page.command("Emulation.setDeviceMetricsOverride", {
@@ -72,14 +72,25 @@ try {
                   ? "!!document.querySelector('[data-native-media]')"
                   : comment
                     ? "!!document.querySelector('.component-preview')"
-                    : "!!document.querySelector('[data-artifact-thread]') && !!document.querySelector('.fieldwork-help, .prompt-document-note')",
+                    : "!!document.querySelector('[data-artifact-thread]')",
             ),
           "real workspace and latest revision",
         );
+        if (["prototype", "explainer", "brief"].includes(scene)) {
+          const [document] = await componentFrames(
+            browser,
+            page,
+            1,
+            ".fieldwork-document, .prompt-document",
+          );
+          await verifyWorkspaceFont(document!);
+        }
         await verifyWorkspaceFont(page);
         if (spec.width < 768) {
           // Show the authored example instead of covering it with the phone sheet.
-          await page.evaluate(`document.querySelector('[aria-label="Close discussion"]').click()`);
+          await page.evaluate(
+            `if (!document.querySelector('[data-mobile-discussion="sheet"]').inert) document.querySelector('[aria-label="Close discussion"]').click()`,
+          );
           await eventually(
             () => page.evaluate(`document.querySelector('[data-mobile-discussion="sheet"]').inert`),
             "mobile discussion closes before capturing the document",
@@ -113,7 +124,7 @@ try {
             "existing thread popover",
           );
           await eventually(async () => {
-            const box = await annotationState(frame!, "box");
+            const box = await annotationState(frame!, "location");
             const marker = await annotationState(frame!, "marker");
             const { left, edge } = await page.evaluate(
               `({left: document.querySelector('.component-preview').getBoundingClientRect().left, edge:document.querySelector('[data-artifact-thread-popover]').getBoundingClientRect().left})`,

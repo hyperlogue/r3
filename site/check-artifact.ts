@@ -237,57 +237,28 @@ try {
     await doc.evaluate('document.querySelectorAll(".workspace-example iframe").length'),
     0,
   );
-  await doc.evaluate('document.querySelector(".workspace-demo").click()');
-  doc = await content("Create a project");
-  await eventually(
-    () => doc.evaluate('!!document.querySelector("[data-compare-comment]")'),
-    "opaque real React workspace",
+  assert(
+    await doc.evaluate(`(() => {
+      const link = document.querySelector('.workspace-demo');
+      return link.target === '_blank' && new URL(link.href).pathname.endsWith('/example/index.html') &&
+        !new URL(link.href).pathname.startsWith(${JSON.stringify(prefix)});
+    })()`),
+    "interactive examples open outside the artifact's nested-frame restriction",
   );
-  assert.equal(await doc.evaluate('document.documentElement.classList.contains("dark")'), true);
-  await doc.evaluate('document.querySelector("[data-compare-comment]").click()');
-  await eventually(
-    () =>
-      doc.evaluate(
-        'document.querySelectorAll("[data-artifact-comparison] .fieldwork-document").length===2',
-      ),
-    "opaque comparison",
-  );
-  await doc.evaluate(`document.querySelector('[aria-label="Return to artifact"]').click()`);
-  await doc.evaluate('document.querySelector("[data-thread-action=comment]").click()');
-  await eventually(
-    () => doc.evaluate('!!document.querySelector("textarea[aria-label=Reply]")'),
-    "opaque composer",
-  );
-  await doc.evaluate('document.querySelector("textarea[aria-label=Reply]").focus()');
-  await doc.command("Input.insertText", { text: "A comment from the opaque artifact preview." });
-  await doc.evaluate(
-    'document.querySelector("textarea[aria-label=Reply]").form.querySelector("button[type=submit]").click()',
-  );
-  await eventually(
-    () =>
-      doc.evaluate(
-        'document.querySelector("[data-discussion-list]").textContent.includes("A comment from the opaque artifact preview.")',
-      ),
-    "opaque local mutation",
-  );
-  await doc.evaluate('document.querySelector(".example-actions a").click()');
-  doc = await content(homeTitle);
   await doc.evaluate(`location.href=${JSON.stringify(`${prefix}use-cases/proposal/index.html`)}`);
   doc = await content("Improve an onboarding proposal");
   assert.equal(await doc.evaluate("document.querySelectorAll('.story-screenshot').length"), 3);
-  assert.equal(
-    await doc.evaluate("document.querySelectorAll('a[href*=\"scene=proposal\"]').length"),
-    0,
-    "the artifact does not link to an example requiring a forbidden nested frame",
+  assert(
+    await doc.evaluate(`(() => {
+      const link = document.querySelector('a[href*="scene=proposal"]');
+      return link && link.target === '_blank' && !new URL(link.href).pathname.startsWith(${JSON.stringify(prefix)});
+    })()`),
+    "the proposal example also opens separately",
   );
-  await doc.evaluate(
-    "[...document.querySelectorAll('.prose a')].find(link => link.textContent.includes('Reviewing documents')).click()",
-  );
-  doc = await content("Documents & files");
   assert(requests.every((p) => p.startsWith(prefix)));
   assert.deepEqual(exceptions, []);
   console.log(
-    "Artifact sandbox checks passed: command copy, relative pages/assets, theme, search, and real React page comparison/commenting inside an opaque preview.",
+    "Artifact sandbox checks passed: command copy, relative pages/assets, theme, search, and separate example links inside an opaque preview.",
   );
 } catch (e) {
   console.log("requests", requests);

@@ -4,6 +4,12 @@ import { sha256 } from "./captures.ts";
 import { storyPublications } from "./story-publications.ts";
 
 export async function buildShowcase(directory: string) {
+  const document = await Bun.build({
+    entrypoints: [join(import.meta.dir, "document.tsx"), join(import.meta.dir, "document.css")],
+    target: "browser",
+    minify: true,
+  });
+  if (!document.success) throw new AggregateError(document.logs, "Example document build failed");
   const media = Object.fromEntries(
     await Promise.all(
       [1, 2]
@@ -33,6 +39,12 @@ export async function buildShowcase(directory: string) {
     target: "browser",
     minify: true,
     define: {
+      EXAMPLE_DOCUMENT_SCRIPT: JSON.stringify(
+        await document.outputs.find((output) => output.path.endsWith(".js"))!.text(),
+      ),
+      EXAMPLE_DOCUMENT_STYLE: JSON.stringify(
+        await document.outputs.find((output) => output.path.endsWith(".css"))!.text(),
+      ),
       MEDIA_EXAMPLE: JSON.stringify(media),
       STORY_PUBLICATIONS: JSON.stringify(stories.publications),
       STORY_DOCUMENTS: JSON.stringify(stories.documents),

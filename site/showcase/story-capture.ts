@@ -42,29 +42,29 @@ export async function prepareStoryCapture(
       "published patch lines",
     );
   } else {
-    await eventually(
-      () =>
-        page.evaluate(
-          `!!document.querySelector('${scene === "prototype" ? "#visibility" : "#ranking-signals"}')`,
-        ),
-      "authored example",
+    await componentFrames(
+      browser,
+      page,
+      1,
+      scene === "prototype" ? "#visibility" : "#ranking-signals",
     );
   }
   if (step === "start" || (step === "result" && scene === "explainer")) {
     await click('[aria-label="Hide discussion"]');
   }
   if (step === "result" && scene === "explainer") {
+    const [document] = await componentFrames(browser, page, 1, "#ranking-signals");
     for (const [label, value] of [
       ["Relevance weight", "20"],
       ["Freshness weight", "80"],
     ]) {
-      await page.evaluate(
+      await document!.evaluate(
         `(() => { const input = document.querySelector('[aria-label="${label}"]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '${value}'); input.dispatchEvent(new Event('input', {bubbles:true})); })()`,
       );
     }
     await eventually(
       () =>
-        page.evaluate(
+        document!.evaluate(
           "document.querySelector('[aria-label=\"Freshness weight\"]').value === '80' && document.querySelector('.ranking-results').innerText.indexOf('This week') < document.querySelector('.ranking-results').innerText.indexOf('Planning')",
         ),
       "freshness changes ranking",
@@ -72,13 +72,7 @@ export async function prepareStoryCapture(
   }
   if (step === "result" && scene === "prototype") {
     await click('[data-compare-comment="comment_fieldwork_fix"]');
-    await eventually(
-      () =>
-        page.evaluate(
-          "document.querySelectorAll('[data-artifact-comparison] .fieldwork-document').length === 2",
-        ),
-      "original and revised forms",
-    );
+    await componentFrames(browser, page, 2, ".fieldwork-document");
   }
   if (
     step === "feedback" ||

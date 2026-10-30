@@ -242,6 +242,14 @@ single command owns the complete deployable output, including the demo:
   canonical/alternate URLs, Markdown exports, sitemap entries and Pagefind
   documents, retaining English heading IDs across translations. Templates use
   explicit i18next keys; builds read catalogs without rewriting them.
+- `/example/` mounts `ArtifactPage` with the in-memory demo backend and reuses
+  `DemoArtifactPreview` for its prototype, explainer, and design document. Supply
+  shipped document bytes through its `loadPreview` callback; keep the callback and
+  authored React documents under `site/showcase/`. The shared renderer owns the
+  opaque sandbox, preview event bridge, picking, text selection, markers, and
+  Locate. Inline data fonts keep the examples independent of network access.
+  Packaged websites link examples beside `R3_SITE_DEMO_URL`, outside the enclosing
+  artifact's nested-frame restriction.
 - Preserve demo deep-link reloads while providing a useful website 404. Pages
   honors only the site-root `404.html`; directory-level fallback files do not
   handle requests independently.

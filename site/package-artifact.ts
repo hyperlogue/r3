@@ -1,6 +1,6 @@
 import { cp, mkdir, rm } from "node:fs/promises";
 import { dirname, join, posix } from "node:path";
-import { type Locale, localePath, siteTranslator } from "./i18n.ts";
+import { type Locale, siteTranslator } from "./i18n.ts";
 import { normalizeBase } from "./render.ts";
 import { validateLinks } from "./validate.ts";
 
@@ -39,25 +39,18 @@ export async function packageArtifact() {
             const value = el.getAttribute(attr);
             if (!value?.startsWith(`${base}/`) || value.startsWith("//")) continue;
             const url = new URL(value.slice(base.length), "https://example.test");
-            if (url.pathname.startsWith("/demo/")) {
+            if (url.pathname.startsWith("/demo/") || url.pathname === "/example/index.html") {
               const target = new URL(demo);
+              if (url.pathname === "/example/index.html") {
+                target.pathname = target.pathname.replace(/\/demo\/?$/, "/example/index.html");
+                target.search = url.search;
+              }
               target.searchParams.set("lang", locale);
               el.setAttribute(attr, target.href);
               el.setAttribute("target", "_blank");
               el.setAttribute("rel", "noopener");
               el.setAttribute("title", t("common.openTheLiveDemoInASeparate"));
               continue;
-            }
-            // This example renders Markdown in an opaque child frame, which
-            // the surrounding artifact's closed preview policy forbids.
-            if (
-              attr === "href" &&
-              url.pathname === "/example/index.html" &&
-              url.searchParams.get("scene") === "proposal"
-            ) {
-              url.pathname = localePath("/docs/files/", locale);
-              url.search = "";
-              el.setInnerContent(t("common.reviewingDocuments"));
             }
             if (url.pathname.endsWith("/")) url.pathname += "index.html";
             const path = posix.relative(posix.dirname(file), url.pathname.slice(1));

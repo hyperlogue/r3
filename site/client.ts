@@ -69,10 +69,12 @@ function selectWorkspace(index: number) {
   const label = document.querySelector("[data-workspace-label]");
   if (label) label.textContent = example.label;
   const link = document.querySelector<HTMLAnchorElement>(".workspace-demo");
-  if (link)
-    link.href = siteURL(
-      `example/index.html?scene=${example.scene}&theme=${document.documentElement.dataset.theme || "light"}`,
-    );
+  if (link) {
+    const url = new URL(link.href);
+    url.searchParams.set("scene", example.scene);
+    url.searchParams.set("theme", document.documentElement.dataset.theme || "light");
+    link.href = url.href;
+  }
 }
 
 function notify(message: string) {

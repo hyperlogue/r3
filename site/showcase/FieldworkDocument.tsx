@@ -1,30 +1,10 @@
-import { useEffect, useRef, useState } from "react";
-import type { ArtifactRenderedPaneProps } from "../../web/src/artifact-page.tsx";
+import { useState } from "react";
 
-// A site-authored React document, never arbitrary published HTML. Keeping this
-// renderer inline also lets the page run inside an opaque r3 HTML artifact.
-export function FieldworkDocument(props: ArtifactRenderedPaneProps) {
-  const visibility = useRef<HTMLDivElement>(null);
+// Authored sample content. The shared demo preview owns all annotation behavior.
+export function FieldworkDocument({ revised }: { revised: boolean }) {
   const [name, setName] = useState("Autumn launch");
   const [access, setAccess] = useState("Workspace");
   const [created, setCreated] = useState(false);
-  const [selected, setSelected] = useState(false);
-  const revised = props.version.seq > 1;
-  useEffect(() => {
-    if (props.active === false || !props.jump) return;
-    const found = props.jump.locator?.selector === "#visibility";
-    if (found) visibility.current?.scrollIntoView({ block: "nearest" });
-    props.onLocated?.(found ? "anchored" : "unplaced");
-  }, [props.active, props.jump, props.onLocated]);
-  const target = () => {
-    setSelected(true);
-    props.onTarget({
-      kind: "rendered",
-      versionSeq: props.version.seq,
-      path: props.path,
-      locator: { selector: "#visibility", label: "Project visibility" },
-    });
-  };
   return (
     <div className="fieldwork-document">
       <div className="fieldwork-brand">
@@ -66,11 +46,7 @@ export function FieldworkDocument(props: ArtifactRenderedPaneProps) {
             Project description <span>Optional</span>
             <input defaultValue="A calmer way to plan our next release." />
           </label>
-          <div
-            ref={visibility}
-            id="visibility"
-            className={`fieldwork-visibility ${(props.jump && props.highlightLocated !== false) || (props.commenting && selected) ? "fieldwork-located" : ""}`}
-          >
+          <div id="visibility" className="fieldwork-visibility">
             <label>
               Visibility
               <select value={access} onChange={(event) => setAccess(event.target.value)}>
@@ -86,27 +62,14 @@ export function FieldworkDocument(props: ArtifactRenderedPaneProps) {
                 You can change this later.
               </p>
             )}
-            {props.commenting && (
-              <button className="fieldwork-anchor" type="button" onClick={target}>
-                Comment on visibility
-              </button>
-            )}
-            {!props.commenting &&
-              props.targets.map(({ threadId, target: anchor }) =>
-                anchor.kind === "rendered" && anchor.locator?.selector === "#visibility" ? (
-                  <button
-                    key={threadId}
-                    type="button"
-                    className="fieldwork-pin"
-                    aria-label="Open visibility thread"
-                    onClick={() => props.onThread(threadId)}
-                  >
-                    1
-                  </button>
-                ) : null,
-              )}
           </div>
-          <button className="fieldwork-create" type="submit">
+          <button
+            className="fieldwork-create"
+            type="button"
+            onClick={(event) => {
+              if (event.currentTarget.form?.reportValidity()) setCreated(true);
+            }}
+          >
             Create project <span aria-hidden="true">↗</span>
           </button>
           {created && (

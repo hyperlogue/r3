@@ -17,7 +17,11 @@ export const renderPublishedPreview: ArtifactRenderer = (props) => (
   <DemoArtifactPreview {...props} />
 );
 
-export function DemoArtifactPreview(props: ArtifactRenderedPaneProps) {
+type DemoPreviewProps = ArtifactRenderedPaneProps & {
+  loadPreview?: typeof bundledPreview;
+};
+
+export function DemoArtifactPreview(props: DemoPreviewProps) {
   return (
     <DemoDocument
       key={`${props.version.artifactId}/${props.version.seq}/${props.version.contentHash}`}
@@ -26,7 +30,7 @@ export function DemoArtifactPreview(props: ArtifactRenderedPaneProps) {
   );
 }
 
-function DemoDocument(props: ArtifactRenderedPaneProps) {
+function DemoDocument(props: DemoPreviewProps) {
   const { t } = useTranslation();
   const dark = useDarkTheme();
   const current = useRef({ props, dark });
@@ -58,6 +62,7 @@ function DemoDocument(props: ArtifactRenderedPaneProps) {
         contextId,
         location.origin,
         nextRoute.current,
+        current.current.props.loadPreview,
       );
     } catch (error) {
       setError(
@@ -135,7 +140,7 @@ function DemoDocument(props: ArtifactRenderedPaneProps) {
             typeof message.route !== "string" ||
             !message.route.startsWith("#") ||
             message.route.length > 2048 ||
-            !bundledPreview(props.version, message.nextPath)
+            !(props.loadPreview ?? bundledPreview)(props.version, message.nextPath)
           )
             return;
           nextRoute.current = message.route;

@@ -13,8 +13,9 @@ export function prepareDemoDocument(
   contextId: string,
   applicationOrigin: string,
   route: string,
+  loadPreview = bundledPreview,
 ) {
-  const bundled = bundledPreview(version, path);
+  const bundled = loadPreview(version, path);
   if (!bundled)
     throw new Error(
       "This preview is unavailable. The static demo renders only its bundled examples.",
@@ -79,7 +80,7 @@ const connection = (${connectDemoPreview.toString()})(config);
   // CSP is a resource restriction, not a proof of total network isolation.
   // No network URLs are needed: scripts/styles are inline, images are data URLs.
   policy.content =
-    "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src 'none'; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
+    "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
   document.head.prepend(policy, script);
   return { html: `<!doctype html>${document.documentElement.outerHTML}`, markdown };
 }
