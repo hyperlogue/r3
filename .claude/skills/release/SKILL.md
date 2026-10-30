@@ -2,15 +2,17 @@
 name: release
 metadata:
   internal: true
-description: Prepare or cut an r3 release — write concise release notes, publish the new changelog as an r3 files artifact for review, bump versions together, commit, and tag. Use when preparing a release, bumping the version, updating the changelog, or tagging a release.
+description: Prepare or cut an r3 release — publish concise release notes as an r3 files artifact, obtain approval through archival, then update repository files, commit, and tag. Use when preparing a release, bumping the version, updating the changelog, or tagging a release.
 ---
 
 # Releasing r3
 
-A release is one version-bump commit plus an annotated tag on it. The whole job
-is: write the changelog, move **every** version string to the new number
-together, verify, publish the changelog as an r3 files artifact for review,
-commit, and tag that commit. Push remains a separate user action.
+A release is one version-bump commit plus an annotated tag on it. Draft the
+changelog in a temporary directory and publish it as an r3 files artifact for
+review. **Keep repository files unchanged until the human archives the artifact
+to approve it.** After archival, apply the approved notes, move **every** version
+string together, verify, commit, and tag that commit. Push remains a separate
+user action.
 The release CI reads `CHANGELOG.md` **out of the tagged tree** for the GitHub release notes, so the
 changelog entry is the release's public face and the tag carries no notes of its
 own.
@@ -40,11 +42,11 @@ if they drift, so keep them in lockstep:
 
 1. **Pick the version** (SemVer). Previous tag: `git describe --tags --abbrev=0`.
 
-2. **Draft the CHANGELOG entry** (`CHANGELOG.md`, adapted from [Keep a Changelog]).
+2. **Draft the CHANGELOG entry in a temporary directory**, adapted from
+   [Keep a Changelog]. The draft's `CHANGELOG.md` contains only the new version.
    Survey what shipped since the last tag — `git log v<prev>..HEAD --oneline` —
    then:
-   - Insert a new `## [X.Y.Z] - YYYY-MM-DD` section directly under the intro
-     block, above the previous version. Use the release date.
+   - Start with `## [X.Y.Z] - YYYY-MM-DD`. Use the release date.
    - Use only `### New`, `### Fixed`, and `### Removed`, in that order. Omit
      sections with no entries. New includes additions and improvements; Fixed
      describes corrected behavior; Removed covers capabilities users lose.
@@ -53,15 +55,41 @@ if they drift, so keep them in lockstep:
      changes and their practical effect. Include upgrade instructions only when
      users need to act. Omit internal refactors, tests, release tooling, and
      development churn. Preserve earlier releases' entries as written.
-   - Add the compare link at the very bottom, with the others:
+   - Include the compare-link definition so the heading's link resolves:
      `[X.Y.Z]: https://github.com/hyperlogue/r3/compare/v<prev>...vX.Y.Z`
 
    The CI publishes this exact section as the GitHub release notes.
 
-3. **Bump all three version sources** to `X.Y.Z` — do not forget the four npm
-   pins in `npm/package.json`.
+3. **Publish the changelog for review.** Follow the repository's
+   [publish-artifacts-to-r3 skill](../../../skills/publish-artifacts-to-r3/SKILL.md)
+   for executable discovery and the files preparation guide.
+   Set `V` to the release version and `release_notes_dir` to the temporary
+   directory from step 2. Publish it as a **files** artifact, titled
+   `r3 vX.Y.Z changelog`, with version label `vX.Y.Z`:
+   ```sh
+   r3 create --kind files --dir "$release_notes_dir" \
+     --title "r3 v$V changelog" --version-label "v$V"
+   ```
+   Share the returned stable URL and retain the artifact ID. Apply review changes
+   to the temporary draft and publish new versions of that same artifact.
+   Repository files, version strings, commits, and tags stay unchanged during
+   review. Report publication failures;
+   preparation is incomplete until the artifact is published successfully.
 
-4. **Verify they agree, then run the checks:**
+4. **Confirm archival approval.** The human archives the artifact to approve it;
+   do not archive it on their behalf. Confirm `state: archived` with
+   `r3 show <artifact-id> --json`, and read the final review comments and archive
+   message. An active artifact remains in review. Once archival is confirmed,
+   proceed without requesting another confirmation in chat. Keep the approved
+   artifact archived as the review record.
+
+5. **Apply the approved release to the repository.** Insert the approved entry,
+   including any final requested corrections, directly under the `CHANGELOG.md`
+   intro and above the previous version. Add its compare-link definition with
+   the others at the bottom. Bump all three version sources to `X.Y.Z`, including
+   the four npm pins in `npm/package.json`.
+
+6. **Verify they agree, then run the checks:**
    ```sh
    rg -n '"version"|R3_VERSION|@hyperlogue/r3-' \
      package.json npm/package.json shared/version.ts   # every hit must read X.Y.Z
@@ -70,36 +98,14 @@ if they drift, so keep them in lockstep:
    biome check .
    ```
 
-5. **Publish the changelog for review.** Follow the repository's
-   [publish-artifacts-to-r3 skill](../../../skills/publish-artifacts-to-r3/SKILL.md)
-   for executable discovery and the files preparation guide.
-   Extract only the new version's section from `CHANGELOG.md` into a temporary
-   directory containing `CHANGELOG.md`. Preserve its version/date heading and
-   exact bullets; include the matching compare-link definition so the heading's
-   link resolves. Set `V` to the release version and `release_notes_dir` to the
-   prepared directory. Publish it as a **files** artifact, titled
-   `r3 vX.Y.Z changelog`, with version label `vX.Y.Z`:
-   ```sh
-   r3 create --kind files --dir "$release_notes_dir" \
-     --title "r3 v$V changelog" --version-label "v$V"
-   ```
-   Share the returned stable URL and retain the artifact ID. If review changes
-   the notes, update `CHANGELOG.md` and publish a new version of that same artifact
-   so the reviewed text and release commit agree. Report publication failures;
-   preparation is incomplete until the artifact is published successfully.
-
-   **Show the draft to the user and get their sign-off before you commit.**
-   Request sign-off after the version bump, checks, and artifact publication are
-   ready for review. If the user already approved this exact draft, proceed.
-
-6. **Commit** — follow `AGENTS.md` for scope, authorship, and explicit staging.
+7. **Commit** — follow `AGENTS.md` for scope, authorship, and explicit staging.
    Preserve existing authorship metadata; do not add an unrelated agent trailer.
    ```sh
    git add CHANGELOG.md shared/version.ts package.json npm/package.json
    git commit -m "chore(release): release vX.Y.Z"
    ```
 
-7. **Tag** — annotated, on the commit you just made (the `r3 vX.Y.Z` subject is
+8. **Tag** — annotated, on the commit you just made (the `r3 vX.Y.Z` subject is
    the convention since v0.2.0). The tag needs no body: CI reads the changelog
    section from the tagged tree. The awk is the same extraction CI runs, used
    here only as a **guard** — it refuses to tag when the `## [X.Y.Z]` section is
@@ -115,7 +121,7 @@ if they drift, so keep them in lockstep:
    Eyeball what CI will publish before pushing — that's `$NOTES`, or
    `git show "v$V":CHANGELOG.md | head -40`.
 
-8. **Push** — leave the actual push to the user unless they ask. Report any
+9. **Push** — leave the actual push to the user unless they ask. Report any
    authentication or transport failure; never imply a failed push succeeded:
    ```sh
    git push origin main && git push origin vX.Y.Z
@@ -150,7 +156,7 @@ within a week: build artifacts expire after 7 days. If publication has not run
 and those artifacts expire, re-run the workflow to rebuild (or reuse assets the
 release already carries).
 
-The pins were already synced in step 3, so there is nothing else to bump by
+The pins were already synced in step 5, so there is nothing else to bump by
 hand. If npm publication fails after the GitHub Release exists, use **Re-run
 failed jobs**. The publication retry requests approval again, preserves the
 existing release and assets, and skips npm versions already on the registry.
@@ -160,12 +166,12 @@ release exists, expired build artifacts do not block the npm retry.
 ## If you botch a release
 
 **Immutable releases are enabled**, so a published `vX.Y.Z` tag can't be moved or
-deleted through the normal path — which is the whole reason steps 1–7 get it right
+deleted through the normal path — which is the whole reason steps 1–8 get it right
 the first time (bump before tag, changelog into the tag). Recovery depends on how
 far it got:
 
 - **Not pushed yet** — the tag is still local. Delete and recut it: `git tag -d
-vX.Y.Z`, fix, then redo step 7. Cheap.
+vX.Y.Z`, fix, then redo step 8. Cheap.
 - **Already pushed / released** — don't fight the immutability. **Cut the next
   patch version** (`vX.Y.(Z+1)`) carrying the fix; that is the intended recovery.
   Force-moving a published tag is a rare escape hatch that needs the user to
