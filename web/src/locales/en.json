@@ -347,7 +347,7 @@
     "nextDiffRoundVersion": "Next diff round / version",
     "nextFile": "Next file",
     "nextThread": "Next thread",
-    "openAOneTimeLocalLinkWith": "Open a one-time local link with r3 open, or create a login token on the server with <code/> and paste it below.",
+    "createALoginTokenOnTheServer": "Create a login token on the server with <code/> and paste it below.",
     "original": "Original",
     "pen": "Pen",
     "previewNotRunning": "Preview not running",
@@ -862,9 +862,6 @@
   "mediaTargetPreview": {
     "loadingSavedFrame": "Loading saved frame…",
     "savedMediaTarget": "Saved media target"
-  },
-  "api": {
-    "localBrowserLinkExpiredOrWasAlready": "Local browser link expired or was already used. Run r3 open again."
   },
   "artifactApi": {
     "missingEventStream": "Missing event stream"

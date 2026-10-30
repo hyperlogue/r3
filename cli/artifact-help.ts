@@ -141,9 +141,11 @@ Use r3 login for remote browser approval, or pipe an API key to r3 login --api-k
 The worker retries temporary connection/refresh failures, including rate limits.
 Rejected credentials require r3 login again.
 Create/publish return stable artifact URLs in text and --json output.
-A loopback-only server needs no login by default; requireLogin=true opts in, and then
-local r3 open prints a one-time browser sign-in link. An external bind, publicUrl,
-allowedHosts, or trusted proxies always require login; requireLogin=false is refused.
+A loopback-only server needs no login by default; requireLogin=true opts in.
+r3 open prints an ordinary browser URL and creates no browser tokens or sessions.
+When login is required, use an existing browser session or sign in normally.
+An external bind, publicUrl, allowedHosts, or trusted proxies always require login;
+requireLogin=false is refused.
 Without login the server refuses proxied requests and creates no login tokens or API
 keys. Remote backends always need r3 login. Host/origin and preview guards always apply. Automatic CLI setup uses a private Unix socket.
 Credentials are saved privately per backend; R3_TOKEN is not a client override.
@@ -160,7 +162,7 @@ confirmation before restarting. Server start/status also report mismatches.
   auth create-key [--label L] [--expires-days N] | list-clients | revoke-client <id> | audit
   auth create-token [--label L] | list-tokens | revoke-token <id> | revoke-token --all
   config show|get|set|unset ...
-  open [artifact-id]                        # print a browser link; sign-in tickets expire in 60s
+  open [artifact-id]                        # print the ordinary browser URL
   server start|stop|status|restart            # local storage and browser server
   worker start|stop|status|restart            # local notification delivery
   start | stop | status | restart            # deprecated aliases; use server <command>
@@ -267,7 +269,7 @@ If the server is newer, prompt the user to upgrade or switch the CLI. Do not res
 
 \`r3 create --kind <kind> <capture flags> [--title T]\` publishes version 1. The preparation guide supplies capture flags. \`--kind\` is required; the kind stays fixed. Share the returned URL.
 
-Share the stable URL returned by create/publish; it contains no expiring sign-in ticket. A loopback-only local server opens it without sign-in by default; servers with login enabled need a signed-in browser. To sign a new browser in to a local server that requires login, the human can run \`r3 open <id>\`; its one-use sign-in ticket lasts 60 seconds and is unsuitable for an agent reply the human may read later.
+Share the stable URL returned by create/publish. A loopback-only local server opens it without sign-in by default; servers with login enabled need a signed-in browser. \`r3 open <id>\` prints the same ordinary URL without creating browser tokens or sessions. When sign-in is required, the human follows the normal sign-in screen.
 
 \`r3 publish <id> <capture flags> [--expected <seq>] [--key K]\` adds a version containing the complete file set or independent patch. Prepare builds before capture. \`--expected\` checks the latest published sequence, not which version you revised; if omitted, r3 reads the latest sequence. On conflict, inspect the newer publication. For a lost-response retry, preserve captured bytes, expected sequence, key, and metadata.
 

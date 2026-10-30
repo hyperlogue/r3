@@ -98,20 +98,17 @@ and pass Host/origin checks, including other local OS users. Boot always returns
 `token:null`; the server never exposes the master credential to browser code.
 
 Create/publish always return stable backend page URLs. Automatic CLI setup obtains
-its API credential through the server's private Unix socket. In protected local
-mode, explicit `r3 open [artifact-id]` requests a random, one-use, 60-second ticket
-for immediate sign-in and prints it in the URL fragment. With login disabled,
-`r3 open` prints an ordinary URL and creates no ticket. Explicitly selected backends
-never acquire a ticket through local discovery.
-The SPA removes that fragment before exchanging it at the guarded
-`/api/auth/local` endpoint for an HttpOnly,
-SameSite=Strict cookie. A rejected ticket may fall back to normal authenticated
-boot with an existing browser session; it grants no access on its own.
-No reusable API/login token enters a browser link or boot.
+its API credential through the server's private Unix socket. `r3 open [artifact-id]`
+prints the ordinary browser URL for both local and explicitly selected backends.
+Opening it uses an existing browser session or the normal sign-in screen when
+login is required; it creates no login token or session. The SPA strips retired
+`#r3-login` fragments before rendering and follows normal authenticated bootstrap.
+The ticket issuer and `/api/auth/local` exchange are removed. Browser links and
+boot carry no API or login credentials.
 The socket's owned directory is 0700 and the socket is 0600. Both peers check
 ownership/types; the server rejects any Origin or Sec-Fetch-Site header. Its
-only operations are credential bootstrap and browser-ticket minting. Startup holds
-the server start lock before replacing an owned stale socket. Application HTTP exposes
+only operations are credential bootstrap and ordinary browser-URL lookup. Startup
+holds the server start lock before replacing an owned stale socket. Application HTTP exposes
 neither private operation. Other local UIDs cannot acquire local credentials;
 processes running as the same OS user remain trusted.
 
@@ -126,8 +123,7 @@ application HTTP diagnostic endpoint is added.
 Ordinary login tokens continue to create revocable browser sessions, Secure at an
 HTTPS edge. The proxy must set X-Forwarded-Proto correctly. Individual revocation
 of the caller's current token is refused; revoke-all remains the escape hatch.
-With login disabled, exchanging an old local sign-in link is a no-op that creates
-no session or token. No-login servers also refuse with 409 to create login tokens,
+No-login servers refuse with 409 to create login tokens,
 API keys, or device codes, to inspect/decide device requests, to exchange device or
 refresh grants, or to sign in with an existing login token: a credential minted
 while access is open would silently remain valid after login is enabled. A loopback

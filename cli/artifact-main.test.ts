@@ -331,7 +331,7 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
   }
 }, 60_000);
 
-test("a protected local server signs browsers in with r3 open and refuses exposure without login", async () => {
+test("r3 open preserves required login without creating tokens and refuses exposure without login", async () => {
   const root = await mkdtemp(join(tmpdir(), "r3-cli-protected-"));
   const directory = join(root, "publication");
   await mkdir(directory);
@@ -399,23 +399,31 @@ test("a protected local server signs browsers in with r3 open and refuses exposu
     expect(await boot.json()).toEqual({ needsAuth: true, token: null, loginRequired: true });
     expect((await fetch(`${origin}/api/artifacts/${artifact.id}`)).status).toBe(401);
 
-    const opened = new URL((await run("open", artifact.id)).output.trim());
-    expect(opened.pathname).toBe(`/${artifact.id}`);
-    const ticket = opened.hash.match(/^#r3-login=(.+)$/)?.[1];
-    expect(ticket).toBeTruthy();
-    const exchange = () =>
-      fetch(`${origin}/api/auth/local`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ticket }),
-      });
-    const signedIn = await exchange();
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const opened = await run("open", artifact.id);
+      expect(opened.code).toBe(0);
+      expect(opened.output.trim()).toBe(link);
+      expect((await fetch(opened.output.trim())).headers.get("set-cookie")).toBeNull();
+    }
+    expect(JSON.parse((await run("auth", "list-tokens", "--json")).output)).toEqual([]);
+    expect((await fetch(`${origin}/api/boot`)).status).toBe(401);
+
+    // Browser sign-in remains explicit; opening URLs leaves that session intact.
+    const login = await run("auth", "create-token", "--label", "Browser");
+    expect(login.code).toBe(0);
+    const signedIn = await fetch(`${origin}/api/auth/login`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ token: login.output.trim() }),
+    });
     expect(signedIn.status).toBe(200);
     const cookie = signedIn.headers.get("set-cookie")!.split(";", 1)[0]!;
     const read = await fetch(`${origin}/api/artifacts/${artifact.id}`, { headers: { cookie } });
     expect(read.status).toBe(200);
-    // The ticket is single use.
-    expect((await exchange()).headers.get("set-cookie")).toBeNull();
+    const reopened = await run("open", artifact.id);
+    expect(reopened.output.trim()).toBe(link);
+    expect((await fetch(reopened.output.trim(), { headers: { cookie } })).status).toBe(200);
+    expect(JSON.parse((await run("auth", "list-tokens", "--json")).output)).toHaveLength(1);
 
     // An explicitly selected backend never inherits automatic-local credentials.
     environment.R3_URL = origin;

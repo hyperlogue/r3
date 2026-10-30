@@ -5,24 +5,18 @@ import { join } from "node:path";
 import { localBootstrap } from "../cli/local-bootstrap.ts";
 import { createArtifactApi } from "./artifact-api.ts";
 import { type ArtifactStorage, openArtifactStorage } from "./artifact-storage.ts";
-import { LocalBrowserAccess } from "./local-access.ts";
 import { startLocalBootstrap } from "./local-bootstrap.ts";
 
 let root: string,
   socket: string,
   storage: ArtifactStorage,
   api: ReturnType<typeof createArtifactApi>,
-  bootstrap: ReturnType<typeof startLocalBootstrap>,
-  browser: LocalBrowserAccess;
-let now = 1000;
+  bootstrap: ReturnType<typeof startLocalBootstrap>;
 beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), "r3-local-bootstrap-"));
   socket = join(root, "private", "bootstrap.sock");
   storage = await openArtifactStorage({ databasePath: join(root, "store.sqlite") });
-  now = 1000;
-  browser = new LocalBrowserAccess(storage.authentication, () => now);
   api = createArtifactApi(storage, {
-    localAccess: browser,
     token: "local-api-secret",
     requireLogin: true,
     version: "test",
@@ -33,7 +27,6 @@ beforeEach(async () => {
     url: "http://localhost:8000",
     publicUrl: "http://localhost:8000",
     token: "local-api-secret",
-    browser,
   });
 });
 afterEach(async () => {
@@ -79,32 +72,16 @@ test("only an owner-only Unix socket supplies automatic local access", async () 
   await expect(localBootstrap(alias, "bootstrap")).rejects.toThrow("owner-only");
 });
 
-test("browser links are bounded one-time grants and expose no reusable credential", async () => {
+test("browser links are stable URLs and create no browser credentials", async () => {
   const result = await localBootstrap<{ url: string }>(socket, "browser", {
     path: "/artifact_example",
   });
-  const url = new URL(result.url),
-    ticket = url.hash.slice("#r3-login=".length);
-  expect(url.pathname).toBe("/artifact_example");
-  expect(result.url).not.toContain("local-api-secret");
-  expect((await http("/api/auth/local", "POST", { ticket }, { origin: "null" })).status).toBe(403);
-  const exchange = await http(
-    "/api/auth/local",
-    "POST",
-    { ticket },
-    { origin: "http://localhost" },
-  );
-  expect(exchange.status).toBe(200);
-  const cookie = exchange.headers.get("set-cookie")!;
-  expect(cookie).toContain("HttpOnly");
-  expect(cookie).toContain("SameSite=Strict");
-  expect((await http("/api/auth/local", "POST", { ticket })).status).toBe(401);
+  expect(result.url).toBe("http://localhost:8000/artifact_example");
   expect(
-    await (await http("/api/boot", "GET", undefined, { cookie: cookie.split(";")[0]! })).json(),
-  ).toEqual({ needsAuth: false, token: null, loginRequired: true });
-  const expired = browser.issue();
-  now += 60_001;
-  expect((await http("/api/auth/local", "POST", { ticket: expired })).status).toBe(401);
+    await localBootstrap<{ url: string }>(socket, "browser", { path: "/artifact_example" }),
+  ).toEqual(result);
+  expect(storage.authentication.listTokens()).toEqual([]);
+  expect((await http("/api/boot")).status).toBe(401);
   await expect(localBootstrap(socket, "browser", { path: "//other.example" })).rejects.toThrow(
     "setup failed",
   );

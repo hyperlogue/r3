@@ -12,7 +12,7 @@ npx skills add hyperlogue/r3 --skill publish-artifacts-to-r3 --global
 
 > 创建一个带有可见性设置的项目创建表单。将其发布到 r3 并分享链接，以便我进行审阅。
 
-准备好后再打开智能体返回的链接即可；Artifact 链接不包含会过期的登录码。本地服务器默认无需登录；如果你开启了登录，运行 `r3 open` 让当前浏览器登录。详见[本地与远程访问](/docs/access/)。
+准备好后再打开智能体返回的链接即可；Artifact 链接不包含会过期的登录码。本地服务器默认无需登录；如果你开启了登录，请使用浏览器登录令牌登录。`r3 open` 会打印普通 URL。详见[本地与远程访问](/docs/access/)。
 
 <!-- visual: workspace -->
 

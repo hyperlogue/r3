@@ -371,9 +371,12 @@ recovery after gaps/restart) and `scripts/test-artifact-sync.ts`
 
 Private local setup is covered by `server/local-bootstrap.test.ts`,
 `cli/artifact-main.test.ts`, and `scripts/test-local-browser.ts`: socket ownership,
-Origin rejection, credential-free boot, one-use ticket expiry/replay, browser cookie
-setup, logout, and automatic CLI setup. `server/client-auth-api.test.ts` and
-`cli/login.test.ts` cover OAuth errors, cache headers and the default poll interval.
+Origin rejection, credential-free boot, stable `r3 open` URLs without token/session
+creation, explicit browser sign-in, retained sessions across repeated opens, logout,
+and automatic CLI setup. `scripts/test-application-startup.ts` checks that retired
+sign-in fragments use normal authentication without a ticket exchange.
+`server/client-auth-api.test.ts` and `cli/login.test.ts` cover OAuth errors, cache
+headers and the default poll interval.
 
 
 ### Thread re-anchoring

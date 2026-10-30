@@ -4,7 +4,7 @@
 
 本地服务器会按需自动启动。它仅监听本机，默认无需登录，因此 Artifact 链接可以直接打开。浏览器首次打开时，r3 会显示一次相关提示；运行 `r3 config set disableLoginNotice true` 可关闭该提示。
 
-`r3 create` 和 `r3 publish` 返回的 Artifact 链接是稳定地址，你可以稍后阅读智能体的回复并打开链接。智能体应分享普通的 Artifact 地址，而不是 `r3 open` 生成的链接。
+`r3 create` 和 `r3 publish` 返回的 Artifact 链接是稳定地址，你可以稍后阅读智能体的回复并打开链接。`r3 open [artifact-id]` 会打印相同的普通 URL，不会创建登录令牌或浏览器会话。
 
 ### 为本地服务器开启登录
 
@@ -17,7 +17,7 @@ r3 config set requireLogin true
 r3 server restart
 ```
 
-然后运行 `r3 open`，打开打印出的一次性链接，即可让当前浏览器登录。链接有效期为 60 秒；持续使用浏览器时，登录会话会保持有效。`r3 config unset requireLogin` 恢复默认设置。
+运行 `r3 auth create-token --label browser`，然后运行 `r3 open`。打开打印出的 URL，将令牌粘贴到登录页面。之后再次打开时会使用现有的浏览器会话。`r3 config unset requireLogin` 恢复默认设置。
 
 ## 连接到远程服务器
 

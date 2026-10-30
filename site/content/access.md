@@ -4,7 +4,7 @@
 
 The local server starts automatically when needed. It listens only on this computer and needs no login by default, so artifact links open directly. The first time a browser opens it, r3 shows a one-time notice about this; `r3 config set disableLoginNotice true` turns it off.
 
-Artifact links from `r3 create` and `r3 publish` are stable: you can read an agent's reply and open its link later. Agents should share the ordinary artifact URL, not an `r3 open` link.
+Artifact links from `r3 create` and `r3 publish` are stable: you can read an agent's reply and open its link later. `r3 open [artifact-id]` prints the same ordinary URL without creating a login token or browser session.
 
 ### Turn on login for the local server
 
@@ -17,7 +17,7 @@ r3 config set requireLogin true
 r3 server restart
 ```
 
-Then run `r3 open` and open the printed one-time link to sign this browser in. The link expires after 60 seconds, and the browser session lasts while you keep using it. `r3 config unset requireLogin` restores the default.
+Run `r3 auth create-token --label browser`, then `r3 open`. Open the printed URL and paste the token into the sign-in screen. Later opens use your existing browser session. `r3 config unset requireLogin` restores the default.
 
 ## Connect to a remote server
 

@@ -6,7 +6,6 @@ import { join } from "node:path";
 import { createArtifactApi } from "./artifact-api.ts";
 import { type ArtifactStorage, openArtifactStorage } from "./artifact-storage.ts";
 import { COOKIE_NAME } from "./auth.ts";
-import { LocalBrowserAccess } from "./local-access.ts";
 
 let root: string, storage: ArtifactStorage, api: ReturnType<typeof createArtifactApi>, now: number;
 beforeEach(async () => {
@@ -127,7 +126,6 @@ test("no-login mode issues no credentials that could outlive the policy", async 
   api = createArtifactApi(storage, {
     token: "unused-api-secret",
     requireLogin: false,
-    localAccess: new LocalBrowserAccess(storage.authentication),
     version: "fixture",
     allowedHost: (host) => host === "r3.example",
   });

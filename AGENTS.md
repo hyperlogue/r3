@@ -56,9 +56,9 @@ opaque preview document → scoped version bytes + trusted r3 runtime
   any external bind, host, public URL, or trusted proxy always requires login and
   refuses `requireLogin=false`. No-login mode refuses forwarded requests, issues no
   credentials, and the browser warns once about it unless `disableLoginNotice`
-  is set. Publication URLs stay stable; `r3 open` needs
-  a one-time sign-in ticket only when local login is required. Browser boot never
-  exposes the API credential. Backend selection is `R3_URL`, nearest project
+  is set. Publication URLs stay stable; `r3 open` prints the ordinary browser URL
+  and uses the configured browser login policy without creating tokens. Browser boot
+  never exposes the API credential. Backend selection is `R3_URL`, nearest project
   `.r3.json`, user `backendUrl`, then automatic local. Saved credentials are keyed
   by the complete normalized URL; `r3 login` supports browser approval or an API key.
   The separate persistent worker opens only private Unix IPC and outgoing backend

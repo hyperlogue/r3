@@ -5,7 +5,6 @@ import { Hono } from "hono";
 import { type ArtifactAuthPolicy, installArtifactAuth } from "./artifact-auth.ts";
 import { createArtifactTables } from "./artifact-schema.ts";
 import { AuthService } from "./auth.ts";
-import { LocalBrowserAccess } from "./local-access.ts";
 
 let db: Database;
 let authentication: AuthService;
@@ -20,7 +19,6 @@ beforeEach(() => {
   policy = {
     token: randomBytes(32).toString("base64url"),
     requireLogin: true,
-    localAccess: new LocalBrowserAccess(authentication),
     version: "test",
     allowedHost: (host) => host === "localhost",
     applicationOrigins: new Set(["https://app.example"]),
@@ -39,6 +37,23 @@ function request(path: string, init: RequestInit = {}) {
 }
 
 describe("artifact application auth boundary", () => {
+  test.each([false, true])(
+    "retired local tickets grant no access with requireLogin=%s",
+    async (requireLogin) => {
+      policy.requireLogin = requireLogin;
+      const response = await request("/api/auth/local", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ticket: "retired-local-ticket" }),
+      });
+      expect(response.status).toBe(requireLogin ? 401 : 404);
+      expect(response.headers.get("set-cookie")).toBeNull();
+      expect(db.query("SELECT COUNT(*) AS n FROM auth_tokens").get()).toEqual({ n: 0 });
+      expect(db.query("SELECT COUNT(*) AS n FROM auth_sessions").get()).toEqual({ n: 0 });
+      expect((await request("/api/boot")).status).toBe(requireLogin ? 401 : 200);
+    },
+  );
+
   test("cookie requests refresh last use only after origin checks and expired cookies cannot log in", async () => {
     policy.requireLogin = true;
     const issued = authentication.createLoginToken("Browser");
@@ -123,15 +138,6 @@ describe("artifact application auth boundary", () => {
       loginNotice: false,
     });
     policy.disableLoginNotice = undefined;
-    expect(
-      (
-        await request("/api/auth/local", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ ticket: policy.localAccess!.issue() }),
-        })
-      ).headers.get("set-cookie"),
-    ).toBeNull();
     expect(db.query("SELECT COUNT(*) AS n FROM auth_tokens").get()).toEqual({ n: 0 });
     expect(db.query("SELECT COUNT(*) AS n FROM auth_sessions").get()).toEqual({ n: 0 });
     const forbidden: Record<string, string>[] = [

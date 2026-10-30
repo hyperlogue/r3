@@ -2,14 +2,12 @@ import { chmodSync, existsSync, lstatSync, rmSync } from "node:fs";
 import { dirname } from "node:path";
 import { privateDirectory } from "../cli/private-state.ts";
 import { artifactJson } from "./artifact-http.ts";
-import type { LocalBrowserAccess } from "./local-access.ts";
 
 export function startLocalBootstrap(options: {
   socket: string;
   url: string;
   publicUrl: string;
   token: string;
-  browser?: LocalBrowserAccess;
 }) {
   privateDirectory(dirname(options.socket));
   if (existsSync(options.socket)) {
@@ -50,7 +48,7 @@ export function startLocalBootstrap(options: {
         )
           return json({ error: "Invalid browser destination" }, 400);
         return json({
-          url: `${options.publicUrl}${destination}${options.browser ? `#r3-login=${options.browser.issue()}` : ""}`,
+          url: `${options.publicUrl}${destination}`,
         });
       } catch {
         return json({ error: "Invalid local request" }, 400);

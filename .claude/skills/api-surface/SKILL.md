@@ -285,9 +285,9 @@ subscriptions; restore requires a fresh publication or subscription.
   fresh API responses with its loaded bundle and offers an explicit refresh.
   Version precedence and direction-specific CLI recovery belong to the
   [remote protocol](../../../docs/artifacts/remote-protocol.md#backend-selection-and-transport).
-  POST `/api/auth/local` exchanges a one-time local ticket for a cookie when login
-  is required; with login disabled it succeeds without minting auth records. Private
-  setup uses Unix IPC, as specified in the remote protocol. All HTTP remains Host/origin gated.
+  Browser login uses POST `/api/auth/login` with an explicitly created login token.
+  The local ticket exchange `/api/auth/local` is retired. Private CLI setup uses
+  Unix IPC, as specified in the remote protocol. All HTTP remains Host/origin gated.
   Application HTML admitted by the login policy may inline that bootstrap plus the current
   `ArtifactDetail`, using the same contracts to seed the initial workspace.
   For HTML artifacts it also embeds the selected version’s immutable file manifest
@@ -394,10 +394,10 @@ Use a distinct harness identity or `R3_AGENT_SESSION` per logical writing agent.
 `--session` only sets its display label; generic watch needs no supplied ID. The client
 registers that session before writes. No
 artifact owner or generic shared agent identity is inferred. Backend selection is `R3_URL`, nearest project `.r3.json`, user `backendUrl`, then
-automatic local. `r3 open [artifact-id]` prints the ordinary address when login is
-disabled or a backend is explicitly selected; protected automatic-local mode
-prints a one-time sign-in link for immediate use. `r3 login` saves credentials for the complete normalized URL;
-`R3_TOKEN` is not a client override.
+automatic local. `r3 open [artifact-id]` prints the ordinary browser address in
+every mode, creating no browser token or session. The browser uses its existing
+session or signs in normally when required. `r3 login` saves credentials for the
+complete normalized URL; `R3_TOKEN` is not a client override.
 
 Create/publish from Claude Code, Codex, or Antigravity makes the publisher the
 fallback. `listen` takes explicit priority; `unlisten` removes the caller's roles.

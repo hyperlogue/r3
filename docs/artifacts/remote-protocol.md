@@ -113,23 +113,21 @@ API credential without OAuth polling. The socket path is announced in daemon.jso
 the credential itself is not. `r3 login` in automatic local mode uses that same setup.
 `create` and `publish` always print the backend's stable page URL unchanged in
 text and JSON. With login disabled, ordinary links work without any browser token,
-ticket, or persisted auth record. Local `r3 open [artifact-id]` also prints the
-ordinary URL. With login required, explicit local `r3 open` instead obtains a
-one-use browser link valid for 60 seconds, suitable for immediate sign-in. The
-browser removes its fragment and exchanges it for a normal HttpOnly session.
-Used or expired tickets can fall back to an existing valid browser session.
-Remote `r3 open` prints the selected backend's ordinary address. Browser boot
-always returns `token:null` and never exposes the API credential.
+ticket, or persisted auth record. `r3 open [artifact-id]` prints the ordinary URL
+for both local and explicitly selected backends without creating browser tokens
+or sessions. When login is required, the browser uses its existing session or
+shows the normal sign-in screen. Retired `#r3-login` fragments are removed before
+rendering and grant no access. Browser boot always returns `token:null` and never
+exposes the API credential.
 
 The private sidecar offers only POST `/api/local/bootstrap` and
 `/api/local/browser { path?: "/" | "/artifact_<id>" | "/review_<id>" }`. The first returns the
-local service URL, public URL and API token; the second returns a browser link.
+local service URL, public URL and API token; the second returns an ordinary browser URL
+without creating any browser credentials, including for older CLI clients.
 These routes exist only on an owned 0600 socket in an owned 0700 directory and
-reject any Origin or Sec-Fetch-Site header. Network POST `/api/auth/local { ticket }`
-consumes an unexpired ticket once and sets the browser session under the usual
-Host/Origin guards when login is required. Failed, expired and replayed tickets
-then return 401. With login disabled, browser setup returns an ordinary URL and
-the exchange endpoint succeeds without creating auth records.
+reject any Origin or Sec-Fetch-Site header. The former network
+POST `/api/auth/local { ticket }` exchange is removed. Browser sign-in uses
+POST `/api/auth/login` under the usual Host/Origin guards.
 
 ## Client authorization
 
