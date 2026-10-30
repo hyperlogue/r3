@@ -106,6 +106,9 @@ return ordinary URLs. The SPA removes the fragment before exchanging it at
 `/api/auth/local` under the normal Host/origin guards. An invalid ticket can fall
 back only to an existing valid browser session. API and reusable login credentials
 never enter browser links or boot.
+Browser-link issuance uses only the private browser operation, without reading or
+saving CLI credentials. A sign-in fragment opened in an existing tab reloads through
+the same bootstrap exchange, including from the sign-in screen.
 
 A valid ticket preserves an existing browser cookie and creates no token or session
 when the browser is already authenticated. Otherwise, the server atomically creates

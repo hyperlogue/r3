@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { createHash } from "node:crypto";
 import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -406,19 +407,34 @@ test("r3 open creates a login token only when signed out and refuses exposure wi
         headers: { "content-type": "application/json", cookie },
         body: JSON.stringify({ ticket: new URL(url).hash.slice("#r3-login=".length) }),
       });
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const opened = await run("open", artifact.id);
-      expect(opened.code).toBe(0);
-      expect(new URL(opened.output.trim()).pathname).toBe(`/${artifact.id}`);
-      expect(new URL(opened.output.trim()).hash.startsWith("#r3-login=")).toBe(true);
-      expect((await fetch(opened.output.trim())).headers.get("set-cookie")).toBeNull();
-      const signedIn = await exchange(opened.output.trim(), browserCookie);
-      expect(signedIn.status).toBe(200);
-      if (attempt === 0) browserCookie = signedIn.headers.get("set-cookie")!.split(";", 1)[0]!;
-      else expect(signedIn.headers.get("set-cookie")).toBeNull();
-      expect(
-        (await fetch(`${origin}/api/boot`, { headers: { cookie: browserCookie } })).status,
-      ).toBe(200);
+    // Browser setup must not depend on the CLI's separate saved API credentials.
+    const credentialPath = join(
+      root,
+      "config",
+      "r3",
+      "credentials",
+      `${createHash("sha256").update(origin).digest("hex")}.json`,
+    );
+    const savedCredential = await Bun.file(credentialPath).text();
+    await writeFile(credentialPath, "invalid credential JSON");
+    try {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const opened = await run("open", artifact.id);
+        expect(opened.code).toBe(0);
+        expect(new URL(opened.output.trim()).pathname).toBe(`/${artifact.id}`);
+        expect(new URL(opened.output.trim()).hash.startsWith("#r3-login=")).toBe(true);
+        expect((await fetch(opened.output.trim())).headers.get("set-cookie")).toBeNull();
+        const signedIn = await exchange(opened.output.trim(), browserCookie);
+        expect(signedIn.status).toBe(200);
+        if (attempt === 0) browserCookie = signedIn.headers.get("set-cookie")!.split(";", 1)[0]!;
+        else expect(signedIn.headers.get("set-cookie")).toBeNull();
+        expect(
+          (await fetch(`${origin}/api/boot`, { headers: { cookie: browserCookie } })).status,
+        ).toBe(200);
+      }
+      expect(await Bun.file(credentialPath).text()).toBe("invalid credential JSON");
+    } finally {
+      await writeFile(credentialPath, savedCredential);
     }
     expect(JSON.parse((await run("auth", "list-tokens", "--json")).output)).toHaveLength(1);
     expect((await fetch(`${origin}/api/boot`)).status).toBe(401);
@@ -446,6 +462,9 @@ test("r3 open creates a login token only when signed out and refuses exposure wi
     environment.R3_URL = origin;
     try {
       await rm(join(root, "config", "r3", "credentials"), { recursive: true, force: true });
+      const remoteOpen = await run("open", artifact.id);
+      expect(remoteOpen.code).toBe(0);
+      expect(remoteOpen.output.trim()).toBe(link);
       const selected = await run("create", "--kind", "files", "--dir", directory, "--no-listen");
       expect(selected.code).not.toBe(0);
       expect(selected.error).toContain("run r3 login");

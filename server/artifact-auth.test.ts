@@ -39,6 +39,24 @@ function request(path: string, init: RequestInit = {}) {
 }
 
 describe("artifact application auth boundary", () => {
+  test("concurrent redemptions of one local ticket mint exactly one token and session", async () => {
+    const ticket = policy.localAccess!.issue();
+    const responses = await Promise.all(
+      Array.from({ length: 16 }, () =>
+        request("/api/auth/local", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ ticket }),
+        }),
+      ),
+    );
+    expect(responses.filter((response) => response.status === 200)).toHaveLength(1);
+    expect(responses.filter((response) => response.status === 401)).toHaveLength(15);
+    expect(responses.filter((response) => response.headers.has("set-cookie"))).toHaveLength(1);
+    expect(db.query("SELECT COUNT(*) AS n FROM auth_tokens").get()).toEqual({ n: 1 });
+    expect(db.query("SELECT COUNT(*) AS n FROM auth_sessions").get()).toEqual({ n: 1 });
+  });
+
   test.each([false, true])(
     "local tickets obey login policy and repeated opens reuse sessions with requireLogin=%s",
     async (requireLogin) => {

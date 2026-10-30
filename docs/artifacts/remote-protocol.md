@@ -119,6 +119,9 @@ The browser removes its `#r3-login` fragment before exchange. A valid existing
 session is reused without replacing its cookie or extending its lifetime;
 otherwise, exchange atomically creates a normal persisted login token and browser
 session. The new token is labeled `Local browser` and appears in access management.
+Browser-link issuance uses only the private browser operation; it neither obtains
+the API credential nor reads or writes the CLI credential store. A same-page
+fragment navigation in an existing tab reloads through the normal exchange.
 Expired or replayed links can fall back to an existing valid browser session.
 No-login and explicitly selected backends print ordinary URLs. Browser boot always
 returns `token:null` and never exposes the API credential.

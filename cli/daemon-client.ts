@@ -138,6 +138,28 @@ export interface ArtifactServerLocation {
   token: string;
   publicUrl: string;
 }
+
+// Discover one live local server before choosing browser setup or API access.
+// Browser setup needs only its private socket, never a saved CLI credential.
+async function discoverLocalServer(): Promise<DaemonInfo & { bootstrapSocket: string }> {
+  let info = readDaemonJson();
+  let health = info ? await probe(info.url) : null;
+  if (!info || !health) {
+    info = await spawnDaemon();
+    health = await probe(info.url);
+  }
+  checkServerCompatibility(health, info.url, true);
+  if (!info.bootstrapSocket)
+    throw new ArtifactCommandError("Restart the local server to enable private local setup");
+  return { ...info, bootstrapSocket: info.bootstrapSocket };
+}
+
+export async function localBrowserUrl(path: string): Promise<string> {
+  const info = await discoverLocalServer();
+  const result = await localBootstrap<{ url: string }>(info.bootstrapSocket, "browser", { path });
+  return result.url;
+}
+
 export async function discoverArtifactServer(forLogin = false): Promise<ArtifactServerLocation> {
   const selected = selectedBackend();
   const credentials = new BackendCredentials();
@@ -154,16 +176,8 @@ export async function discoverArtifactServer(forLogin = false): Promise<Artifact
     }
     return location;
   }
-  let info = readDaemonJson();
-  let health = info ? await probe(info.url) : null;
-  if (!info || !health) {
-    info = await spawnDaemon();
-    health = await probe(info.url);
-  }
-  checkServerCompatibility(health, info.url, true);
+  const info = await discoverLocalServer();
   const url = normalizeBackendUrl(info.url);
-  if (!info.bootstrapSocket)
-    throw new ArtifactCommandError("Restart the local server to enable private local setup");
   const local = await localBootstrap<{ url: string; token: string; publicUrl: string }>(
     info.bootstrapSocket,
     "bootstrap",

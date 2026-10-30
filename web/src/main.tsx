@@ -134,3 +134,9 @@ void main();
 window.addEventListener("pageshow", (event) => {
   if (event.persisted) location.reload();
 });
+
+// Opening a sign-in link for this page may navigate only its fragment. Reload
+// through normal bootstrap so the ticket is removed and exchanged before render.
+window.addEventListener("hashchange", () => {
+  if (location.hash.startsWith("#r3-login=")) location.reload();
+});

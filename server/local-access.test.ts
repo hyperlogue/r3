@@ -27,3 +27,10 @@ test("ticket cleanup and replacing the issuer discard unused links", () => {
   expect(new LocalBrowserAccess(() => now).consume(pending)).toBe(false);
   expect(access.consume(pending)).toBe(true);
 });
+
+test("pending tickets stay bounded and retain the newest 32 links", () => {
+  const access = new LocalBrowserAccess(() => 0);
+  const tickets = Array.from({ length: 33 }, () => access.issue());
+  expect(access.consume(tickets[0]!)).toBe(false);
+  for (const ticket of tickets.slice(1)) expect(access.consume(ticket)).toBe(true);
+});

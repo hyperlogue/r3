@@ -146,6 +146,7 @@ Protected local r3 open prints a one-use sign-in link valid for five minutes.
 Link tickets stay in memory and expire automatically. Opening one reuses a valid
 browser login; only a signed-out browser gets a new persisted login token and session.
 Normal inactivity and session expiry apply. No-login and selected backends use ordinary URLs.
+Browser links work in the current tab; local r3 open needs no saved CLI credentials.
 An external bind, publicUrl, allowedHosts, or trusted proxies always require login;
 requireLogin=false is refused.
 Without login the server refuses proxied requests and creates no login tokens or API

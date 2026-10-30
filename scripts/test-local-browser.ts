@@ -85,7 +85,7 @@ for (const requireLogin of [false, true]) {
       path: `/${artifact.id}`,
     });
     assert.equal(new URL(link.url).hash.startsWith("#r3-login="), requireLogin);
-    await page.command("Page.navigate", { url: "about:blank" });
+    // Opening a link for the page already shown may only change its fragment.
     await page.command("Page.navigate", { url: link.url });
     await eventually(
       () => page.evaluate("document.body.textContent.includes('Private local workspace')"),
@@ -108,11 +108,13 @@ for (const requireLogin of [false, true]) {
         const next = await localBootstrap<{ url: string }>(socket, "browser", {
           path: `/${artifact.id}`,
         });
-        await page.command("Page.navigate", { url: "about:blank" });
         await page.command("Page.navigate", { url: next.url });
         await eventually(
-          () => page.evaluate("document.body.textContent.includes('Private local workspace')"),
-          "reopening retains the existing browser session",
+          () =>
+            page.evaluate(
+              "location.hash === '' && document.body.textContent.includes('Private local workspace')",
+            ),
+          "reopening in the current tab consumes the link and retains the existing session",
         );
       }
       const records = new Database(join(root, "store.sqlite"), { readonly: true });
@@ -145,6 +147,18 @@ for (const requireLogin of [false, true]) {
       );
       assert.equal(await page.evaluate("location.hash"), "");
       assert.equal(await page.evaluate("fetch('/api/artifacts').then(r=>r.status)"), 401);
+      const retry = await localBootstrap<{ url: string }>(socket, "browser", {
+        path: `/${artifact.id}`,
+      });
+      await page.command("Page.navigate", { url: retry.url });
+      await eventually(
+        () =>
+          page.evaluate(
+            "location.hash === '' && document.body.textContent.includes('Private local workspace')",
+          ),
+        "a fresh link in the current tab recovers from the consumed-link error",
+      );
+      assert.equal(storage.authentication.listTokens().length, 2);
     } else {
       await page.command("Page.navigate", { url: "about:blank" });
       await page.command("Page.navigate", { url: link.url });

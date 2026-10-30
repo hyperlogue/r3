@@ -404,6 +404,8 @@ Opening it preserves an existing valid browser session or creates a normal persi
 login token and session for a signed-out browser. No-login and
 explicitly selected backends print ordinary URLs. `r3 login` saves credentials for the
 complete normalized URL; `R3_TOKEN` is not a client override.
+Browser-link issuance does not load or save CLI API credentials. Opening a sign-in
+link in the current tab uses the same exchange as opening it in a new tab.
 
 Create/publish from Claude Code, Codex, or Antigravity makes the publisher the
 fallback. `listen` takes explicit priority; `unlisten` removes the caller's roles.
