@@ -806,7 +806,7 @@ unbound until a comment supplies a version target; it never silently means lates
 There is no separately chosen message context. Historical comments retain their
 recorded reference context.
 
-### Comparing proposed fixes
+### Comparing fixes
 
 An agent comment offers **Compare** when both the thread's immutable original
 target and that comment's explicit fix target are both rendered element locators
@@ -816,7 +816,8 @@ for either target. Each eligible comment identifies its own comparison, includin
 multiple fixes on one thread or two targets in the same version.
 
 Compare slides the artifact off to the left and brings in independently scoped
-Original and Proposed fix previews from the right. Both use the existing preview
+Original and Fix previews from the right. The fix shows an already-published change;
+thread resolution remains a separate human action. Both use the existing preview
 gate, opaque sandbox, native document path, and recorded route. Runtime matching
 reports located, ambiguous, or unavailable elements; stored selectors cannot prove
 that dynamic application state still contains the element. Such a failure keeps

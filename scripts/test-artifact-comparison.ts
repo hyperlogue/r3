@@ -92,7 +92,7 @@ const missing = await storage.conversations.add(artifact.id, {
 });
 await storage.conversations.addComment(missing.id, {
   actor: agent,
-  body: "Proposed a replacement.",
+  body: "Published a replacement.",
   context: { versionSeq: 2, representation: "rendered" },
   target: target("#cta", 2),
 });
@@ -111,7 +111,7 @@ for (const nativeTarget of [{ kind: "artifact" }, { ...target("#cta"), locator: 
 }
 await storage.conversations.add(artifact.id, {
   actor,
-  body: "No proposed fix yet",
+  body: "No fix yet",
   target: target("#cta"),
 });
 const preview = new PreviewHost(storage.artifacts, previewSupport);
@@ -403,7 +403,7 @@ try {
   await shot("comparison-mobile");
   await button("Original");
   assert.equal(await read("document.querySelector('[data-comparison-side=proposed]').inert"), true);
-  await button("Proposed fix");
+  await button("Fix");
   await click('[aria-label="Return to artifact"]');
   await wait(
     "!!document.querySelector('[data-mobile-discussion=sheet]')",

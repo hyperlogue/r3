@@ -327,6 +327,7 @@
     "externalConnectionsBlocked": "已拦截外部连接",
     "files": "文件",
     "files2": "文件 · {{files_length}}",
+    "fix": "修复",
     "foldUnfoldAllFiles": "折叠 / 展开所有文件",
     "foldUnfoldCurrentFile": "折叠 / 展开当前文件",
     "hideDiscussion": "隐藏讨论",
@@ -354,7 +355,6 @@
     "previousDiffRoundVersion": "上一轮差异 / 版本",
     "previousFile": "上一个文件",
     "previousThread": "上一个主题",
-    "proposedFix": "提议的修复",
     "publicationSummary": "发布摘要",
     "publishedContent": "已发布内容",
     "publishedVersions": "已发布版本",
@@ -685,7 +685,7 @@
     "selectParent": "选择父级"
   },
   "comparison": {
-    "compareProposedFix": "对比提议的修复",
+    "compareFix": "对比修复",
     "focus": "聚焦",
     "focusTargets": "聚焦目标",
     "located": "已定位",

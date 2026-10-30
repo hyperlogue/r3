@@ -73,7 +73,7 @@ function resetSamples() {
     threadId: note.id,
     artifactId: comparisonArtifact.id,
     author: { role: "agent", sessionId: "demo-agent" },
-    body: "Adjusted the starting fit. Compare the original and proposed model notes.",
+    body: "Adjusted the starting fit. Compare the original and updated model notes.",
     context: { versionSeq: 2, representation: "rendered" },
     target: {
       kind: "rendered",
@@ -92,7 +92,7 @@ const client = new QueryClient({ defaultOptions: { queries: { retry: false } } }
 const sections = [
   ["threads", "Thread & artifact header"],
   ["threads-cards", "Thread card gallery"],
-  ["comparison", "Compare proposed fixes"],
+  ["comparison", "Compare fixes"],
   ["content", "Files & diffs"],
   ["protection", "Preview protection"],
   ["controls", "Controls & typography"],

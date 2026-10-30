@@ -327,6 +327,7 @@
     "externalConnectionsBlocked": "External connections blocked",
     "files": "Files",
     "files2": "Files · {{files_length}}",
+    "fix": "Fix",
     "foldUnfoldAllFiles": "Fold / unfold all files",
     "foldUnfoldCurrentFile": "Fold / unfold current file",
     "hideDiscussion": "Hide discussion",
@@ -354,7 +355,6 @@
     "previousDiffRoundVersion": "Previous diff round / version",
     "previousFile": "Previous file",
     "previousThread": "Previous thread",
-    "proposedFix": "Proposed fix",
     "publicationSummary": "Publication summary",
     "publishedContent": "Published content",
     "publishedVersions": "Published versions",
@@ -685,7 +685,7 @@
     "selectParent": "Select parent"
   },
   "comparison": {
-    "compareProposedFix": "Compare proposed fix",
+    "compareFix": "Compare fix",
     "focus": "Focus",
     "focusTargets": "Focus targets",
     "located": "Located",

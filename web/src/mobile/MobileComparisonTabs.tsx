@@ -24,7 +24,7 @@ export function MobileComparisonTabs({
           aria-pressed={side === value}
           onClick={() => onChange(value)}
         >
-          {value === "original" ? t("common.original") : t("common.proposedFix")}
+          {value === "original" ? t("common.original") : t("common.fix")}
         </Button>
       ))}
     </fieldset>

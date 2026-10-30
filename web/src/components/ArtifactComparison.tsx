@@ -45,7 +45,7 @@ export function ArtifactComparison({
   }, [active]);
   return (
     <section
-      aria-label={t("comparison.compareProposedFix")}
+      aria-label={t("comparison.compareFix")}
       data-artifact-comparison
       className="flex h-full min-h-0 min-w-0 flex-col bg-neutral-50 dark:bg-neutral-950"
     >
@@ -142,7 +142,7 @@ export function ArtifactComparison({
                 key={`${comparison.commentId}:${name}`}
                 detail={detail}
                 target={comparison[name]}
-                label={name === "original" ? t("common.original") : t("common.proposedFix")}
+                label={name === "original" ? t("common.original") : t("common.fix")}
                 renderPreview={renderPreview}
                 active={active && (!side || side === name)}
                 layout={side ? "single" : stacked ? "stacked" : "split"}
