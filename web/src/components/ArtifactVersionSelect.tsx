@@ -61,7 +61,7 @@ export function ArtifactVersionSelect({
     </span>
   );
   return (
-    <div className={cn("relative flex min-w-0", inline && "w-full flex-col")}>
+    <div className={cn("relative flex min-w-0", inline ? "w-full flex-col" : "-my-[2px]")}>
       <button
         ref={trigger}
         type="button"
