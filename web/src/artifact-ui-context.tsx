@@ -16,6 +16,7 @@ export type ArtifactPageData = Pick<
   | "viewed"
   | "watchers"
   | "download"
+  | "videoUrl"
   | "attachment"
 > &
   Pick<typeof api, "themeStyle">;

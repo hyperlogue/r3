@@ -294,8 +294,8 @@ An upgraded renderer produces new output only for new publications.
 
 File stacks containing Markdown or media defer unopened bodies until they enter
 the viewport or an explicit file jump needs them, even in small artifacts.
-Provisional shells reserve space until document sizing or native media decoding
-arrives; an already measured shell keeps its height while a replacement loads.
+Provisional shells reserve space until document sizing or native media dimensions
+are available; an already measured shell keeps its height while a replacement loads.
 Unmeasured media reserves 80% of the viewport height, matching its maximum fitted
 height, so loading placeholders cannot collapse and start offscreen downloads.
 Reading restoration opens the saved file directly, without loading preceding files.
@@ -311,6 +311,10 @@ out of view. Images reuse their loaded document without a scroll-triggered reloa
 playback continues and paused position, mute state, volume, and playback speed
 survive the scroll. Native video previews start muted; readers can unmute them
 using the player controls. Audio previews retain their audible default.
+Native videos preload metadata through the authenticated resource URL and use
+browser byte-range requests for playback and seeking. They never wait for a
+complete download before creating the player. Metadata settles the fitted card
+height and enables playback; frame capture waits for decoded pixels.
 Unopened previews remain lazy. Explicitly folding a media file, changing
 versions, or leaving the artifact releases its preview; playback state is not
 persisted across those actions. Retention keeps opened previews in memory for the
@@ -1306,9 +1310,12 @@ the display rounds to milliseconds. Seeking alone is not an exact-frame guarante
 Snapshot limits match comment images: 5 MiB and 20 megapixels. Frame evidence has
 no edit/remove action; clearing the draft target removes its draft reference.
 
-Only native raster/video decoding runs in the trusted app, using authenticated
-published bytes and revocable local blob URLs. Executable documents, SVG and other
-media continue through their existing isolated previews. Saved frames use the
+Only native raster/video decoding runs in the trusted app. Raster images use
+authenticated bytes and revocable local blob URLs; videos use the same-origin
+resource route with browser session cookies and byte ranges. Folding, navigation
+and logout detach video sources to cancel transfers and release decoders.
+Executable documents, SVG and other media continue through their existing
+isolated previews. Saved frames use the
 existing authenticated attachment endpoint. The server checks publication and
 media membership, still-image animation, timestamp shape, rectangle bounds, and
 snapshot raster structure; it does not claim to prove a submitted snapshot was

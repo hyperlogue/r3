@@ -195,6 +195,10 @@ export const artifactApi = {
     client().json("PUT", `${artifactApiPath(id)}/viewed`, { key, viewed }),
   download: (id: string, seq: number, path: string) =>
     client().request("GET", `${versionPath(id, seq)}/resource${query({ path })}`),
+  // Native video requests carry the browser session cookie and can seek with
+  // Range. Never put API credentials or preview capabilities in this URL.
+  videoUrl: async (id: string, seq: number, path: string): Promise<string> =>
+    hrefFor(`${versionPath(id, seq)}/resource${query({ path })}`),
   createPreview: (
     id: string,
     seq: number,

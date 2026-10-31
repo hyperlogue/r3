@@ -591,8 +591,13 @@ or remotely erasable while offline.
 
 ### Native media targets
 
-Targetable raster images and videos in files artifacts use authenticated resource
-fetches and revocable local blob URLs in trusted img/video elements. No document
+Targetable raster images in files artifacts use authenticated resource fetches
+and revocable local blob URLs. Native videos use the same-origin resource URL
+with browser session cookies, metadata preload and byte-range requests. URLs carry
+no credentials or preview capabilities; every request retains application
+authentication, origin guards and version membership. Resource responses remain
+attachments with restrictive CSP and nosniff. Video source removal on folding,
+navigation and logout cancels transfers and releases the decoder. No document
 execution is admitted through this path; authored HTML and SVG retain opaque
 preview isolation. Animation is checked before offering/accepting still-image
 targets. Canvas capture stores one full static PNG/JPEG as message-owned immutable

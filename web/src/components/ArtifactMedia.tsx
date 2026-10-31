@@ -18,8 +18,9 @@ import { MediaViewport } from "./MediaViewport.tsx";
 const iconClass =
   "flex size-6 shrink-0 items-center justify-center rounded text-neutral-500 hover:bg-neutral-200 hover:text-neutral-700 focus-visible:outline-2 focus-visible:outline-primary-500 disabled:opacity-40 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200";
 
-// Only decoded raster images and videos enter this component. Authenticated
-// bytes become local blob URLs; no document scripts or resource URLs execute.
+// Only native raster/video decoders enter this component. Videos use the guarded
+// resource route for cookie-authenticated range loading; images use local blobs
+// so animation can be checked before targeting. No document scripts execute.
 export function ArtifactMedia({
   artifactId,
   versionSeq,
@@ -80,8 +81,10 @@ export function ArtifactMedia({
   const saved = useMediaImage(jump?.target.locator.frame);
   const [showSaved, setShowSaved] = useState(false);
   useEffect(() => {
-    onReady?.(ready || !!error);
-  }, [ready, error, onReady]);
+    // Metadata settles layout even if a slow connection is still buffering the
+    // first frame. Capture remains disabled until decoded pixels are available.
+    onReady?.(!!aspectRatio || ready || !!error);
+  }, [aspectRatio, ready, error, onReady]);
   useEffect(() => {
     alive.current = true;
     let cancelled = false;
@@ -90,16 +93,20 @@ export function ArtifactMedia({
     setAspectRatio(undefined);
     setUrl("");
     setError("");
-    void artifactApi
-      .download(artifactId, versionSeq, file.path)
-      .then((response) => response.blob())
-      .then(async (blob) => {
-        const animation =
-          kind === "image" &&
-          animatedImage(new Uint8Array(await blob.arrayBuffer()), file.mediaType);
-        if (cancelled) return;
-        setAnimated(animation);
-        held = URL.createObjectURL(blob);
+    const load = async () => {
+      if (kind === "video") return artifactApi.videoUrl(artifactId, versionSeq, file.path);
+      const blob = await (await artifactApi.download(artifactId, versionSeq, file.path)).blob();
+      const animation = animatedImage(new Uint8Array(await blob.arrayBuffer()), file.mediaType);
+      if (!cancelled) setAnimated(animation);
+      return URL.createObjectURL(blob);
+    };
+    void load()
+      .then((source) => {
+        if (cancelled) {
+          URL.revokeObjectURL(source);
+          return;
+        }
+        held = source;
         setUrl(held);
       })
       .catch((error) => {
@@ -117,7 +124,27 @@ export function ArtifactMedia({
       window.removeEventListener("r3-images-cleared", clear);
       clear();
     };
-  }, [artifactId, versionSeq, file.path, file.mediaType, kind, artifactApi.download]);
+  }, [
+    artifactId,
+    versionSeq,
+    file.path,
+    file.mediaType,
+    kind,
+    artifactApi.download,
+    artifactApi.videoUrl,
+  ]);
+  useEffect(() => {
+    if (!url) return;
+    const element = video.current;
+    if (!element) return;
+    return () => {
+      // Pause alone leaves a range transfer running. Folding, navigation and
+      // logout must release the decoder and cancel its outstanding requests.
+      element.pause();
+      element.removeAttribute("src");
+      element.load();
+    };
+  }, [url]);
   useEffect(() => {
     onSavedFrame?.(showSaved && !!saved.url);
   }, [showSaved, saved.url, onSavedFrame]);
@@ -301,11 +328,12 @@ export function ArtifactMedia({
                   muted={muted}
                   src={url}
                   playsInline
-                  preload="auto"
+                  preload="metadata"
                   className="block w-full"
                   onLoadedMetadata={(event) => {
                     const { videoWidth, videoHeight } = event.currentTarget;
                     if (videoWidth && videoHeight) setAspectRatio(videoWidth / videoHeight);
+                    setDuration(event.currentTarget.duration);
                   }}
                   onLoadedData={() => {
                     setReady(true);
@@ -423,7 +451,7 @@ export function ArtifactMedia({
                 type="button"
                 className={iconClass}
                 aria-label={paused ? t("media.playVideo") : t("media.pauseVideo")}
-                disabled={!ready}
+                disabled={!aspectRatio}
                 onClick={() => {
                   const element = video.current;
                   if (!element) return;
@@ -446,7 +474,7 @@ export function ArtifactMedia({
                 step="0.001"
                 value={displayedTime}
                 aria-label={t("media.videoPosition")}
-                disabled={!ready}
+                disabled={!aspectRatio}
                 className="min-w-0 flex-1 accent-primary-500"
                 onChange={(event) => {
                   setShowSaved(false);

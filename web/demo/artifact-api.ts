@@ -472,6 +472,9 @@ export const artifactApi: typeof productionApi = {
       { headers: { "content-type": file.mediaType, "content-disposition": "attachment" } },
     );
   },
+  // Demo publications live in memory; the viewer releases this local URL.
+  videoUrl: async (id, seq, path) =>
+    URL.createObjectURL(await (await artifactApi.download(id, seq, path)).blob()),
   createPreview: async () =>
     fail(
       "Server preview contexts are unavailable in the static demo. Bundled examples use the demo renderer.",
