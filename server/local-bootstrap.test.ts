@@ -78,10 +78,10 @@ test("only an owner-only Unix socket supplies automatic local access", async () 
 
 test("browser links create a login token only when redeemed by a signed-out browser", async () => {
   const result = await localBootstrap<{ url: string }>(socket, "browser", {
-    path: "/artifact_example",
+    path: "/artifact_Az09_-Az09_-Az09_-Az0",
   });
   const url = new URL(result.url);
-  expect(url.pathname).toBe("/artifact_example");
+  expect(url.pathname).toBe("/artifact_Az09_-Az09_-Az09_-Az0");
   expect(url.hash.startsWith("#r3-login=")).toBe(true);
   expect(storage.authentication.listTokens()).toEqual([]);
   expect((await http("/api/boot")).status).toBe(401);

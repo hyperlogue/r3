@@ -56,7 +56,6 @@ Every version reference includes artifact identity. A sequence such as 2 is mean
 | projects | id | Optional grouping: name, remote_url, created_at. The generated id is identity; a URL or local path is not |
 | project_remotes | remote_key | Unique normalized repository identity mapped to one project; project_id is also unique and cascades on project deletion |
 | artifacts | id | kind, active/archived state, optional project_id, title, meta_json, next_seq, creator role/session, creation/activity/archive times, legacy_json |
-| artifact_id_state | singleton | Durable last allocated 64-bit artifact ID suffix, stored as fixed-width lowercase hex |
 | agent_sessions | id | One logical agent run: optional harness/label and created_at; attribution, not a user account or live connection |
 | artifact_events | seq; unique id | Ordered archive/restore history: artifact_id, operation_key, actor/session, optional archive message, created_at |
 | artifact_versions | artifact_id + seq | kind, publication_key, content_hash, label, summary, provenance_json, publisher role/session, entrypoint or patch_body, file_count, created_at, published_at |
@@ -567,26 +566,16 @@ table removal with the rest of the migration.
 
 ## Schema 17: compact ordered artifact IDs
 
-New artifacts use `artifact_<16 lowercase hex digits>` (25 characters). The
-64-bit suffix combines a 48-bit Unix millisecond timestamp with a 16-bit counter.
-Allocation takes the greater of the current timestamp shifted by 16 bits and the
-last allocated value plus one. Counter overflow advances the logical timestamp;
-it never wraps. `created_at` continues to record the actual server clock.
+Schemas 17–19 generated `artifact_<16 lowercase hex digits>` from a 48-bit Unix
+millisecond timestamp and a 16-bit counter. Allocation used the greater of the
+shifted timestamp and the persisted previous value plus one; counter overflow
+advanced the logical timestamp. The `artifact_id_state` singleton preserved
+allocation order across clock rollback, deletion, and restart.
 
-The singleton `artifact_id_state` row is updated in the same immediate transaction
-as artifact creation. IDs strictly increase in committed creation order within
-one backend, including same-millisecond creation, clock rollback, and restart.
-Deleting artifacts never resets the counter or reuses their IDs. Failed creation
-rolls back allocation with the artifact. These IDs are backend-local identities,
-not credentials, random secrets, or UUIDs; the normal authentication and preview
-capability boundaries still authorize access.
-
-The backup-protected upgrade adds the allocator and seeds it above any retained
-compact IDs without rewriting artifacts, versions, threads, or links. Existing
-UUID-based `artifact_` and imported `review_` IDs remain valid and do not have
-creation-order sorting guarantees. Clients must use `createdAt` for chronological
-ordering across historical formats and must not infer timestamps from IDs.
-
+Schema 20 replaces this allocator with Nano ID and removes its state table.
+Existing compact, UUID-based `artifact_`, and imported `review_` IDs remain
+unchanged. Clients treat every format as opaque and use `createdAt` for
+chronological ordering.
 
 ## Current thread anchors (schema 18)
 
@@ -621,3 +610,25 @@ reset stored state. Deleting artifacts leaves installation onboarding intact.
 
 Fresh stores create the table. Existing artifact stores receive it through the
 normal backed-up schema migration, without changing content or conversation data.
+
+## Schema 20: random artifact IDs
+
+New artifacts use `artifact_` followed by Nano ID's default 21-character,
+case-sensitive URL-safe alphabet (`A–Z`, `a–z`, `0–9`, `_`, `-`), for 30 characters
+in total. The secure generator uses 126 random bits and has no clock or persisted
+sequence dependency. IDs have no chronological ordering guarantee; use `createdAt`
+when ordering artifacts. IDs remain backend-local identities, not credentials;
+normal authentication and preview capability boundaries still authorize access.
+
+Artifact creation attempts the insert inside its existing immediate transaction.
+Only a conflict on the artifact primary key generates another candidate, with at
+most five attempts. Exhaustion returns 503 and rolls back creation, including any
+inferred project and activity writes. Other database errors propagate normally.
+Random collision probability is nonzero; the primary key prevents duplicate stored
+identities, and collision retries never overwrite existing content.
+
+The backup-protected upgrade drops `artifact_id_state`; fresh stores omit it.
+Artifact IDs, versions, conversations, and links are not rewritten. A failed
+upgrade restores the old table with the rest of its transaction. New random IDs
+do not retain the historical allocator's absolute non-reuse guarantee after
+whole-artifact deletion.

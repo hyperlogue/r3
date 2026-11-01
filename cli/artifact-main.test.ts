@@ -400,6 +400,12 @@ test("r3 open creates a login token only when signed out and refuses exposure wi
     expect(await boot.json()).toEqual({ needsAuth: true, token: null, loginRequired: true });
     expect((await fetch(`${origin}/api/artifacts/${artifact.id}`)).status).toBe(401);
 
+    const nanoId = "artifact_Az09_-Az09_-Az09_-Az0";
+    const nanoLink = await run("open", nanoId);
+    expect(nanoLink.code).toBe(0);
+    expect(new URL(nanoLink.output.trim()).pathname).toBe(`/${nanoId}`);
+    expect((await fetch(nanoLink.output.trim())).status).toBe(200);
+
     let browserCookie = "";
     const exchange = (url: string, cookie = "") =>
       fetch(`${origin}/api/auth/local`, {

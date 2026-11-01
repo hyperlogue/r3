@@ -13,7 +13,7 @@ import "../web/src/main.css";
 await loadBoot();
 const [artifact] = await artifactApi.list();
 const artifactId =
-  location.pathname.match(/^\/(artifact_[\w]+)$/)?.[1] ??
+  location.pathname.match(/^\/(artifact_[\w-]+)$/)?.[1] ??
   new URLSearchParams(location.search).get("artifact") ??
   artifact.id;
 function Fixture() {

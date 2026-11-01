@@ -1,5 +1,6 @@
 import type { Database } from "bun:sqlite";
 import { randomUUID } from "node:crypto";
+import { nanoid } from "nanoid";
 import type {
   AgentSession,
   Artifact,
@@ -12,7 +13,6 @@ import type {
   ArtifactVersion,
 } from "../shared/artifacts.ts";
 import { ArtifactAttachments } from "./artifact-attachments.ts";
-import { allocateArtifactId } from "./artifact-ids.ts";
 import { ArtifactProjects, type ProjectGroupingOptions } from "./artifact-projects.ts";
 import {
   ArtifactError,
@@ -129,6 +129,7 @@ export class ArtifactStore {
     private readonly isWatching: (id: string) => boolean = () => false,
     projectGrouping: ProjectGroupingOptions = {},
     private readonly workerRecords?: WorkerRecords,
+    private readonly generateArtifactId: () => string = () => `artifact_${nanoid()}`,
   ) {
     this.attachments = new ArtifactAttachments(db, blobs, clock);
     this.projectStore = new ArtifactProjects(db, clock, projectGrouping);
@@ -263,24 +264,30 @@ export class ArtifactStore {
     const time = this.clock();
     return this.db
       .transaction(() => {
-        const id = allocateArtifactId(this.db, time);
         const projectId = this.projectStore.resolve(body);
-        this.db
-          .query(`INSERT INTO artifacts
+        const insert = this.db.query(`INSERT INTO artifacts
       (id, kind, project_id, title, meta_json, created_by, creator_session_id, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-          .run(
-            id,
-            kind,
-            projectId,
-            title,
-            canonicalJson(meta),
-            author.role,
-            author.sessionId,
-            time,
-            time,
-          );
-        return this.get(id);
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO NOTHING`);
+        // Only ID collisions retry. Other constraints fail normally, and an
+        // exhausted retry rolls back project grouping and all creation effects.
+        for (let attempt = 0; attempt < 5; attempt++) {
+          const id = this.generateArtifactId();
+          if (
+            insert.run(
+              id,
+              kind,
+              projectId,
+              title,
+              canonicalJson(meta),
+              author.role,
+              author.sessionId,
+              time,
+              time,
+            ).changes
+          )
+            return this.get(id);
+        }
+        throw new ArtifactError("Unable to allocate a unique artifact ID", 503);
       })
       .immediate();
   }

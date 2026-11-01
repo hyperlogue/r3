@@ -35,7 +35,11 @@ const snapshot = (html: string): ApplicationBootstrap | null => {
 };
 beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), "r3-bootstrap-"));
-  storage = await openArtifactStorage({ databasePath: join(root, "store.sqlite") });
+  let nextId = 0;
+  storage = await openArtifactStorage({
+    databasePath: join(root, "store.sqlite"),
+    generateArtifactId: () => `artifact_Az09_-Az09_-Az09_-${String(nextId++).padStart(3, "0")}`,
+  });
   previews = new PreviewHost(storage.artifacts, previewSupport);
   token = randomBytes(32).toString("base64url");
   const login = storage.authentication.createLoginToken("bootstrap fixture");

@@ -83,43 +83,61 @@ function legacyNotifications() {
   INSERT INTO artifact_listeners VALUES ('review_retained', 'fallback', 'legacy-fallback', 'legacy-agent', '${time}');
   INSERT INTO artifact_listeners VALUES ('review_retained', 'explicit', 'legacy-explicit', 'legacy-agent', '${time}');`);
 }
+function legacyArtifactIds() {
+  db.exec(`CREATE TABLE artifact_id_state (
+    singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+    last_value TEXT NOT NULL
+      CHECK (length(last_value) = 16 AND last_value NOT GLOB '*[^0-9a-f]*')
+  ) STRICT;
+  INSERT INTO artifact_id_state VALUES (1, '0300000000000000');`);
+}
 describe("atomic artifact schema upgrades", () => {
-  test("version 16 preserves historical IDs and seeds durable compact ID allocation", async () => {
-    const retained = ["artifact_ffffffffffffffffffffffffffffffff", "artifact_0300000000000000"];
-    for (const id of retained)
-      db.query(`INSERT INTO artifacts(id, kind, created_by, created_at, updated_at)
+  test.each([16, 17, 18, 19])(
+    "version %s preserves historical IDs and retires compact ID allocation",
+    async (version) => {
+      const retained = ["artifact_ffffffffffffffffffffffffffffffff", "artifact_0300000000000000"];
+      for (const id of retained)
+        db.query(`INSERT INTO artifacts(id, kind, created_by, created_at, updated_at)
         VALUES (?, 'files', 'human', ?, ?)`).run(id, time, time);
-    db.exec("DROP TABLE artifact_id_state; PRAGMA user_version = 16");
-    const before = db.query("SELECT * FROM artifacts ORDER BY id").all();
-    const result = await upgradeArtifactStore(db, options());
-    expect(result.migrated).toBe(true);
-    expect(db.query("SELECT * FROM artifacts ORDER BY id").all()).toEqual(before);
-    expect(db.query("PRAGMA user_version").get()).toEqual({
-      user_version: ARTIFACT_SCHEMA_VERSION,
-    });
-    const backup = new Database(result.backupPath!, { readonly: true });
-    try {
-      expect(backup.query("PRAGMA user_version").get()).toEqual({ user_version: 16 });
-      expect(backup.query("SELECT * FROM artifacts ORDER BY id").all()).toEqual(before);
+      if (version >= 17) legacyArtifactIds();
+      db.exec(`PRAGMA user_version = ${version}`);
+      const tables = ["artifacts", "artifact_versions", "version_files", "threads", "comments"];
+      const before = tables.map((table) => db.query(`SELECT * FROM ${table}`).all());
+      const result = await upgradeArtifactStore(db, options());
+      expect(result.migrated).toBe(true);
+      expect(tables.map((table) => db.query(`SELECT * FROM ${table}`).all())).toEqual(before);
+      expect(db.query("PRAGMA user_version").get()).toEqual({
+        user_version: ARTIFACT_SCHEMA_VERSION,
+      });
       expect(
-        backup.query("SELECT name FROM sqlite_master WHERE name = 'artifact_id_state'").get(),
+        db.query("SELECT name FROM sqlite_master WHERE name = 'artifact_id_state'").get(),
       ).toBeNull();
-    } finally {
-      backup.close();
-    }
-    const store = new ArtifactStore(db, blobs, render, () => time);
-    expect((await store.readFile("review_retained", 2, "index.md")).toString()).toBe("# Kept");
-    const first = store.create({ kind: "files", actor: { role: "human", sessionId: null } });
-    expect(first.id).toMatch(/^artifact_[0-9a-f]{16}$/);
-    expect(first.id > retained[1]!).toBe(true);
-    db.close();
-    db = new Database(join(root, "store.sqlite"));
-    expect((await upgradeArtifactStore(db, options("unused.sqlite"))).migrated).toBe(false);
-    const reopened = new ArtifactStore(db, blobs, render, () => time);
-    expect(
-      reopened.create({ kind: "files", actor: { role: "human", sessionId: null } }).id > first.id,
-    ).toBe(true);
-  });
+      const backup = new Database(result.backupPath!, { readonly: true });
+      try {
+        expect(backup.query("PRAGMA user_version").get()).toEqual({ user_version: version });
+        expect(tables.map((table) => backup.query(`SELECT * FROM ${table}`).all())).toEqual(before);
+        if (version >= 17)
+          expect(backup.query("SELECT last_value FROM artifact_id_state").get()).toEqual({
+            last_value: "0300000000000000",
+          });
+      } finally {
+        backup.close();
+      }
+      const store = new ArtifactStore(db, blobs, render, () => time);
+      expect((await store.readFile("review_retained", 2, "index.md")).toString()).toBe("# Kept");
+      for (const id of retained) expect(store.get(id).id).toBe(id);
+      const first = store.create({ kind: "files", actor: { role: "human", sessionId: null } });
+      expect(first.id).toMatch(/^artifact_[A-Za-z0-9_-]{21}$/);
+      db.close();
+      db = new Database(join(root, "store.sqlite"));
+      expect((await upgradeArtifactStore(db, options("unused.sqlite"))).migrated).toBe(false);
+      const reopened = new ArtifactStore(db, blobs, render, () => time);
+      expect(reopened.get(first.id)).toEqual(first);
+      expect(
+        reopened.create({ kind: "files", actor: { role: "human", sessionId: null } }).id,
+      ).not.toBe(first.id);
+    },
+  );
 
   test("version 15 discards legacy destinations while preserving content, access, and worker subscriptions", async () => {
     legacyNotifications();
@@ -333,10 +351,14 @@ test("upgrades preserve imported evidence and login state across reopen", async 
 });
 test("failed upgrades roll back schema changes and preserve the private backup", async () => {
   legacyNotifications();
+  legacyArtifactIds();
   db.exec("ALTER TABLE artifacts ADD COLUMN summary TEXT; PRAGMA user_version = 1");
   // An inconsistent old schema forces a failure after the overview column is removed.
   await expect(upgradeArtifactStore(db, options())).rejects.toThrow();
   expect(db.inTransaction).toBe(false);
+  expect(db.query("SELECT last_value FROM artifact_id_state").get()).toEqual({
+    last_value: "0300000000000000",
+  });
   expect(db.query("SELECT summary FROM artifacts").all()).toEqual([{ summary: null }]);
   expect(db.query("PRAGMA user_version").get()).toEqual({ user_version: 1 });
   expect(db.query("SELECT count(*) AS n FROM artifact_listeners").get()).toEqual({ n: 2 });

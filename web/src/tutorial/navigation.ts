@@ -14,6 +14,6 @@ const subscribe = (listener: () => void) => {
 };
 export function useRoute() {
   const path = useSyncExternalStore(subscribe, () => route);
-  const match = path.match(/^\/(artifact_[\w]+)$/);
+  const match = path.match(/^\/(artifact_[\w-]+)$/);
   return { path, artifactId: match?.[1] ?? null };
 }

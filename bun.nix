@@ -321,6 +321,10 @@
     url = "https://registry.npmjs.org/mri/-/mri-1.2.0.tgz";
     hash = "sha512-tzzskb3bG8LvYGFF/mDTpq3jpI6Q9wc3LEmBaghu+DdCssd1FakN7Bc0hVNmEyGq1bq3RgfkCb3cmQLpNPOroA==";
   };
+  "nanoid@6.0.2" = fetchurl {
+    url = "https://registry.npmjs.org/nanoid/-/nanoid-6.0.2.tgz";
+    hash = "sha512-hIvVOb9Qr1p/9CNNLOe0OlWvgx/ziTsVwKN/GDSsuArN2K0wDiafP3s0SWmsm7o2BdnyS8Z9Z64NFBUbn6ziBg==";
+  };
   "oniguruma-parser@0.12.2" = fetchurl {
     url = "https://registry.npmjs.org/oniguruma-parser/-/oniguruma-parser-0.12.2.tgz";
     hash = "sha512-6HVa5oIrgMC6aA6WF6XyyqbhRPJrKR02L20+2+zpDtO5QAzGHAUGw5TKQvwi5vctNnRHkJYmjAhRVQF2EKdTQw==";

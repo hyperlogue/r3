@@ -80,7 +80,7 @@ export function createArtifactApi(
     // fallback after navigation. Never embed private data in that generic shell.
     if (boot.needsAuth) return null;
     const path = new URL(request.url).pathname;
-    const id = /^\/((?:artifact|review)_[\w]+)\/?$/.exec(path)?.[1];
+    const id = /^\/((?:artifact|review)_[\w-]+)\/?$/.exec(path)?.[1];
     let artifact: ArtifactDetail | null = null;
     if (id) {
       try {

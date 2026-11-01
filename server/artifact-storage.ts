@@ -25,6 +25,7 @@ export interface ArtifactStorageOptions {
   contentRoot?: string;
   render?: DocumentRenderer;
   clock?: () => string;
+  generateArtifactId?: () => string;
   isWatching?: (id: string) => boolean;
   projectGrouping?: ProjectGroupingOptions;
   authTokenIdleDays?: number;
@@ -115,6 +116,7 @@ export async function openArtifactStorage(
       options.isWatching,
       options.projectGrouping,
       workerRecords,
+      options.generateArtifactId,
     );
     const conversations = new ArtifactConversations(db, artifacts, clock);
     const authentication = new AuthService(db, clock, options.authTokenIdleDays);

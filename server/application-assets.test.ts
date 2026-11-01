@@ -28,7 +28,12 @@ test("application bytes have frame protections and only artifact routes get the 
   };
   const read = (path: string, options?: RequestInit) =>
     applicationAssetResponse(assets, new Request(`http://localhost${path}`, options));
-  for (const path of ["/", "/artifact_fixture", "/review_imported"]) {
+  for (const path of [
+    "/",
+    "/artifact_fixture",
+    "/review_imported",
+    "/artifact_Az09_-Az09_-Az09_-Az0",
+  ]) {
     const response = read(path);
     expect(response.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
     expect(response.headers.get("x-frame-options")).toBe("DENY");

@@ -45,6 +45,6 @@ export function navigate(route: string, state: Record<string, unknown> = {}) {
 
 export function useRoute(): { path: string; artifactId: string | null } {
   const path = useSyncExternalStore(subscribe, currentRoute, () => "/");
-  const m = path.match(/^\/((?:artifact|review)_[\w]+)\/?$/);
+  const m = path.match(/^\/((?:artifact|review)_[\w-]+)\/?$/);
   return { path, artifactId: m ? m[1] : null };
 }

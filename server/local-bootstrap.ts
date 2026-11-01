@@ -46,7 +46,7 @@ export function startLocalBootstrap(options: {
         const destination = body.path ?? "/";
         if (
           typeof destination !== "string" ||
-          !/^\/(?:(?:artifact|review)_[a-zA-Z0-9_]+)?$/.test(destination)
+          !/^\/(?:(?:artifact|review)_[a-zA-Z0-9_-]+)?$/.test(destination)
         )
           return json({ error: "Invalid browser destination" }, 400);
         return json({

@@ -55,7 +55,12 @@ function directory(
 }
 
 describe("artifact identity", () => {
-  test("compact IDs follow creation order across clock changes and database connections", () => {
+  const pattern = /^artifact_[A-Za-z0-9_-]{21}$/;
+  const generated = "artifact_Az09_-Az09_-Az09_-Az0";
+  const withIds = (generate: () => string) =>
+    new ArtifactStore(db, blobs, renderer, clock, undefined, undefined, undefined, generate);
+
+  test("Nano IDs remain distinct across stalled clocks, rollback and database connections", () => {
     let milliseconds = Date.parse(clock());
     const currentClock = () => new Date(milliseconds).toISOString();
     store = new ArtifactStore(db, blobs, renderer, currentClock);
@@ -67,18 +72,20 @@ describe("artifact identity", () => {
         if (index === 20) milliseconds += 1;
         if (index === 30) milliseconds -= 60_000;
         const artifact = (index % 2 ? store : otherStore).create({ kind: "files", actor: human });
-        expect(artifact.id).toMatch(/^artifact_[0-9a-f]{16}$/);
+        expect(artifact.id).toMatch(pattern);
         expect(artifact.createdAt).toBe(currentClock());
         ids.push(artifact.id);
       }
       expect(new Set(ids).size).toBe(ids.length);
-      expect([...ids].sort()).toEqual(ids);
+      expect(
+        db.query("SELECT name FROM sqlite_master WHERE name = 'artifact_id_state'").get(),
+      ).toBeNull();
     } finally {
       otherDb.close();
     }
   });
 
-  test("deleting every artifact and restarting with an earlier clock never reuses an ID", () => {
+  test("new IDs need no allocation state after deletion and restart", () => {
     const ids = Array.from({ length: 3 }, () => store.create({ kind: "files", actor: human }).id);
     for (const id of ids) store.delete(id);
     db.close();
@@ -86,29 +93,66 @@ describe("artifact identity", () => {
     store = new ArtifactStore(db, blobs, renderer, () => "2026-08-01T00:00:00.000Z");
     expect(store.list()).toEqual([]);
     const next = store.create({ kind: "files", actor: human });
-    expect(next.id > ids.at(-1)!).toBe(true);
+    expect(next.id).toMatch(pattern);
+    expect(ids).not.toContain(next.id);
     expect(next.createdAt).toBe("2026-08-01T00:00:00.000Z");
     for (const id of ids) expect(() => store.get(id)).toThrow("Artifact not found");
   });
 
-  test("failed artifact creation rolls back ID allocation", () => {
-    const state = () => db.query("SELECT * FROM artifact_id_state").get();
-    const before = state();
-    expect(() => store.create({ kind: "files", actor: human, projectId: "missing" })).toThrow();
-    expect(state()).toEqual(before);
-    expect(store.list()).toEqual([]);
-    expect(store.create({ kind: "files", actor: human }).id).toMatch(/^artifact_[0-9a-f]{16}$/);
+  test.each(["files", "html"] as const)(
+    "ID collisions retry without changing existing content (%s)",
+    (kind) => {
+      const existing = store.create({ kind: "files", actor: human, title: "Keep me" });
+      let attempts = 0;
+      store = withIds(() => (++attempts < 3 ? existing.id : generated));
+      const created = store.create({ kind, actor: human, title: "New work" });
+      expect(created.id).toBe(generated);
+      expect(created.kind).toBe(kind);
+      expect(attempts).toBe(3);
+      expect(store.get(existing.id)).toEqual(existing);
+      expect(store.list()).toHaveLength(2);
+      expect(
+        db.query("SELECT count FROM artifact_activity WHERE metric = 'artifactsCreated'").get(),
+      ).toEqual({ count: 2 });
+    },
+  );
+
+  test("repeated collisions fail finitely and roll back inferred projects", () => {
+    const existing = store.create({ kind: "files", actor: human });
+    let attempts = 0;
+    store = withIds(() => {
+      attempts++;
+      return existing.id;
+    });
+    expect(() =>
+      store.create({ kind: "files", actor: human, remoteUrl: "https://example.com/team/repo.git" }),
+    ).toThrow("Unable to allocate a unique artifact ID");
+    expect(attempts).toBe(5);
+    expect(db.inTransaction).toBe(false);
+    expect(store.list()).toEqual([existing]);
+    expect(db.query("SELECT * FROM projects").all()).toEqual([]);
+    expect(db.query("SELECT * FROM project_remotes").all()).toEqual([]);
+    expect(
+      db.query("SELECT count FROM artifact_activity WHERE metric = 'artifactsCreated'").get(),
+    ).toEqual({ count: 1 });
   });
 
-  test("counter overflow carries forward and exhausted IDs fail without wrapping", () => {
-    const boundary = `${Date.parse(clock()).toString(16).padStart(12, "0")}ffff`;
-    db.query("UPDATE artifact_id_state SET last_value = ?").run(boundary);
-    const artifact = store.create({ kind: "files", actor: human });
-    expect(artifact.id > `artifact_${boundary}`).toBe(true);
-    expect(artifact.id).toMatch(/^artifact_[0-9a-f]{16}$/);
-    db.query("UPDATE artifact_id_state SET last_value = 'ffffffffffffffff'").run();
-    expect(() => store.create({ kind: "files", actor: human })).toThrow("ID space is exhausted");
-    expect(store.list().map((item) => item.id)).toEqual([artifact.id]);
+  test("other insert failures propagate without retrying or retaining project writes", () => {
+    db.exec(
+      "CREATE TRIGGER reject_artifact BEFORE INSERT ON artifacts BEGIN SELECT RAISE(ABORT, 'fixture rejected'); END",
+    );
+    let attempts = 0;
+    store = withIds(() => {
+      attempts++;
+      return generated;
+    });
+    expect(() =>
+      store.create({ kind: "files", actor: human, remoteUrl: "https://example.com/team/repo.git" }),
+    ).toThrow("fixture rejected");
+    expect(attempts).toBe(1);
+    expect(store.list()).toEqual([]);
+    expect(db.query("SELECT * FROM projects").all()).toEqual([]);
+    expect(db.query("SELECT * FROM artifact_activity").all()).toEqual([]);
   });
 });
 

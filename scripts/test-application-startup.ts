@@ -23,7 +23,10 @@ const controllerBuild = await Bun.build({
 });
 if (!controllerBuild.success) throw new Error("Authentication controller build failed");
 const root = await mkdtemp(join(tmpdir(), "r3-application-startup-"));
-const storage = await openArtifactStorage({ databasePath: join(root, "store.sqlite") });
+const storage = await openArtifactStorage({
+  databasePath: join(root, "store.sqlite"),
+  generateArtifactId: () => "artifact_Az09_-Az09_-Az09_-Az0",
+});
 storage.onboarding.update({ status: "skipped" });
 const actor = { role: "agent" as const, sessionId: "startup-publisher" };
 storage.artifacts.registerSession({ id: actor.sessionId, label: "Startup publisher" });
@@ -272,7 +275,7 @@ try {
       documentStatus: content.status,
       requestsBeforeVisible: trace.map((r) => ({
         path: r.path
-          .replace(/artifact_\w+/g, ":artifact")
+          .replace(/artifact_[\w-]+/g, ":artifact")
           .replace(/\/__r3_preview\/[^/]+/, "/__r3_preview/:context")
           .replace(/\/api\/previews\/[^/]+/, "/api/previews/:context")
           .replace(/\/chunk-[^/.]+/, "/chunk-[hash]")
