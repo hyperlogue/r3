@@ -34,11 +34,11 @@ type Gesture = {
   color: string;
   width: number;
 };
-const tools: { id: ImageTool; label: AppMessageKey }[] = [
-  { id: "crop", label: "common.crop" },
-  { id: "pen", label: "common.pen" },
-  { id: "arrow", label: "common.arrow" },
-  { id: "rectangle", label: "common.rectangle" },
+const tools: { id: ImageTool; label: AppMessageKey; key: string }[] = [
+  { id: "crop", label: "common.crop", key: "c" },
+  { id: "pen", label: "common.pen", key: "p" },
+  { id: "arrow", label: "common.arrow", key: "a" },
+  { id: "rectangle", label: "common.rectangle", key: "r" },
 ];
 
 export function ImageEditor({
@@ -214,19 +214,28 @@ export function ImageEditor({
           event.target instanceof HTMLElement &&
           event.target.closest("input, textarea, select, [contenteditable=true]");
         if (
+          event.defaultPrevented ||
+          event.nativeEvent.isComposing ||
           field ||
           optimizing ||
           busy ||
           activeGesture.current ||
           event.repeat ||
-          event.altKey ||
-          !(event.ctrlKey || event.metaKey)
+          event.altKey
         )
           return;
         const key = event.key.toLowerCase();
-        if (key === "z" || key === "y") {
+        if (event.ctrlKey || event.metaKey) {
+          if (key === "z" || key === "y") {
+            event.preventDefault();
+            dispatch({ type: key === "y" || event.shiftKey ? "redo" : "undo" });
+          }
+          return;
+        }
+        const nextTool = tools.find((item) => item.key === key);
+        if (nextTool) {
           event.preventDefault();
-          dispatch({ type: key === "y" || event.shiftKey ? "redo" : "undo" });
+          setTool(nextTool.id);
         }
       }}
       className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-5xl overflow-auto rounded-xl border border-neutral-300 bg-white p-4 text-neutral-900 r3-modal backdrop:bg-black/50 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
@@ -270,13 +279,19 @@ export function ImageEditor({
                 key={item.id}
                 disabled={busy}
                 variant={tool === item.id ? "primary" : "default"}
+                aria-label={t(item.label)}
+                aria-keyshortcuts={item.key}
                 aria-pressed={tool === item.id}
+                title={`${t(item.label)} (${item.key.toUpperCase()})`}
                 onClick={() => {
                   cancelGesture();
                   setTool(item.id);
                 }}
               >
                 {t(item.label)}
+                <kbd className="ml-1 font-mono text-[0.625rem] opacity-60">
+                  {item.key.toUpperCase()}
+                </kbd>
               </Button>
             ))}
           </fieldset>
