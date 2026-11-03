@@ -1,4 +1,12 @@
 {
+  "outbox": {
+    "missingThread": "回复的讨论已不可用",
+    "discard": "丢弃",
+    "pending": "正在发送…连接恢复后会自动重试。",
+    "failed": "未发送：{{error}}",
+    "moveToDraft": "移至草稿",
+    "waitForMessages": "请等待排队的消息发送完成。"
+  },
   "usagePopup": {
     "earlierHistoryCoversSurvivingRecordsOnlyComplete": " * 更早的历史仅涵盖幸存记录。自 {{new_Date_stats_completeSince_toLocaleString_u}} ({{stats_timezone}}) 起完整跟踪。",
     "serverTimezone": "（服务器时区）",

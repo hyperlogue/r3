@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 import type { ArtifactReferenceContext, ArtifactTarget } from "../../shared/artifacts.ts";
 import { hasMessageContent } from "../../shared/attachments.ts";
 import { type DraftAttachment, draftImages } from "./attachment-drafts.ts";
+import { outboxPrefix } from "./discussion-outbox.ts";
 
 export interface ArtifactDraft {
   mediaSnapshot?: DraftAttachment;
@@ -315,8 +316,9 @@ if (typeof window !== "undefined")
     try {
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i)!;
-        if (!key.startsWith(slotPrefix)) continue;
-        const draft = JSON.parse(localStorage.getItem(key) ?? "null") as ArtifactDraft | null;
+        if (!key.startsWith(slotPrefix) && !key.startsWith(outboxPrefix)) continue;
+        const value = JSON.parse(localStorage.getItem(key) ?? "null");
+        const draft: ArtifactDraft | null = key.startsWith(outboxPrefix) ? value?.draft : value;
         for (const image of draft?.attachments ?? []) referenced.add(image.id);
         if (draft?.mediaSnapshot) referenced.add(draft.mediaSnapshot.id);
       }

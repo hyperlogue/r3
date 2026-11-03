@@ -1,22 +1,19 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useContext, useRef } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { useRef } from "react";
 import { createPortal, flushSync } from "react-dom";
-import type { ArtifactDetail } from "../../../shared/artifacts.ts";
 import { hasMessageContent } from "../../../shared/attachments.ts";
 import { type ArtifactDraft, artifactDrafts, useArtifactDraft } from "../artifact-drafts.ts";
 import { targetLabel as artifactTargetLabel } from "../artifact-labels.ts";
-import { withSavedComment } from "../artifact-threads.ts";
-import { useArtifactClient } from "../artifact-ui-context.tsx";
-import { draftAttachmentInputs } from "../attachment-drafts.ts";
+import { draftImages } from "../attachment-drafts.ts";
+import { discussionOutbox } from "../discussion-outbox.ts";
 import { useTranslation } from "../i18n.ts";
 import { type ImageInsertion, imageMessageBody } from "../image-placeholders.ts";
-import { prepareThreadMorph, ThreadCreationContext } from "../thread-motion.ts";
+import { prepareThreadMorph } from "../thread-motion.ts";
 import { Button, cn, StrokeIcon } from "../ui.tsx";
 import { useFloatingComposer } from "../useFloatingComposer.ts";
 import { MediaTargetPreview } from "./MediaTargetPreview.tsx";
 import {
   type EditableImage,
-  editableImageInputs,
   MessageAttachments,
   useAttachmentInput,
 } from "./MessageAttachments.tsx";
@@ -38,7 +35,6 @@ export function ArtifactComposer({
   floating?: { left: number; top: number; bottom: number; onClose: () => void };
 }) {
   const { t } = useTranslation();
-  const artifactApi = useArtifactClient();
   const draft = useArtifactDraft(artifactId, commentTo);
   const retiredTarget =
     !commentTo &&
@@ -46,55 +42,25 @@ export function ArtifactComposer({
   const formElement = useRef<HTMLFormElement>(null);
   const textarea = useRef<HTMLTextAreaElement>(null);
   const floatingComposer = useFloatingComposer(floating);
-  const qc = useQueryClient();
-  const showCreated = useContext(ThreadCreationContext);
   const post = useMutation({
+    networkMode: "always",
     mutationFn: async (submitted: ArtifactDraft) => {
-      const attachments = await editableImageInputs(submitted.attachments ?? []);
-      if (commentTo)
-        return artifactApi.comment(commentTo, {
-          body: submitted.body,
-          attachments,
-          operationKey: submitted.operationKey,
-        });
-      else
-        return artifactApi.addThread(artifactId, submitted.body, submitted.target, {
-          attachments,
-          operationKey: submitted.operationKey,
-          mediaSnapshot:
-            submitted.target.kind === "media" && submitted.mediaSnapshot
-              ? (await draftAttachmentInputs([submitted.mediaSnapshot]))[0]
-              : undefined,
-        });
-    },
-    onSuccess: async (saved, submitted) => {
-      let release: (() => void) | undefined;
+      const generation = discussionOutbox.generation;
+      await draftImages.requirePersisted([
+        ...(submitted.attachments ?? []).map((image) => image.id),
+        ...(submitted.target.kind === "media" && submitted.mediaSnapshot
+          ? [submitted.mediaSnapshot.id]
+          : []),
+      ]);
+      if (!commentTo && submitted.operationKey)
+        prepareThreadMorph(formElement.current, submitted.operationKey);
       let cleared = false;
-      // Do not let an older in-flight read replace the acknowledged note.
-      await qc.cancelQueries({ queryKey: ["artifact", artifactId], exact: true });
-      if ("threadId" in saved) {
-        flushSync(() => {
-          qc.setQueryData<ArtifactDetail>(["artifact", artifactId], (current) =>
-            current ? withSavedComment(current, saved) : current,
-          );
-          cleared = artifactDrafts.clearIfCurrent(artifactId, submitted, commentTo);
-        });
-      } else {
-        const current = artifactDrafts.get(artifactId) === submitted;
-        if (current) prepareThreadMorph(formElement.current, saved.id);
-        flushSync(() => {
-          if (current) release = showCreated?.(saved);
-          qc.setQueryData<ArtifactDetail>(["artifact", artifactId], (current) =>
-            !current || current.threads.some((note) => note.id === saved.id)
-              ? current
-              : { ...current, threads: [...current.threads, saved] },
-          );
-          cleared = artifactDrafts.clearIfCurrent(artifactId, submitted);
-        });
-      }
+      flushSync(() => {
+        discussionOutbox.enqueue(artifactId, submitted, commentTo, generation);
+        cleared = artifactDrafts.clearIfCurrent(artifactId, submitted, commentTo);
+      });
+      artifactDrafts.flush();
       if (cleared) onDone?.();
-      void qc.invalidateQueries({ queryKey: ["artifact", artifactId] }).finally(() => release?.());
-      void qc.invalidateQueries({ queryKey: ["artifacts"] });
     },
   });
   const changeImages = (

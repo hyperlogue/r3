@@ -102,8 +102,8 @@ try {
   await page.evaluate(`window.threadMotions=[]; window.KeyframeEffect=class extends KeyframeEffect {
     constructor(target,frames,options) {
       super(target,frames,options);
-      if(target?.matches('[data-artifact-thread]') && Array.isArray(frames) && frames.some(f=>f.height))
-        window.threadMotions.push({id:target.dataset.artifactThread,frames,options});
+      if(target?.matches('[data-outgoing-message]') && Array.isArray(frames) && frames.some(f=>f.height))
+        window.threadMotions.push({id:target.dataset.outgoingMessage,frames,options});
     }
   }`);
   const input =
@@ -133,7 +133,7 @@ try {
     "composer-to-card height transition",
   );
   const motion = await page.evaluate("window.threadMotions.at(-1)");
-  assert.equal(motion.id, postedId);
+  assert.ok(motion.id);
   assert.equal(motion.options.duration, 280);
   assert.equal(motion.frames[0].transform, "translate(0px, 0px)");
 
@@ -141,7 +141,7 @@ try {
   await add("Event stream arrives before POST");
   await eventually(
     () =>
-      page.evaluate(`!!(${input}) && ${firstText}?.includes('Event stream arrives before POST')`),
+      page.evaluate(`!(${input}) && ${firstText}?.includes('Event stream arrives before POST')`),
     "early event-stream read",
   );
   const comment = await api.app.request(`http://localhost/api/threads/${postedId}/comments`, {
@@ -165,9 +165,9 @@ try {
   await saved("Event stream arrives before POST", 3, earlyText);
   assert(await page.evaluate(`${earlyText}?.includes('Concurrent agent comment')`));
   assert(await page.evaluate(`${firstText}?.includes('First saved note')`));
-  await eventually(
-    () => page.evaluate(`window.threadMotions.some(m=>m.id===${JSON.stringify(postedId)})`),
-    "early card still morphs",
+  assert.ok(
+    await page.evaluate("window.threadMotions.length >= 2"),
+    "queued notes morph before acknowledgment",
   );
 
   mode = "fail";
@@ -175,11 +175,15 @@ try {
   await eventually(
     () =>
       page.evaluate(
-        "document.querySelector('[data-artifact-composer] [role=alert]')?.textContent.includes('Please retry')",
+        "document.querySelector('[data-outgoing-message] [role=status]')?.textContent.includes('Please retry')",
       ),
     "failed save",
   );
-  assert.equal(await page.evaluate(`${input}.value`), "Retain this failed draft");
+  assert.ok(
+    await page.evaluate(
+      "document.querySelector('[data-outgoing-message]')?.textContent.includes('Retain this failed draft')",
+    ),
+  );
   assert.equal(
     await page.evaluate("document.querySelectorAll('[data-discussion-list] > article').length"),
     3,
@@ -189,7 +193,9 @@ try {
     features: [{ name: "prefers-reduced-motion", value: "reduce" }],
   });
   await page.evaluate("window.threadMotions=[]");
-  await page.evaluate(`${input}.form.requestSubmit()`);
+  await page.evaluate(
+    "[...document.querySelectorAll('[data-outgoing-message] button')].find(button => button.textContent === 'Retry').click()",
+  );
   await saved("Retain this failed draft", 4);
   assert.deepEqual(await page.evaluate("window.threadMotions"), []);
   assert.equal(storage.conversations.list(artifact.id).length, 4);
@@ -263,12 +269,13 @@ try {
     () => other.evaluate(`${commentInput}?.value === ''`),
     "posted comment clears the other tab's draft",
   );
-  assert.equal(
-    storage.conversations
-      .list(artifact.id)
-      .find((note) => note.id === thread.id)
-      ?.comments.at(-1)?.body,
-    "Independent shared comment",
+  await eventually(
+    async () =>
+      storage.conversations
+        .list(artifact.id)
+        .find((note) => note.id === thread.id)
+        ?.comments.at(-1)?.body === "Independent shared comment",
+    "queued comment saved",
   );
   console.log(
     "Thread creation: save/morph, early SSE and concurrent comment, retry, reduced motion, shared drafts across tabs, last saved edit, reload, discard, and comment cleanup passed.",

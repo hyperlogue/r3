@@ -1,4 +1,12 @@
 {
+  "outbox": {
+    "missingThread": "Reply to an unavailable thread",
+    "discard": "Discard",
+    "pending": "Sending… Will retry automatically when connected.",
+    "failed": "Not sent: {{error}}",
+    "moveToDraft": "Move to draft",
+    "waitForMessages": "Wait for queued messages to finish sending."
+  },
   "usagePopup": {
     "earlierHistoryCoversSurvivingRecordsOnlyComplete": " * Earlier history covers surviving records only. Complete tracking since {{new_Date_stats_completeSince_toLocaleString_u}} ({{stats_timezone}}).",
     "serverTimezone": "(server timezone)",

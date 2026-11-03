@@ -2,6 +2,7 @@ import { createContext, type ReactNode, type RefObject, useContext } from "react
 import type { ArtifactDetail } from "../../shared/artifacts.ts";
 import type { api } from "./api.ts";
 import type { artifactApi } from "./artifact-api.ts";
+import { useDiscussionOutbox } from "./discussion-outbox-ui.tsx";
 
 // Type-only references keep the HTTP clients out of the reusable UI bundle.
 // The same contracts are implemented by the connected app and in-memory hosts.
@@ -64,6 +65,7 @@ export function ArtifactUIProvider({
   value: ArtifactUIEnvironment;
   children: ReactNode;
 }) {
+  useDiscussionOutbox(value.client);
   return <Environment value={value}>{children}</Environment>;
 }
 export function useArtifactUI(): ArtifactUIEnvironment {

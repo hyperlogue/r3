@@ -558,12 +558,29 @@ exact inputs stay in memory for the current visit. This confirmation never stamp
 server threads as read. Failed or absent delivery remains retryable. Disabled send
 reasons remain in the button tooltip. The draft badge shares the filter row, so
 typing does not add a row or shift the composer. General notes open on demand as
-the first pending card in the same scrolling list as threads. After the server
-confirms a new note, its returned record enters the cache immediately and replaces
-the composer at the top. The outgoing composer crossfades into the saved card while
-its height eases to fit; Cancel and Discard keep the ordinary removal animation.
-Reduced motion skips the transition. Failed saves retain the draft. Event-stream
-reads that arrive before the POST response cannot duplicate or overwrite the note.
+the first pending card in the same scrolling list as threads. Posting a note or reply
+first persists an origin-local outbox operation, then clears the submitted draft
+and displays the queued message immediately. A new-note composer crossfades into
+the queued card; reduced motion skips the transition. Storage failure leaves the
+draft intact. Server acknowledgment replaces the queued message with the returned
+record without overwriting newer comments or edits from event-stream reads.
+
+The outbox retains the exact operation key, body, native target, and image references
+across navigation and reload. Image bytes must be persisted before acceptance and
+remain protected from draft-image cleanup while queued. Network failures, timeouts,
+HTTP 408/429 and server errors retry with capped exponential backoff; the browser's
+online event retries immediately. Replies to a thread send in order. Retries reuse
+the operation key, so losing the response after commit cannot duplicate a post.
+Web Locks coordinate tabs when available; server idempotency also protects replay.
+Other rejections remain visible with Retry, Move to draft, and Discard; restoring a
+failed message never overwrites a populated draft. Replies whose thread disappeared
+remain visible in the discussion. Queued messages block Send to agent until saved
+or recovered. Logout and artifact deletion clear the corresponding outbox work;
+late failures cannot resurrect it. Sending runs while the app is open and resumes
+after authenticated startup; this does not provide offline application startup or
+a service worker that sends after all tabs close. Resolve/Reopen retain their
+existing optimistic status overlay and rollback behavior.
+
 Agent messages keep their attribution inside tinted bubbles; human messages omit
 the redundant author label. General thread has no location heading. Card target
 and fix labels omit the version only for the latest publication;

@@ -1,13 +1,6 @@
 import { type AutoAnimationPlugin, getTransitionSizes } from "@formkit/auto-animate";
-import { createContext, useLayoutEffect, useRef } from "react";
-import type { ArtifactThread } from "../../shared/artifacts.ts";
+import { useLayoutEffect, useRef } from "react";
 import { prefersReduced } from "./ui.tsx";
-
-// Keep the confirmed card and the departing composer in one React commit, even
-// before the query observer delivers its next snapshot. Release after refetch.
-export const ThreadCreationContext = createContext<
-  ((threads: ArtifactThread) => () => void) | null
->(null);
 
 const threadMorphs = new Map<
   string,
@@ -21,9 +14,9 @@ const threadMorphs = new Map<
   }
 >();
 
-// Capture once, after the server confirms the new note. Only an inline new-note
-// composer shares a list slot with the card; floating composers and comments keep
-// their existing behavior. An early event-stream read may already contain the ID.
+// Capture once, when the new note enters the durable outbox. Only an inline new-note
+// composer shares a list slot with the queued card; floating composers and comments keep
+// their existing behavior.
 export function prepareThreadMorph(form: HTMLFormElement | null, threadId: string): void {
   const draft = form?.closest<HTMLElement>("[data-discussion-draft]");
   const list = draft?.parentElement;
@@ -44,7 +37,10 @@ export function prepareThreadMorph(form: HTMLFormElement | null, threadId: strin
 // and translate between measured positions when the working queue reorders.
 export const threadAnimation: AutoAnimationPlugin = (element, action, before, after) => {
   const reduce = prefersReduced() || !!element.closest("[data-discussion-queue][inert]");
-  const id = element instanceof HTMLElement ? element.dataset.artifactThread : undefined;
+  const id =
+    element instanceof HTMLElement
+      ? (element.dataset.artifactThread ?? element.dataset.outgoingMessage)
+      : undefined;
   const morph = id && threadMorphs.get(id);
   const destination = action === "add" ? before : after;
   if (morph && destination && action !== "remove" && element.parentElement === morph.list) {

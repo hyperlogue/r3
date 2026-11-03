@@ -158,6 +158,17 @@ export class DraftImageStore {
     if (!record) throw new Error(t("attachmentDrafts.thisDraftImageIsUnavailableRemoveIt"));
     return record.blob;
   }
+  async requirePersisted(ids: string[]): Promise<void> {
+    if (!ids.length) return;
+    const db = await this.open();
+    const tx = db.transaction(["images", "state"]);
+    const [suspended, ...records] = await Promise.all([
+      request(tx.objectStore("state").get("suspended")),
+      ...ids.map((id) => request(tx.objectStore("images").get(id))),
+    ]);
+    if (this.suspended || suspended || records.some((record) => !record))
+      throw new Error("Images could not be saved for retry. Your draft has been kept.");
+  }
   async clear(artifactId?: string) {
     this.generation++;
     if (!artifactId) this.suspended = true;

@@ -27,12 +27,12 @@ import { targetLabel as artifactTargetLabel, hasHistoricalTarget } from "../arti
 import { useOptimisticArtifact, useThreadStatus } from "../artifact-thread-status.ts";
 import { activeArtifactThreads, artifactNeedsAttention } from "../artifact-threads.ts";
 import { useArtifactClient } from "../artifact-ui-context.tsx";
+import { PendingMessages, useOutgoingCount } from "../discussion-outbox-ui.tsx";
 import { t, useTranslation } from "../i18n.ts";
 import { type ImageInsertion, imageMessageBody } from "../image-placeholders.ts";
 import { useKeyBindings } from "../keys.ts";
 import type { MessageRef } from "../markdown.ts";
 import {
-  ThreadCreationContext,
   threadAnimation,
   useThreadFocusIndicator,
   useThreadTabIndicator,
@@ -644,6 +644,12 @@ export const ArtifactThreadCard = memo(function ArtifactThreadCard({
           </div>
         ),
       )}
+      <PendingMessages
+        artifactId={thread.artifactId}
+        threadId={thread.id}
+        readOnly={readOnly}
+        onJumpRef={onJumpRef}
+      />
       {error && (
         <p role="alert" className="mt-2 text-xs text-red-600 dark:text-red-400">
           {error.message}
@@ -806,27 +812,13 @@ export function ArtifactThreads({
 }) {
   const { t } = useTranslation();
   detail = useOptimisticArtifact(detail);
+  const outgoingCount = useOutgoingCount(detail.id);
   const panel = useRef<HTMLElement>(null);
   const [localTab, setLocalTab] = useState<ArtifactThreadTab>("active");
   const tab = controlledTab ?? localTab;
   const setTab = onTabChange ?? setLocalTab;
   const tabsId = useId();
-  const [created, setCreated] = useState<ArtifactThread | null>(null);
-  const showCreated = useCallback(
-    (threads: ArtifactThread) => {
-      setCreated(threads);
-      setTab("active");
-      return () => setCreated((current) => (current?.id === threads.id ? null : current));
-    },
-    [setTab],
-  );
-  const notes = useMemo(
-    () =>
-      created?.artifactId === detail.id && !detail.threads.some((note) => note.id === created.id)
-        ? [...detail.threads, created]
-        : detail.threads,
-    [created, detail.id, detail.threads],
-  );
+  const notes = detail.threads;
   const indicator = useThreadTabIndicator(tab);
   useEffect(() => {
     // Deleted threads have no comment destination. Reap only missing membership;
@@ -1074,52 +1066,57 @@ export function ArtifactThreads({
           className="flex h-full transition-transform duration-[220ms] ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none"
           style={{ transform: tab === "active" ? "translateX(0)" : "translateX(-100%)" }}
         >
-          <ThreadCreationContext.Provider value={showCreated}>
-            {(["active", "resolved"] as const).map((queue) => (
-              <ThreadQueue
-                key={queue}
-                tab={queue}
-                tabsId={tabsId}
-                selected={tab === queue}
-                activeThread={activeThread}
-                empty={
-                  queue === "active" ? active.length === 0 && !noteOpen : resolved.length === 0
-                }
-              >
-                {queue === "active" && noteOpen && (
-                  <div key="composer" data-discussion-draft>
-                    {composer ?? (
-                      <ArtifactComposer
-                        artifactId={detail.id}
-                        readOnly={detail.state !== "active"}
-                      />
-                    )}
-                  </div>
-                )}
-                {(queue === "active" ? queues.active : queues.resolved).map((threads) => (
-                  <ArtifactThreadCard
-                    key={threads.id}
-                    thread={threads}
-                    readOnly={detail.state !== "active"}
-                    agentLabels={detail.agentLabels}
-                    context={context}
-                    artifactKind={detail.kind}
-                    latestVersionSeq={detail.versions.at(-1)?.seq ?? null}
-                    onLocate={locate}
-                    onFocus={onFocusThread}
-                    onJumpRef={onJumpRef}
-                    visible={tab === queue && included(threads)}
-                    hidden={!included(threads)}
-                    comparisons={comparisons}
-                    onCompare={onCompare}
-                    active={tab === queue && activeThread === threads.id}
-                    activeCommentId={activeThread === threads.id ? activeCommentId : null}
-                    onResolved={afterResolve}
-                  />
-                ))}
-              </ThreadQueue>
-            ))}
-          </ThreadCreationContext.Provider>
+          {(["active", "resolved"] as const).map((queue) => (
+            <ThreadQueue
+              key={queue}
+              tab={queue}
+              tabsId={tabsId}
+              selected={tab === queue}
+              activeThread={activeThread}
+              empty={
+                queue === "active"
+                  ? active.length === 0 && !noteOpen && outgoingCount === 0
+                  : resolved.length === 0
+              }
+            >
+              {queue === "active" && noteOpen && (
+                <div key="composer" data-discussion-draft>
+                  {composer ?? (
+                    <ArtifactComposer artifactId={detail.id} readOnly={detail.state !== "active"} />
+                  )}
+                </div>
+              )}
+              {queue === "active" && (
+                <PendingMessages
+                  artifactId={detail.id}
+                  onJumpRef={onJumpRef}
+                  knownThreads={detail.threads.map((thread) => thread.id)}
+                  readOnly={detail.state !== "active"}
+                />
+              )}
+              {(queue === "active" ? queues.active : queues.resolved).map((threads) => (
+                <ArtifactThreadCard
+                  key={threads.id}
+                  thread={threads}
+                  readOnly={detail.state !== "active"}
+                  agentLabels={detail.agentLabels}
+                  context={context}
+                  artifactKind={detail.kind}
+                  latestVersionSeq={detail.versions.at(-1)?.seq ?? null}
+                  onLocate={locate}
+                  onFocus={onFocusThread}
+                  onJumpRef={onJumpRef}
+                  visible={tab === queue && included(threads)}
+                  hidden={!included(threads)}
+                  comparisons={comparisons}
+                  onCompare={onCompare}
+                  active={tab === queue && activeThread === threads.id}
+                  activeCommentId={activeThread === threads.id ? activeCommentId : null}
+                  onResolved={afterResolve}
+                />
+              ))}
+            </ThreadQueue>
+          ))}
         </div>
       </div>
       <ArtifactHandoffNotice handoff={handoff} />

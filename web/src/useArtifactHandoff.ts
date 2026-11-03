@@ -5,6 +5,7 @@ import { useArtifactDraftCount } from "./artifact-drafts.ts";
 import { useDiscussionHandoffReceipt } from "./artifact-handoff.ts";
 import { useThreadStatusPending } from "./artifact-thread-status.ts";
 import { useArtifactClient } from "./artifact-ui-context.tsx";
+import { useOutgoingCount } from "./discussion-outbox-ui.tsx";
 import { useTranslation } from "./i18n.ts";
 import { useCopyFlash } from "./ui.tsx";
 
@@ -17,6 +18,7 @@ export function useArtifactHandoff(detail: ArtifactDetail) {
   const mutationKey = ["artifact-handoff", detail.id];
   const isPending = useIsMutating({ mutationKey }) > 0;
   const draftCount = useArtifactDraftCount(detail.id);
+  const outgoing = useOutgoingCount(detail.id);
   const savingStatus = useThreadStatusPending(detail.id);
   const comments = useMemo(
     () => detail.events.flatMap((event) => (event.comment ? [event.comment] : [])),
@@ -35,21 +37,23 @@ export function useArtifactHandoff(detail: ArtifactDetail) {
   const disabledReason =
     detail.state === "archived"
       ? t("useArtifactHandoff.restoreTheArtifactToSendComments")
-      : loadingWatchers
-        ? t("useArtifactHandoff.checkingForAnAgent")
-        : !watchers.length
-          ? null
-          : savingStatus
-            ? t("useArtifactHandoff.savingThreadStatus")
-            : draftCount
-              ? t("useArtifactHandoff.postOrDiscardDraftsBeforeSendingComments")
-              : !pending
-                ? t("useArtifactHandoff.noNewCommentsOrStatusChangesTo")
-                : receipt.hashes === null
-                  ? t("useArtifactHandoff.checkingPendingComments")
-                  : receipt.covered
-                    ? t("useArtifactHandoff.alreadySentAddOrUpdateAComment")
-                    : null;
+      : outgoing
+        ? t("outbox.waitForMessages")
+        : loadingWatchers
+          ? t("useArtifactHandoff.checkingForAnAgent")
+          : !watchers.length
+            ? null
+            : savingStatus
+              ? t("useArtifactHandoff.savingThreadStatus")
+              : draftCount
+                ? t("useArtifactHandoff.postOrDiscardDraftsBeforeSendingComments")
+                : !pending
+                  ? t("useArtifactHandoff.noNewCommentsOrStatusChangesTo")
+                  : receipt.hashes === null
+                    ? t("useArtifactHandoff.checkingPendingComments")
+                    : receipt.covered
+                      ? t("useArtifactHandoff.alreadySentAddOrUpdateAComment")
+                      : null;
   const mutation = useMutation({
     mutationKey,
     mutationFn: async () => {
