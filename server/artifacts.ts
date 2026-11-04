@@ -1,6 +1,6 @@
 import type { Database } from "bun:sqlite";
 import { randomUUID } from "node:crypto";
-import { nanoid } from "nanoid";
+import { customAlphabet } from "nanoid";
 import type {
   AgentSession,
   Artifact,
@@ -34,6 +34,13 @@ import {
   validatePublication,
 } from "./publication.ts";
 import type { WorkerRecords } from "./worker-records.ts";
+
+// Alphanumeric suffixes keep IDs selectable as one word; 22 characters retain
+// at least the default Nano ID entropy (126 bits).
+const artifactNanoid = customAlphabet(
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789",
+  22,
+);
 
 type ArtifactRow = {
   id: string;
@@ -129,7 +136,7 @@ export class ArtifactStore {
     private readonly isWatching: (id: string) => boolean = () => false,
     projectGrouping: ProjectGroupingOptions = {},
     private readonly workerRecords?: WorkerRecords,
-    private readonly generateArtifactId: () => string = () => `artifact_${nanoid()}`,
+    private readonly generateArtifactId: () => string = () => `artifact_${artifactNanoid()}`,
   ) {
     this.attachments = new ArtifactAttachments(db, blobs, clock);
     this.projectStore = new ArtifactProjects(db, clock, projectGrouping);

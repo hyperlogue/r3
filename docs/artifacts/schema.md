@@ -613,11 +613,12 @@ normal backed-up schema migration, without changing content or conversation data
 
 ## Schema 20: random artifact IDs
 
-New artifacts use `artifact_` followed by Nano ID's default 21-character,
-case-sensitive URL-safe alphabet (`A–Z`, `a–z`, `0–9`, `_`, `-`), for 30 characters
-in total. The secure generator uses 126 random bits and has no clock or persisted
-sequence dependency. IDs have no chronological ordering guarantee; use `createdAt`
-when ordering artifacts. IDs remain backend-local identities, not credentials;
+New artifacts use `artifact_` followed by 22 case-sensitive alphanumeric
+characters (`A–Z`, `a–z`, `0–9`), generated with Nano ID's secure custom alphabet,
+for 31 characters in total. This keeps IDs selectable as one word and provides
+about 131 bits of entropy, with no clock or persisted sequence dependency.
+Previously generated IDs using the default URL-safe alphabet remain valid. IDs
+have no chronological ordering guarantee; use `createdAt` when ordering artifacts. IDs remain backend-local identities, not credentials;
 normal authentication and preview capability boundaries still authorize access.
 
 Artifact creation attempts the insert inside its existing immediate transaction.

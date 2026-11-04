@@ -127,7 +127,7 @@ describe("atomic artifact schema upgrades", () => {
       expect((await store.readFile("review_retained", 2, "index.md")).toString()).toBe("# Kept");
       for (const id of retained) expect(store.get(id).id).toBe(id);
       const first = store.create({ kind: "files", actor: { role: "human", sessionId: null } });
-      expect(first.id).toMatch(/^artifact_[A-Za-z0-9_-]{21}$/);
+      expect(first.id).toMatch(/^artifact_[A-Za-z0-9]{22}$/);
       db.close();
       db = new Database(join(root, "store.sqlite"));
       expect((await upgradeArtifactStore(db, options("unused.sqlite"))).migrated).toBe(false);
