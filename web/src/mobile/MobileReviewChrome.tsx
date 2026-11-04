@@ -34,14 +34,14 @@ export function MobileReviewChrome({
     <>
       {/* The bar is in-flow at the bottom of ArtifactView's column (not fixed), so
           it never overlaps the last code line; safe-area padding clears the home
-          indicator. It wears the discussion surface (panel-header white/near-black)
+          indicator. It uses white in light mode and pure black in dark mode
           behind a 2px rule — the desktop dock's border weight — so it reads as
           the discussion panel's edge, not another file-header strip. The whole bar
           is one expand/collapse button — no other controls live here (watcher
           presence shows inside the panel, where Submit is). */}
       <div
         hidden={docked}
-        className="shrink-0 border-t-2 border-neutral-300 bg-white pb-[env(safe-area-inset-bottom)] dark:border-neutral-700 dark:bg-neutral-950"
+        className="shrink-0 border-t-2 border-neutral-300 bg-white pb-[env(safe-area-inset-bottom)] dark:border-neutral-700 dark:bg-black"
       >
         <button
           type="button"
