@@ -4,6 +4,17 @@ All notable changes to r3 are documented here. The format is adapted from
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [2.7.0] - 2026-11-06
+
+### New
+
+- **localStorage support.** HTML artifacts can use `localStorage` to save state across reloads and published versions. Each artifact has its own storage, isolated from other artifacts.
+- **JavaScript downloads.** HTML artifacts can initiate file downloads from JavaScript.
+
+### Fixed
+
+- **Artifact ID format.** Newly generated artifact IDs use only letters and numbers after the `artifact_` prefix, so they can be selected with a double-click.
+
 ## [2.6.0] - 2026-11-02
 
 ### New
@@ -835,6 +846,7 @@ and files reviews, anchored discussions with quote-first re-anchoring, comments,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 
+[2.7.0]: https://github.com/hyperlogue/r3/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/hyperlogue/r3/compare/v2.5.0...v2.6.0
 [2.5.0]: https://github.com/hyperlogue/r3/compare/v2.4.0...v2.5.0
 [2.4.0]: https://github.com/hyperlogue/r3/compare/v2.3.1...v2.4.0
