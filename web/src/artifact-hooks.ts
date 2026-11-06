@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import type { Artifact, ArtifactDetail } from "../../shared/artifacts.ts";
 import { artifactApi, artifactEventStream } from "./artifact-api.ts";
+import { artifactLocalStorage } from "./artifact-local-storage.ts";
 import { cacheArtifactSummary } from "./artifact-sync.ts";
 import { draftImages } from "./attachment-drafts.ts";
 import { markdownCache } from "./markdown-cache.ts";
@@ -69,6 +70,7 @@ export function useArtifactEvents(): boolean {
               if (event.type === "artifact-updated")
                 void queryClient.invalidateQueries({ queryKey: ["artifact-projects"] });
               if (event.type === "artifact-deleted") {
+                artifactLocalStorage.forget(event.artifactId);
                 void markdownCache.forget(event.artifactId);
                 void draftImages.clear(event.artifactId);
                 previewSessions.forget(event.artifactId);

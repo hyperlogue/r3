@@ -228,7 +228,7 @@ export class PreviewHost {
       ? `W/"${createHash("sha256")
           .update(
             JSON.stringify([
-              "r3-preview-2",
+              "r3-preview-3",
               file.renderedHash ?? file.hash,
               !!file.renderedHash,
               scope.id,
@@ -275,28 +275,29 @@ export class PreviewHost {
       response.headers.set("access-control-allow-origin", "*");
       return response;
     }
-    // Keep original and retained Markdown bytes unchanged in storage. The
-    // response adds trusted support before publisher scripts.
     for (const [name, value] of Object.entries(documentHeaders)) response.headers.set(name, value);
     for (const name of ["content-length", "accept-ranges"]) response.headers.delete(name);
     if (request.method === "HEAD") return response;
     let injected = false;
-    // Retain the established utility import without rewriting publisher assets.
     const imports = JSON.stringify({ imports: { "/r3/utility.js": `${root}/r3/utility.js` } });
-    const runtime = `<script type="importmap">${imports}</script>${this.runtimeScript(scope)}`;
-    return new HTMLRewriter()
+    const source = await new HTMLRewriter()
       .on("*", {
         element(element) {
           if (injected || element.tagName === "html") return;
           injected = true;
-          element.before(runtime, { html: true });
+          element.before(`<script type="importmap">${imports}</script>`, { html: true });
         },
       })
       .onDocument({
         end(end) {
-          if (!injected) end.append(runtime, { html: true });
+          if (!injected) end.append(`<script type="importmap">${imports}</script>`, { html: true });
         },
       })
-      .transform(response);
+      .transform(response)
+      .text();
+    return new Response(
+      `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script type="application/json" id="r3-document-source">${JSON.stringify(source).replaceAll("<", "\\u003c")}</script>${this.runtimeScript(scope, " data-r3-html-shell")}</head><body></body></html>`,
+      { headers: response.headers },
+    );
   }
 }

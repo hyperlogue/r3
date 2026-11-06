@@ -102,10 +102,11 @@ const app = Bun.serve({
     context = preview.create(artifact.id, 1, "index.html", origin);
     sibling = preview.create(artifact.id, 2, "index.html", origin);
     return new Response(
-      `<!doctype html><iframe sandbox="allow-scripts" credentialless></iframe><iframe sandbox="allow-scripts" credentialless></iframe><script>
+      `<!doctype html><iframe sandbox="allow-scripts allow-downloads" credentialless></iframe><iframe sandbox="allow-scripts allow-downloads" credentialless></iframe><script>
       const contexts=${JSON.stringify([context, sibling])};const frames=document.querySelectorAll('iframe');const loaded=new Set();window.state='checking';
       frames.forEach((frame,i)=>{const context=contexts[i];addEventListener('message',event=>{
         if(event.source!==frame.contentWindow||event.origin!=="null"||event.data.contextId!==context.id)return;
+        if(event.data.type==='r3-preview-storage-connect')event.ports[0].postMessage({values:[]});
         if(event.data.type==='r3-preview-gate'){if(event.data.state==='ready')frame.src=context.documentUrl;else window.state=event.data.state}
         if(event.data.type==='r3-preview-connect'){const port=event.ports[0];port.onmessage=event=>{if(event.data.type==='r3-preview-document'){loaded.add(context.id);if(loaded.size===2)window.state='ready'}}}
       });frame.src=context.gateUrl});</script>`,
@@ -240,7 +241,7 @@ try {
       parent:denies(()=>parent.document.body),
       sibling:denies(()=>parent.frames[1].document.body),
       cookie:denies(()=>document.cookie),
-      localStorage:denies(()=>localStorage.setItem('fixture','value')),
+      localStorage:denies(()=>Storage.prototype.getItem.call(localStorage,'fixture')),
       sessionStorage:denies(()=>sessionStorage.setItem('fixture','value')),
       indexedDB:denies(()=>indexedDB.open('fixture')),
       worker:await workerBlocked('worker.js'),

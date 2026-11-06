@@ -73,11 +73,10 @@ export type PreviewTheme = "light" | "dark";
 // Transient Locate outcome, independent of historical persisted placements.
 export type PreviewLocateState = "anchored" | "ancestor" | "ambiguous" | "unplaced";
 
-// These are the entire publisher-page capability surface. There is no generic
-// HTTP, actor, version, path, lifecycle, publication, or host command argument.
-
 export interface ArtifactUtility {
+  /** @deprecated Use localStorage for artifact preferences. */
   getTheme(): Promise<PreviewTheme | null>;
+  /** @deprecated Use localStorage for artifact preferences. */
   setTheme(theme: PreviewTheme): Promise<void>;
   getUserMedia(constraints: MediaStreamConstraints): Promise<MediaStream>;
   getContext(): Promise<PreviewPageContext>;

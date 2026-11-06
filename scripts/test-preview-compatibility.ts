@@ -306,7 +306,7 @@ try {
     steps: 8,
   });
   await page.mouse.up();
-  const selectionComposer = page.getByRole("textbox", { name: "Thread", exact: true });
+  const selectionComposer = page.getByRole("textbox", { name: "Comment", exact: true });
   await selectionComposer.waitFor();
   assert.equal(
     await selectionComposer.evaluate((node: HTMLElement) => document.activeElement === node),

@@ -6,6 +6,8 @@ Interact with forms, sliders, modals, and links directly in the preview. When so
 
 You can navigate freely using the page’s own links. If you need to inspect raw markup alongside the rendered interface, ask your agent for a [files artifact](/docs/files/).
 
+Pages can remember preferences and checklist progress in your browser. Saved state belongs to that artifact and carries across its published versions. Export buttons can download generated files without an additional r3 permission prompt; your browser’s download settings still apply. Print/PDF controls remain unavailable in the preview.
+
 ## Verify the revision
 
 When your agent publishes an update, follow the **Fix** link directly to the revised element. Open **Compare** to inspect the original and updated views side by side, and test the behavior yourself before resolving the thread.

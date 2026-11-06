@@ -261,7 +261,7 @@ export function previewPolicy(scope: PreviewScope): Headers {
       `base-uri ${root}/files/`,
       "form-action 'none'",
       `frame-ancestors ${scope.applicationOrigin}`,
-      "sandbox allow-scripts",
+      "sandbox allow-scripts allow-downloads",
       ...(external ? [] : ["webrtc 'block'"]),
     ].join("; "),
     "Permissions-Policy": "camera=(), microphone=(), display-capture=()",

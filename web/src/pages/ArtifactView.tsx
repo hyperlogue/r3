@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { ArtifactApiError } from "../../../shared/artifact-client.ts";
+import { artifactLocalStorage } from "../artifact-local-storage.ts";
 import { artifactWorkspaceSearch } from "../artifact-navigation.ts";
 import { ArtifactPage, type ArtifactRenderer } from "../artifact-page.tsx";
 import { renderPublishedPreview } from "../artifact-renderer.tsx";
@@ -38,9 +39,13 @@ export function ArtifactView({
   useFaviconBadge(!unavailable && (query.data?.unhandledCount ?? 0) > 0);
   useEffect(() => {
     if (unavailable) {
-      if (query.error instanceof ArtifactApiError && [401, 403].includes(query.error.status))
+      if (query.error instanceof ArtifactApiError && [401, 403].includes(query.error.status)) {
+        artifactLocalStorage.suspend();
         void markdownCache.suspend();
-      else void markdownCache.forget(artifactId);
+      } else {
+        artifactLocalStorage.forget(artifactId);
+        void markdownCache.forget(artifactId);
+      }
       void draftImages.clear(
         query.error instanceof ArtifactApiError && [401, 403].includes(query.error.status)
           ? undefined

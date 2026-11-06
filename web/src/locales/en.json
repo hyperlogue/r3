@@ -170,7 +170,7 @@
   "previewCompatibilityConsent": {
     "acceptRiskAndContinue": "Accept risk and continue",
     "continueOnlyWithContentYouTrustThis": "Continue only with content you trust. This choice is remembered for previews on this r3 site in this browser. Future previews skip protection checks, including after browser upgrades. Use “Forget browser choice” in the preview security menu to check again.",
-    "forExampleAChartLibraryCopiedInto": "For example, a chart library copied into an artifact could send its published files, this artifact’s conversations, or information you enter to another server.",
+    "forExampleAChartLibraryCopiedInto": "For example, a chart library copied into an artifact could send its published files, saved page state, this artifact’s conversations, or information you enter to another server.",
     "keepPreviewClosed": "Keep preview closed",
     "openPreviewsWithLimitedNetworkProtection": "Open previews with limited network protection?",
     "theArtifactStaysIsolatedFromR3S": "The artifact stays isolated from r3’s credentials and unrelated artifacts. Camera and microphone stay blocked unless you separately allow sharing.",
@@ -468,7 +468,7 @@
     "sharingMicrophone": "Sharing microphone",
     "stopSharing": "Stop sharing",
     "thePreviewWillReloadWithNetworkAccess": "The preview will reload with network access.",
-    "thisPageAndAnyExternalScriptsIt": "This page and any external scripts it loads can send its published files, your input, and this artifact’s conversations to external services. Any shared camera or microphone data can also be sent elsewhere.",
+    "thisPageAndAnyExternalScriptsIt": "This page and any external scripts it loads can send its published files, saved page state, your input, and this artifact’s conversations to external services. Any shared camera or microphone data can also be sent elsewhere.",
     "waitingForBrowserDevicePermission": "Waiting for browser device permission…",
     "r3StaysIsolatedOnlyEnableThisFor": "r3 stays isolated. Only enable this for content you trust. The browser will still ask for device permission when needed."
   },
@@ -828,11 +828,11 @@
   "previewProtection": {
     "forgetBrowserChoice": "Forget browser choice",
     "theArtifactCannotDirectlyAccessR3S": "The artifact cannot directly access r3’s page, credentials, or unrelated artifacts. Its r3 bridge can access this artifact’s conversations.",
-    "thisPageCanLoadExternalScriptsAnd": "This page can load external scripts and contact external services. Published files, conversations, input, and shared media can be sent elsewhere.",
+    "thisPageCanLoadExternalScriptsAnd": "This page can load external scripts and contact external services. Published files, saved page state, conversations, input, and shared media can be sent elsewhere.",
     "thisPageHasNoR3PermissionTo": "This page has no r3 permission to use your {{kind}}.",
     "thisPageMayRequestBrowserPermissionIs": "This page may request {{kind}}. Browser permission is also required.",
     "verifiedNetworkProtectionMeansThisPreviewPassed": "Verified network protection means this preview passed the browser’s network-blocking checks. It does not certify the artifact’s content.",
-    "youAcceptedLimitedProtectionSoBrowserChecks": "You accepted limited protection, so browser checks are skipped until you forget that choice. Published documents restrict external resources; pages reached through navigation may have no network restrictions. Either may transmit files, conversations, or input.",
+    "youAcceptedLimitedProtectionSoBrowserChecks": "You accepted limited protection, so browser checks are skipped until you forget that choice. Published documents restrict external resources; pages reached through navigation may have no network restrictions. Either may transmit files, saved page state, conversations, or input.",
     "camera": "camera",
     "microphone": "microphone",
     "allowed": "{{device}} allowed",

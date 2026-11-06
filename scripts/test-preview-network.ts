@@ -370,7 +370,7 @@ navigator.mediaDevices.getUserMedia=async constraints=>{window.testDeviceRequest
   await revoked(initial);
   const external = grants.at(-1)!;
   assert.equal(JSON.parse(received.at(-1)!).file, "Published fixture data");
-  assert.equal(JSON.parse(received.at(-1)!).threads[0].body, "Fixture conversation");
+  assert.equal(JSON.parse(received.at(-1)!).threads[0].comments[0].body, "Fixture conversation");
   assert.equal(await content.evaluate("globalThis.origin"), "null");
   assert.equal(
     await content.evaluate(
@@ -380,7 +380,7 @@ navigator.mediaDevices.getUserMedia=async constraints=>{window.testDeviceRequest
   );
   assert.equal(
     await content.evaluate(
-      "(()=>{try{localStorage.setItem('fixture','value');return false}catch{return true}})()",
+      "(()=>{try{Storage.prototype.getItem.call(localStorage,'fixture');return false}catch{return true}})()",
     ),
     true,
   );

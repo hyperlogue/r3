@@ -119,7 +119,9 @@ test("shared preview hosting preserves capability and application guards", async
     const content = await read(preview.documentUrl, { headers: { "sec-fetch-dest": "iframe" } });
     expect(content.status).toBe(200);
     expect(content.headers.get(R3_VERSION_HEADER)).toBe("test");
-    expect(content.headers.get("content-security-policy")).toContain("sandbox allow-scripts;");
+    expect(content.headers.get("content-security-policy")).toContain(
+      "sandbox allow-scripts allow-downloads;",
+    );
     expect(content.headers.get("content-security-policy")).not.toContain("allow-same-origin");
     expect(await content.text()).toContain("Private artifact");
     expect(

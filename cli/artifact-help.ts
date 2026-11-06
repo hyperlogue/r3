@@ -353,6 +353,8 @@ Keep large images in standalone files and reference them with native HTML:
 
 Extract large embedded base64/data-URL images into files, and reuse the same path where an image repeats. Relative URLs resolve from the document; a leading slash addresses the preview origin. The preview also supplies a version-root URL for constructed asset URLs. Use hash routes or published document paths for navigation.
 
+Standard \`localStorage\` calls save browser-local state for this artifact across reloads and versions, isolated from r3 settings and other artifacts. Saved values are available to the first publisher script. Storage is limited to 256 KiB and 1,024 keys; logout and artifact deletion clear it. Downloads work through normal export buttons without an r3 permission prompt. Print/PDF remains unavailable. Prefer \`localStorage\` to the deprecated \`getTheme\`/\`setTheme\` utility methods; older published pages retain those methods.
+
 ## Preview and rendered threads
 
 Bundle dependencies and assets locally: external requests are blocked by default. If the page requires external services or device access, explain that requirement to the human.

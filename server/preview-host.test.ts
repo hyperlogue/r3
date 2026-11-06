@@ -226,13 +226,13 @@ test("external HTML contexts retain browser checks, sandbox, membership, and rev
   expect((await read("/files/index.html")).status).toBe(404);
 });
 
-test("HTML receives the runtime and Markdown receives an isolated empty shell", async () => {
+test("HTML stays inert until storage initialization and Markdown retains its separate shell", async () => {
   const document = await read("/files/index.html", { "sec-fetch-dest": "iframe" });
   const body = await document.text();
-  expect(body.replace(/<script type="importmap">.*?<\/script><script>.*?<\/script>/, "")).toBe(
-    html,
-  );
-  expect(body.indexOf("/* r3 runtime fixture */")).toBeLessThan(body.indexOf("<head>"));
+  const source = JSON.parse(/id="r3-document-source">([\s\S]*?)<\/script>/.exec(body)![1]);
+  expect(source.replace(/<script type="importmap">.*?<\/script>/, "")).toBe(html);
+  expect(body).not.toContain("<h1>Published page</h1>");
+  expect(body).toContain("<script data-r3-html-shell>/* r3 runtime fixture */</script>");
   expect(document.headers.get("cache-control")).toBe("private, no-cache");
   expect(document.headers.get("content-security-policy")).toContain(
     "frame-ancestors https://app.example",
@@ -457,8 +457,10 @@ test("inline runtime preserves script delimiters as JavaScript data", async () =
   const source = scripts.join("");
   expect(source).toContain('window.example = "<\\!--<script><\\/ScRiPt>";');
   const window: { example?: string } = {};
-  const runtime = /<script>(.*?)<\/script>/s.exec(body)![1];
+  const runtime = /<script data-r3-html-shell>(.*?)<\/script>/s.exec(body)![1];
   new Function("window", runtime)(window);
   expect(window.example).toBe("<!--<script></ScRiPt>");
-  expect(body).toContain("<h1>Published page</h1>");
+  expect(JSON.parse(/id="r3-document-source">([\s\S]*?)<\/script>/.exec(body)![1])).toContain(
+    "<h1>Published page</h1>",
+  );
 });

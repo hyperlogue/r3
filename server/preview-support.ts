@@ -8,6 +8,7 @@ import { createPreviewMedia } from "../web/src/preview-media.ts";
 import { installPreviewNavigation } from "../web/src/preview-navigation.ts";
 import { installPreviewRuntime } from "../web/src/preview-runtime.ts";
 import { installPreviewScroll } from "../web/src/preview-scroll.ts";
+import { bootstrapPreviewDocument, installPreviewStorage } from "../web/src/preview-storage.ts";
 import { createArtifactUtility } from "../web/src/preview-utility.ts";
 import { restoreReadingPosition } from "../web/src/restore-reading-position.ts";
 import { composerKeyAction, observeTextSelection } from "../web/src/selection-events.ts";
@@ -32,6 +33,8 @@ export const previewSupport: PreviewSupport = {
     `(() => { const config = ${parameters(scope)};
 const markdown = document.currentScript?.hasAttribute("data-r3-markdown") === true;
 const shell = document.currentScript?.hasAttribute("data-r3-markdown-shell") === true;
+const htmlShell = document.currentScript?.hasAttribute("data-r3-html-shell") === true;
+const start = () => {
 const connection = (${connectPreview.toString()})(config);
 const install = () => {
 (${installPreviewScroll.toString()})(config, connection, ${restoreReadingPosition.toString()});
@@ -41,6 +44,7 @@ const install = () => {
 const getUserMedia = (${createPreviewMedia.toString()})(config, connection, ${previewIceComplete.toString()});
 Object.defineProperty(globalThis, "__r3ArtifactUtility", {value: (${createArtifactUtility.toString()})(config, connection, getUserMedia)});
 (${installPreviewRuntime.toString()})(config, ${normalizeRenderedText.toString()}, connection, ${observeTextSelection.toString()}, ${composerKeyAction.toString()}); };
-if (shell) (${installMarkdownDocument.toString()})(config, connection, install); else install(); })();`,
+if (shell) (${installMarkdownDocument.toString()})(config, connection, install); else install(); };
+if (htmlShell) (${bootstrapPreviewDocument.toString()})(config, start, ${installPreviewStorage.toString()}); else start(); })();`,
   utility: () => "const r3 = globalThis.__r3ArtifactUtility; export { r3 }; export default r3;",
 };

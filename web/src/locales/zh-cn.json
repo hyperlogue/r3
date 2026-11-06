@@ -170,7 +170,7 @@
   "previewCompatibilityConsent": {
     "acceptRiskAndContinue": "接受风险并继续",
     "continueOnlyWithContentYouTrustThis": "仅在内容可信时继续。在此浏览器中针对此 r3 站点的预览将记住该选择。后续预览将跳过保护检查，包括浏览器升级后。使用预览安全菜单中的“清除浏览器记忆的选择”以重新检查。",
-    "forExampleAChartLibraryCopiedInto": "例如，复制到 Artifact 中的图表库可能会将其已发布的文件、此 Artifact 的对话或你输入的信息发送到另一台服务器。",
+    "forExampleAChartLibraryCopiedInto": "例如，复制到 Artifact 中的图表库可能会将其已发布的文件、保存的页面状态、此 Artifact 的对话或你输入的信息发送到另一台服务器。",
     "keepPreviewClosed": "保持预览关闭",
     "openPreviewsWithLimitedNetworkProtection": "在有限网络保护下打开预览？",
     "theArtifactStaysIsolatedFromR3S": "Artifact 与 r3 的凭据以及无关 Artifact 保持隔离。摄像头与麦克风保持拦截状态，除非你单独允许共享。",
@@ -468,7 +468,7 @@
     "sharingMicrophone": "正在共享麦克风",
     "stopSharing": "停止共享",
     "thePreviewWillReloadWithNetworkAccess": "预览将以具备网络访问权限的状态重新加载。",
-    "thisPageAndAnyExternalScriptsIt": "此页面及其加载的任何外部脚本均可将其已发布的文件、你的输入以及此 Artifact 的对话发送给外部服务。任何共享的摄像头或麦克风数据也可能被发送到其他地方。",
+    "thisPageAndAnyExternalScriptsIt": "此页面及其加载的任何外部脚本均可将其已发布的文件、保存的页面状态、你的输入以及此 Artifact 的对话发送给外部服务。任何共享的摄像头或麦克风数据也可能被发送到其他地方。",
     "waitingForBrowserDevicePermission": "正在等待浏览器设备权限…",
     "r3StaysIsolatedOnlyEnableThisFor": "r3 保持隔离状态。仅在内容可信时启用此项。需要时浏览器仍会请求设备权限。"
   },
@@ -828,11 +828,11 @@
   "previewProtection": {
     "forgetBrowserChoice": "清除浏览器记忆的选择",
     "theArtifactCannotDirectlyAccessR3S": "Artifact 无法直接访问 r3 的页面、凭据或无关 Artifact。其 r3 桥接可以访问此 Artifact 的对话。",
-    "thisPageCanLoadExternalScriptsAnd": "此页面可以加载外部脚本并连接外部服务。已发布的文件、对话、输入及共享媒体可能会被发送到其他地方。",
+    "thisPageCanLoadExternalScriptsAnd": "此页面可以加载外部脚本并连接外部服务。已发布的文件、保存的页面状态、对话、输入及共享媒体可能会被发送到其他地方。",
     "thisPageHasNoR3PermissionTo": "此页面没有使用你的 {{kind}} 的 r3 权限。",
     "thisPageMayRequestBrowserPermissionIs": "此页面可能会请求 {{kind}}。同时需要浏览器权限。",
     "verifiedNetworkProtectionMeansThisPreviewPassed": "验证的网络保护意味着此预览通过了浏览器的网络拦截检查。这并不代表对 Artifact 内容的认证。",
-    "youAcceptedLimitedProtectionSoBrowserChecks": "你已接受有限保护，因此在清除该选择前将跳过浏览器检查。已发布的文档限制了外部资源；通过导航访问的页面可能没有任何网络限制。两者都可能传输文件、对话或输入内容。",
+    "youAcceptedLimitedProtectionSoBrowserChecks": "你已接受有限保护，因此在清除该选择前将跳过浏览器检查。已发布的文档限制了外部资源；通过导航访问的页面可能没有任何网络限制。两者都可能传输文件、保存的页面状态、对话或输入内容。",
     "camera": "摄像头",
     "microphone": "麦克风",
     "allowed": "{{device}} 已允许",

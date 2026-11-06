@@ -94,11 +94,12 @@ const app = Bun.serve({
       "compatible",
     );
     return new Response(
-      `<!doctype html><body style="margin:0"><iframe style="border:0;width:100vw;height:100vh" sandbox="allow-scripts" credentialless></iframe><script>
+      `<!doctype html><body style="margin:0"><iframe style="border:0;width:100vw;height:100vh" sandbox="allow-scripts allow-downloads" credentialless></iframe><script>
       const context=${JSON.stringify(context)},frame=document.querySelector('iframe');window.messages=[];
       let port;window.send=data=>port.postMessage({contextId:context.id,...data});
       addEventListener('message',event=>{
         if(event.source!==frame.contentWindow||event.origin!=="null"||event.data.contextId!==context.id)return;
+        if(event.data.type==='r3-preview-storage-connect')event.ports[0].postMessage({values:[]});
         if(event.data.type==='r3-preview-connect'){
           port?.close();port=event.ports[0];port.onmessage=({data})=>messages.push(data);
         }

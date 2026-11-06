@@ -16,6 +16,7 @@ import type {
   PreviewTheme,
 } from "../../../shared/preview-protocol.ts";
 import { artifactApi } from "../artifact-api.ts";
+import { artifactLocalStorage } from "../artifact-local-storage.ts";
 import { useDarkTheme } from "../hooks.ts";
 import { t, useLocale } from "../i18n.ts";
 import { keysSuspended } from "../keys.ts";
@@ -46,9 +47,13 @@ const NO_DEVICES: PreviewDevicePermissions = { camera: false, microphone: false 
 
 function forgetDeniedMarkdown(error: unknown, artifactId?: string) {
   if (!(error instanceof ArtifactApiError)) return;
-  if (error.status === 401 || error.status === 403) void markdownCache.suspend();
-  else if (artifactId && (error.status === 404 || error.status === 410))
+  if (error.status === 401 || error.status === 403) {
+    artifactLocalStorage.suspend();
+    void markdownCache.suspend();
+  } else if (artifactId && (error.status === 404 || error.status === 410)) {
+    artifactLocalStorage.forget(artifactId);
     void markdownCache.forget(artifactId);
+  }
 }
 
 export function ArtifactPreview(props: ArtifactRenderedPaneProps) {
@@ -400,6 +405,8 @@ function PreviewSession(
     let closed = false;
     let pending = 0;
     let connected = false;
+    let closeStorage = () => {};
+    artifactLocalStorage.snapshot(id);
     let check: { nonce: string; timer: ReturnType<typeof setTimeout> } | null = null;
     const clearCheck = () => {
       if (check) clearTimeout(check.timer);
@@ -499,13 +506,33 @@ function PreviewSession(
         }
         return;
       }
-      if (message.type !== "r3-preview-connect" || event.ports.length !== 1) return;
+      if (
+        !["r3-preview-connect", "r3-preview-storage-connect"].includes(message.type) ||
+        event.ports.length !== 1
+      )
+        return;
       if (
         !admitted.current ||
         typeof message.path !== "string" ||
         !current.current.paths.includes(message.path)
       )
         return;
+      if (message.type === "r3-preview-storage-connect") {
+        closeStorage();
+        const port = event.ports[0];
+        const storage = artifactLocalStorage.bind(id, (values, acknowledged) =>
+          port.postMessage({ values, acknowledged }),
+        );
+        port.onmessage = ({ data }) => {
+          if (!closed) storage.write(data);
+        };
+        closeStorage = () => {
+          storage.close();
+          port.close();
+        };
+        port.postMessage({ values: storage.snapshot() });
+        return;
+      }
       if (network === "compatible") current.current.onVerification("ready");
       clearCheck();
       connection.current?.close();
@@ -818,6 +845,7 @@ function PreviewSession(
     window.addEventListener("message", listener);
     return () => {
       closed = true;
+      closeStorage();
       clearCheck();
       checkDocument.current = () => {};
       connection.current?.close();
@@ -1024,7 +1052,7 @@ function PreviewSession(
           ref={iframe}
           src={frameSrc}
           title={`${props.previewLabel ?? props.detail.title ?? t("common.artifact")} preview`}
-          sandbox="allow-scripts"
+          sandbox="allow-scripts allow-downloads"
           {...{ credentialless: "" }}
           allow="camera 'none'; microphone 'none'; display-capture 'none'"
           referrerPolicy="no-referrer"

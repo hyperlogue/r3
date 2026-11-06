@@ -138,7 +138,7 @@ try {
   );
   assert.equal(
     await content.evaluate(
-      "(()=>{try {localStorage.getItem('r3-theme');return false;}catch{return true;}})()",
+      "(()=>{try {Storage.prototype.getItem.call(localStorage,'r3-theme');return false;}catch{return true;}})()",
     ),
     true,
     "theme persistence retains opaque storage isolation",
@@ -245,7 +245,8 @@ try {
     }
     return false;
   }, "theme survives reloading the workspace");
-  await click("document.querySelector('[data-artifact-thread] button')");
+  await click("document.querySelector('[data-thread-action=\"locations\"]')");
+  await click("document.querySelector('[data-thread-action=\"original\"]')");
   const original = await eventually(async () => {
     for (const context of page.contexts.values()) {
       if (context.origin !== "://" || !context.auxData?.isDefault) continue;
@@ -285,9 +286,13 @@ try {
     }
     return false;
   }, "version-local document navigation retains its version scope");
+  const workspacePath = () =>
+    page.evaluate<string>(
+      `JSON.parse(sessionStorage.getItem('r3-workspace-selections-1')??'[]').find(([id])=>id===${JSON.stringify(artifact.id)})?.[1].path`,
+    );
   await eventually(
-    () => page.evaluate("new URL(location.href).searchParams.get('file')==='other.html'"),
-    "workspace deep link follows the published document",
+    async () => (await workspacePath()) === "other.html",
+    "workspace selection follows the published document",
   );
   assert.equal(
     await page.evaluate("history.length"),
@@ -300,8 +305,7 @@ try {
   ] as const) {
     await page.evaluate(`history.${direction}()`);
     await eventually(
-      () =>
-        page.evaluate(`new URL(location.href).searchParams.get('file')===${JSON.stringify(path)}`),
+      async () => (await workspacePath()) === path,
       `Native ${direction} updates the workspace path`,
     );
     assert.equal(
@@ -345,10 +349,7 @@ try {
     assert.equal(previewGates, gates + 1, "The replacement repeats the capability gate");
     assert.equal(await page.evaluate("history.length"), historyLength);
     assert.equal(await page.evaluate("new URL(location.href).searchParams.get('version')"), "1");
-    assert.equal(
-      await page.evaluate("new URL(location.href).searchParams.get('file')"),
-      "other.html",
-    );
+    assert.equal(await workspacePath(), "other.html");
     assert.equal(
       await page.evaluate(
         "document.body.textContent.includes('Preview context expired or unavailable')",

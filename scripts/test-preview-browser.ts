@@ -44,10 +44,11 @@ const app = Bun.serve({
     }
     const context = preview.create(artifact.id, 1, "index.html", new URL(request.url).origin);
     return new Response(
-      `<!doctype html><body style="margin:0"><iframe style="border:0;width:100vw;height:100vh" sandbox="allow-scripts" credentialless></iframe><script>
+      `<!doctype html><body style="margin:0"><iframe style="border:0;width:100vw;height:100vh" sandbox="allow-scripts allow-downloads" credentialless></iframe><script>
   const context=${JSON.stringify(context)};window.messages=[];const frame=document.querySelector('iframe');
   let port;window.send=(data)=>port.postMessage({contextId:context.id,...data});
   addEventListener('message',event=>{if(event.source!==frame.contentWindow||event.origin!=="null")return;const message=event.data;messages.push(message);
+    if(message.type==='r3-preview-storage-connect')event.ports[0].postMessage({values:[]});
     if(message.type==='r3-preview-gate'&&message.state==='ready')frame.src=context.documentUrl;
     if(message.type==='r3-preview-connect'){port?.close();port=event.ports[0];port.onmessage=({data:message})=>{messages.push(message);if(message.type==='r3-preview-call')send({type:'r3-preview-result',id:message.id,value:{method:message.method,path:message.path}})}}
   });frame.src=context.gateUrl;</script>`,

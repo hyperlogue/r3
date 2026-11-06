@@ -1,5 +1,6 @@
 import type { OnboardingState, UpdateOnboardingBody } from "../../shared/artifacts.ts";
 import { applicationFetch } from "./application-fetch.ts";
+import { artifactLocalStorage } from "./artifact-local-storage.ts";
 import { draftImages } from "./attachment-drafts.ts";
 import { t } from "./i18n.ts";
 // Application bootstrap, theme settings, and login-token access.
@@ -63,6 +64,7 @@ export async function loadBoot(initial?: ApplicationBootstrap): Promise<{
     const suspended = await Promise.all([
       markdownCache.authenticationSuspended(),
       draftImages.authenticationSuspended(),
+      artifactLocalStorage.authenticationSuspended(),
     ]);
     if (!suspended.some(Boolean)) {
       TOKEN = initial.boot.token ?? "";
@@ -80,9 +82,11 @@ export async function loadBoot(initial?: ApplicationBootstrap): Promise<{
   }
   const cacheEpoch = await markdownCache.authenticationEpoch();
   const imageEpoch = await draftImages.epoch();
+  const storageEpoch = artifactLocalStorage.authenticationEpoch();
   const r = await applicationFetch("/api/boot");
   // 401 means no valid browser session, locally or remotely: show login.
   if (r.status === 401) {
+    artifactLocalStorage.suspend();
     await markdownCache.suspend();
     await draftImages.clear();
     if (rejectedLocalTicket) throw new Error(t("api.localBrowserLinkExpiredOrWasAlready"));
@@ -92,6 +96,7 @@ export async function loadBoot(initial?: ApplicationBootstrap): Promise<{
   if (!r.ok) throw new Error(`GET /api/boot → ${r.status}`);
   const b = (await r.json()) as BootResponse;
   if (b.needsAuth) {
+    artifactLocalStorage.suspend();
     await markdownCache.suspend();
     await draftImages.clear();
     if (rejectedLocalTicket) throw new Error(t("api.localBrowserLinkExpiredOrWasAlready"));
@@ -102,6 +107,7 @@ export async function loadBoot(initial?: ApplicationBootstrap): Promise<{
   LOGIN_NOTICE = b.loginRequired === false && b.loginNotice !== false;
   await markdownCache.resume(cacheEpoch);
   await draftImages.resume(imageEpoch);
+  artifactLocalStorage.resume(storageEpoch);
   return { needsAuth: false };
 }
 
@@ -162,6 +168,7 @@ export const api = {
     try {
       return await req<{ ok: true }>("POST", "/api/auth/logout");
     } finally {
+      artifactLocalStorage.suspend();
       clearPreviewResumeHints();
       await markdownCache.suspend();
       await draftImages.clear();
