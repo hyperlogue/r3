@@ -1,6 +1,8 @@
 # r3 — Understand what's built. Steer what's next.
 
 A local workspace for reviewing HTML pages, Markdown documents, and code from
+
+[![R3 on StartupScores](https://startupscores.com/badge/r3.svg?style=shield&v=combo&theme=dark)](https://startupscores.com/open-source/r3)
 your AI agents. Leave comments at precise locations in a document and send
 feedback to your agent.
 
