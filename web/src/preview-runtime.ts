@@ -24,6 +24,7 @@ export function installPreviewRuntime(
   let locationBox: HTMLDivElement;
   let locationLabel: HTMLDivElement;
   let controls: HTMLDivElement;
+  let pickName: HTMLDivElement;
   let markers: HTMLDivElement;
   let selectionAction: HTMLButtonElement;
   let pendingSelection: { locator: RenderedLocator; rect: PreviewViewport } | null = null;
@@ -33,6 +34,10 @@ export function installPreviewRuntime(
   let marked: { button: HTMLButtonElement; element: Element }[] = [];
   let markersDirty = true;
   let picked: Element | null = null;
+  // Elements left by Select parent, so Select child can step back down.
+  const pickTrail: Element[] = [];
+  let rescopeTimer: ReturnType<typeof setTimeout> | undefined;
+  let pickNameTimer: ReturnType<typeof setTimeout> | undefined;
   let selectedQuote: string | undefined;
   let selectedRange: Range | null = null;
   let hover: Element | null = null;
@@ -339,11 +344,19 @@ export function installPreviewRuntime(
     selectionAction.textContent = display.noteHasText
       ? (display.labels?.quoteInNote ?? "Quote in note")
       : (display.labels?.addComment ?? "Add comment");
-    const buttons = controls.querySelectorAll("button");
-    buttons[0].textContent = display.labels?.commentHere ?? "Comment here";
-    buttons[0].title = display.labels?.commentHereHint ?? "Comment here (Space)";
-    buttons[1].textContent = display.labels?.selectParent ?? "Select parent";
-    buttons[2].textContent = display.labels?.cancel ?? "Cancel";
+    root!.dataset.theme = display.theme === "dark" ? "dark" : "light";
+    const [up, down, comment] = controls.querySelectorAll("button");
+    const parentLabel = display.labels?.selectParent ?? "Select parent (↑)";
+    const childLabel = display.labels?.selectChild ?? "Select child (↓)";
+    up.title = parentLabel;
+    up.setAttribute("aria-label", parentLabel);
+    up.setAttribute("aria-disabled", String(!picked || !parent(picked)));
+    down.title = childLabel;
+    down.setAttribute("aria-label", childLabel);
+    down.setAttribute("aria-disabled", String(!pickTrail.length));
+    comment.firstChild!.nodeValue = display.labels?.commentHere ?? "Comment";
+    comment.title = display.labels?.commentHereHint ?? "Comment (Space)";
+    pickName.hidden = !picked?.isConnected;
     if (pendingSelection) {
       const rect = pendingSelection.rect;
       selectionAction.style.maxWidth = `${Math.max(0, bounds.right - bounds.left - 16)}px`;
@@ -360,6 +373,10 @@ export function installPreviewRuntime(
       width: `${rect.width}px`,
       height: `${rect.height}px`,
     });
+    Object.assign(pickName.style, {
+      left: `${Math.max(bounds.left, rect.left)}px`,
+      top: `${rect.top - 24 >= bounds.top ? rect.top - 24 : Math.max(bounds.top, rect.top) + 4}px`,
+    });
     controls.style.maxWidth = `${Math.max(0, bounds.right - bounds.left - 16)}px`;
     Object.assign(controls.style, {
       left: `${Math.max(bounds.left + 8, Math.min(rect.left, bounds.right - controls.offsetWidth - 8))}px`,
@@ -371,9 +388,52 @@ export function installPreviewRuntime(
   };
   const cancel = () => {
     picked = hover = null;
+    pickTrail.length = 0;
+    pickName.classList.remove("show");
     selectedQuote = undefined;
     selectedRange = null;
     schedule();
+  };
+  const describe = (element: Element) => {
+    const label = element.getAttribute("aria-label")?.trim();
+    if (label) return label.slice(0, 60);
+    const text = normalize(element.textContent ?? "");
+    if (text && text.length <= 40) return text;
+    const tag = element.localName + (element.id ? `#${element.id}` : "");
+    return text ? `${tag} · ${text.slice(0, 32)}…` : tag;
+  };
+  // Scope changes glide the outline and briefly name the new element, so the
+  // reviewer sees what Select parent or Select child actually reached.
+  const rescope = (next: Element) => {
+    picked = next;
+    selectedQuote = undefined;
+    selectedRange = null;
+    markersDirty = true;
+    box.classList.remove("moving");
+    void box.offsetWidth;
+    box.classList.add("moving");
+    controls.classList.add("moving");
+    clearTimeout(rescopeTimer);
+    rescopeTimer = setTimeout(() => {
+      box.classList.remove("moving");
+      controls.classList.remove("moving");
+    }, 520);
+    pickName.textContent = describe(next);
+    pickName.classList.add("show");
+    clearTimeout(pickNameTimer);
+    pickNameTimer = setTimeout(() => pickName.classList.remove("show"), 1400);
+    schedule();
+  };
+  const selectParent = () => {
+    const ancestor = picked && parent(picked);
+    if (!picked || !ancestor) return;
+    pickTrail.push(picked);
+    rescope(ancestor);
+  };
+  const selectChild = () => {
+    const child = pickTrail.pop();
+    if (child?.isConnected) rescope(child);
+    else pickTrail.length = 0;
   };
   const commentHere = () => {
     if (!picked?.isConnected) return;
@@ -576,6 +636,8 @@ export function installPreviewRuntime(
         selectedQuote = normalize(selection?.toString() ?? "").slice(0, 16_384) || undefined;
         const ancestor = selectedRange?.commonAncestorContainer;
         picked = ancestor instanceof Element ? ancestor : ancestor?.parentElement || element;
+        pickTrail.length = 0;
+        pickName.classList.remove("show");
         schedule();
       }
     },
@@ -623,6 +685,18 @@ export function installPreviewRuntime(
         event.preventDefault();
         event.stopImmediatePropagation();
         if (!event.repeat) commentHere();
+        return;
+      }
+      if (
+        shortcut &&
+        display.commenting &&
+        picked &&
+        (event.key === "ArrowUp" || event.key === "ArrowDown")
+      ) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (event.key === "ArrowUp") selectParent();
+        else selectChild();
         return;
       }
       const action = composerKey(event);
@@ -678,7 +752,7 @@ export function installPreviewRuntime(
       "all:initial!important;position:fixed!important;inset:0!important;pointer-events:none!important;z-index:2147483647!important";
     shadow = root.attachShadow({ mode: "closed" });
     shadow.innerHTML =
-      '<style>:host{color-scheme:light} .box{position:fixed;box-sizing:border-box;border:2px solid #2563eb;background:#3b82f614;pointer-events:none}.controls{position:fixed;display:flex;flex-wrap:wrap;gap:4px;padding:4px;border-radius:8px;background:#171717;border:1px solid #525252;box-shadow:inset 0 1px 0 #ffffff1a,0 2px 4px #0006,0 8px 24px #0008;pointer-events:auto;font:13px system-ui}button{font:inherit;border:0;border-radius:4px;padding:8px;color:white;background:#404040;cursor:pointer}button:first-child{background:#2563eb}[hidden]{display:none!important}</style><div class="box" hidden></div><div class="controls" hidden><button>Comment here</button><button>Select parent</button><button>Cancel</button></div>';
+      '<style>:host{color-scheme:light}.box{position:fixed;box-sizing:border-box;border:2px solid #6164ff;border-radius:4px;background:#6164ff14;pointer-events:none}.box.moving{transition:left .32s cubic-bezier(.2,0,0,1),top .32s cubic-bezier(.2,0,0,1),width .32s cubic-bezier(.2,0,0,1),height .32s cubic-bezier(.2,0,0,1);animation:r3-pick .5s ease-out}@keyframes r3-pick{0%{background:#6164ff47;box-shadow:0 0 0 0 #6164ff73}100%{background:#6164ff14;box-shadow:0 0 0 8px #6164ff00}}.name{position:fixed;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:5px 7px;border-radius:5px 5px 5px 0;background:#6164ff;color:white;font:600 11px/1 system-ui;pointer-events:none;opacity:0;transition:opacity .18s}.name.show{opacity:1}.controls{position:fixed;display:flex;align-items:stretch;gap:4px;padding:4px;border-radius:9px;background:white;border:1px solid #d4d4d4;box-shadow:0 2px 4px #0000001a,0 8px 24px #0000002e;pointer-events:auto;font:13px system-ui}.controls.moving{transition:left .32s cubic-bezier(.2,0,0,1),top .32s cubic-bezier(.2,0,0,1)}button{font:inherit;border:0;border-radius:6px;cursor:pointer}.step{display:inline-flex;align-items:center;justify-content:center;width:32px;min-height:30px;padding:0;background:transparent;color:#525252}.step:hover{background:#f5f5f5;color:#171717}.step[aria-disabled=true]{opacity:.35;cursor:default;background:transparent}.step svg{width:18px;height:18px}.divider{width:1px;margin:2px 0;background:#e5e5e5}.comment{display:inline-flex;align-items:center;gap:6px;padding:0 12px;background:oklch(51.8% .253 276.073);color:white;font-weight:500}.comment:hover{background:#6164ff}kbd{font:600 10.5px/1 ui-monospace,monospace;border:1px solid currentColor;border-radius:4px;padding:2px 4px;opacity:.8}:host([data-theme=dark]){color-scheme:dark}:host([data-theme=dark]) .controls{background:#171717;border-color:#404040;box-shadow:inset 0 1px 0 #ffffff1a,0 2px 4px #0006,0 8px 24px #0008}:host([data-theme=dark]) .step{color:#d4d4d4}:host([data-theme=dark]) .step:hover{background:#262626;color:white}:host([data-theme=dark]) .divider{background:#404040}@media (prefers-reduced-motion:reduce){.box.moving,.controls.moving{transition:none;animation:none}.name{transition:none}}[hidden]{display:none!important}</style><div class="box" hidden></div><div class="name" aria-hidden="true" hidden></div><div class="controls" hidden><button class="step" data-action="parent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg></button><button class="step" data-action="child"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button><span class="divider"></span><button class="comment" data-action="comment">Comment<kbd>Space</kbd></button></div>';
     box = shadow.querySelector(".box")!;
     locationBox = document.createElement("div");
     locationBox.className = "location";
@@ -689,6 +763,7 @@ export function installPreviewRuntime(
     locationLabel.setAttribute("role", "status");
     shadow.append(locationBox, locationLabel);
     controls = shadow.querySelector(".controls")!;
+    pickName = shadow.querySelector(".name")!;
     selectionAction = document.createElement("button");
     selectionAction.hidden = true;
     selectionAction.style.cssText =
@@ -719,20 +794,10 @@ export function installPreviewRuntime(
     markerStyle.textContent =
       ".location{position:fixed;box-sizing:border-box;border:2px solid #3b82f6;pointer-events:none}.location[data-fallback=ancestor]{border-style:dashed}.location[data-large=true]{border-width:0 0 0 3px}.location-label{position:fixed;border:1px solid #737373;border-radius:4px;padding:4px 8px;background:#262626;color:white;font:12px system-ui;pointer-events:none}.marker{position:fixed;width:24px;height:24px;padding:0;background:#2563eb;color:white;pointer-events:auto;border:1px solid white;border-radius:50%;font:12px system-ui;cursor:pointer}";
     shadow.append(markerStyle);
-    const buttons = controls.querySelectorAll("button");
-    buttons[0].title = "Comment here (Space)";
-    buttons[0].onclick = commentHere;
-    buttons[1].onclick = () => {
-      const ancestor = picked && parent(picked);
-      if (ancestor) {
-        picked = ancestor;
-        selectedQuote = undefined;
-        selectedRange = null;
-        markersDirty = true;
-        schedule();
-      }
-    };
-    buttons[2].onclick = cancel;
+    const [up, down, comment] = controls.querySelectorAll("button");
+    up.onclick = selectParent;
+    down.onclick = selectChild;
+    comment.onclick = commentHere;
     const style = document.createElement("style");
     style.textContent = "::highlight(r3-preview-active){background:#facc1580;color:inherit}";
     document.head.append(style);
@@ -757,6 +822,8 @@ export function installPreviewRuntime(
   else ready();
   window.addEventListener("pagehide", () => {
     stopLocating();
+    clearTimeout(rescopeTimer);
+    clearTimeout(pickNameTimer);
     clearTimeout(feedbackTimer);
     stopSelection?.();
     observation?.disconnect();

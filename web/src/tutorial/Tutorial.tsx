@@ -25,7 +25,7 @@ const lessons = [
   ],
   [
     "Anchor your comment",
-    "In the workspace navbar, enable comment mode. Click “5 min read”, choose Comment here, then write and save your comment.",
+    "In the workspace navbar, enable comment mode. Click “5 min read”, choose Comment, then write and save your comment.",
   ],
   [
     "Bring in an agent",

@@ -350,7 +350,7 @@ try {
         ]
           .map((child) => findButton(child, label))
           .find(Boolean);
-  const button = findButton(document.root, "Comment here");
+  const button = findButton(document.root, "Comment");
   assert.ok(button);
   const resolved = await markdown.command("DOM.resolveNode", { nodeId: button.nodeId });
   const visibleControls = async () => {

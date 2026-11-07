@@ -523,6 +523,7 @@
     "dragToMove": "拖拽以移动",
     "importedDraftItsOriginalPublishedContextIs": "已导入草稿。其原始发布上下文未知；已保存的文本和锚点依据得以保留。",
     "moveComposer": "移动编辑器",
+    "onTarget": "针对 {{target}}",
     "posting": "正在发布…",
     "writeAComment": "撰写评论…",
     "writeAReply": "撰写回复…"
@@ -687,10 +688,11 @@
     "viewed": "已查看"
   },
   "previewLabels": {
-    "commentHere": "在此发表评论",
-    "commentHereSpace": "在此发表评论 (空格)",
+    "commentHere": "评论",
+    "commentHereSpace": "评论 (空格)",
     "openComment": "打开评论",
-    "selectParent": "选择父级"
+    "selectChild": "选择子级 (↓)",
+    "selectParent": "选择父级 (↑)"
   },
   "comparison": {
     "compareFix": "对比修复",

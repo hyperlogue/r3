@@ -116,7 +116,7 @@ export function TutorialDocument(props: ArtifactRenderedPaneProps) {
       {picked && commenting && (
         <QuoteBubble
           pos={{ left: picked.left, top: picked.top, text: "" }}
-          label="Comment here"
+          label="Comment"
           onQuote={() => {
             onTarget(picked.target);
             setPicked(null);

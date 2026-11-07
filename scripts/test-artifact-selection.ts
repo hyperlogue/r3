@@ -351,7 +351,7 @@ try {
   await key("Tab", "Tab");
   await eventually(focused, "Markdown Tab focus");
   await page.command("Input.insertText", { text: "A native Markdown target." });
-  await click("Add comment");
+  await click("Comment");
   await eventually(
     () =>
       Promise.resolve(
@@ -420,7 +420,7 @@ try {
   await content.evaluate(
     "getSelection().removeAllRanges();document.querySelector('#send').focus();document.querySelector('#send').click()",
   );
-  await eventually(() => action("Comment here"), "picked node actions");
+  await eventually(() => action("Comment"), "picked node actions");
   await page.command("Input.dispatchKeyEvent", {
     type: "keyDown",
     key: " ",
@@ -438,7 +438,7 @@ try {
     "the page button stays inactive",
   );
   await page.command("Input.insertText", { text: "A keyboard-picked node." });
-  await click("Add comment");
+  await click("Comment");
   await eventually(
     () =>
       Promise.resolve(

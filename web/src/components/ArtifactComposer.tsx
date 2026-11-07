@@ -19,6 +19,10 @@ import {
 } from "./MessageAttachments.tsx";
 import { MessageInput } from "./MessageInput.tsx";
 
+const submitModifier =
+  typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘" : "Ctrl";
+const QUOTE_IN_LABEL = 60;
+
 // Draft subscription and mutation live with the textarea. Typing does not
 // subscribe the conversation list or the content pane to every character.
 export function ArtifactComposer({
@@ -95,11 +99,51 @@ export function ArtifactComposer({
       </p>
     );
   const context = draft?.context;
+  const quote =
+    draft && "locator" in draft.target && draft.target.locator && "quote" in draft.target.locator
+      ? draft.target.locator.quote
+      : undefined;
+  const singleLineQuote = quote?.replace(/\s+/g, " ").trim();
+  // A floating note names its picked element inline; longer quotes keep the block below.
+  const quoteInLabel = !!floating && !!singleLineQuote && singleLineQuote.length <= QUOTE_IN_LABEL;
+  const label = commentTo
+    ? context?.versionSeq
+      ? t("composer.commentAboutVersion", {
+          context_versionSeq: context.versionSeq,
+          context_representation_context_representation: context.representation
+            ? ` · ${context.representation}`
+            : "",
+        })
+      : null
+    : floating
+      ? t("composer.onTarget", {
+          target: quoteInLabel
+            ? singleLineQuote
+            : artifactTargetLabel(draft?.target ?? { kind: "artifact" }),
+        })
+      : draft?.target && draft.target.kind !== "artifact"
+        ? artifactTargetLabel(draft.target)
+        : null;
+  const hasContent = hasMessageContent(draft);
+  const closeLabel = floating
+    ? t("composer.closeComposer")
+    : hasContent
+      ? t("composer.discard")
+      : t("common.cancel");
+  const close = () => {
+    if (floating) {
+      floating.onClose();
+      return;
+    }
+    artifactDrafts.clear(artifactId, commentTo);
+    onDone?.();
+  };
   const form = (
     <form
       ref={formElement}
       className={cn(
-        "relative flex flex-col gap-2 bg-white py-3 dark:bg-neutral-950",
+        "relative flex flex-col gap-2 bg-white pt-2 pb-3 dark:bg-neutral-950",
+        commentTo && !floating && "pb-0",
         !commentTo &&
           !floating &&
           "border-b border-neutral-200 before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-primary-500 dark:border-neutral-800",
@@ -124,64 +168,55 @@ export function ArtifactComposer({
         }
       }}
     >
-      {(!commentTo || !!context?.versionSeq || floating) && (
-        <div className="flex items-start justify-between gap-2 px-3 text-xs text-neutral-500">
-          {floating && (
-            <button
-              type="button"
-              tabIndex={-1}
-              aria-label={t("composer.moveComposer")}
-              title={t("composer.dragToMove")}
-              onPointerDown={floatingComposer.start}
-              className="flex size-6 shrink-0 touch-none cursor-grab items-center justify-center rounded text-neutral-400 hover:text-neutral-600 focus-visible:outline-2 focus-visible:outline-primary-500 dark:hover:text-neutral-200"
-            >
-              <StrokeIcon className="size-4">
-                <path
-                  d="M9 5h.01M15 5h.01M9 12h.01M15 12h.01M9 19h.01M15 19h.01"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                />
-              </StrokeIcon>
-            </button>
-          )}
-          <span className={cn(floating && "min-w-0 flex-1 break-words pt-1")}>
-            {commentTo
-              ? context?.versionSeq
-                ? t("composer.commentAboutVersion", {
-                    context_versionSeq: context.versionSeq,
-                    context_representation_context_representation: context.representation
-                      ? ` · ${context.representation}`
-                      : "",
-                  })
-                : null
-              : artifactTargetLabel(draft?.target ?? { kind: "artifact" })}
-          </span>
-          {!commentTo && draft?.target.kind !== "artifact" && draft?.target && (
-            <button
-              type="button"
-              className={cn("shrink-0 underline", floating && "pt-1")}
-              onClick={() =>
-                artifactDrafts.update(artifactId, {
-                  target: { kind: "artifact" },
-                  mediaSnapshot: undefined,
-                })
-              }
-            >
-              {t("composer.clearTarget")}
-            </button>
-          )}
-          {floating && (
-            <Button
-              type="button"
-              variant="ghost"
-              aria-label={t("composer.closeComposer")}
-              onClick={floating.onClose}
-            >
-              ×
-            </Button>
-          )}
-        </div>
-      )}
+      <div className="flex min-h-4 items-center gap-1 px-3 text-xs text-neutral-500">
+        <span className="min-w-0 flex-1 truncate" title={label ?? undefined}>
+          {label}
+        </span>
+        {!commentTo && !floating && draft?.target && draft.target.kind !== "artifact" && (
+          <button
+            type="button"
+            className="shrink-0 underline"
+            onClick={() =>
+              artifactDrafts.update(artifactId, {
+                target: { kind: "artifact" },
+                mediaSnapshot: undefined,
+              })
+            }
+          >
+            {t("composer.clearTarget")}
+          </button>
+        )}
+        {floating && (
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-label={t("composer.moveComposer")}
+            title={t("composer.dragToMove")}
+            onPointerDown={floatingComposer.start}
+            className="-my-1 flex size-5.5 shrink-0 touch-none cursor-grab items-center justify-center rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 focus-visible:outline-2 focus-visible:outline-primary-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+          >
+            <StrokeIcon className="size-3.5">
+              <path
+                d="M9 5h.01M15 5h.01M9 12h.01M15 12h.01M9 19h.01M15 19h.01"
+                strokeWidth="3"
+                strokeLinecap="round"
+              />
+            </StrokeIcon>
+          </button>
+        )}
+        <button
+          type="button"
+          disabled={post.isPending}
+          aria-label={closeLabel}
+          title={closeLabel}
+          onClick={close}
+          className="-my-1 -mr-1 flex size-5.5 shrink-0 cursor-pointer items-center justify-center rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 focus-visible:outline-2 focus-visible:outline-primary-500 disabled:pointer-events-none disabled:opacity-40 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+        >
+          <StrokeIcon className="size-3.5">
+            <path d="M6 6l12 12M18 6 6 18" strokeLinecap="round" />
+          </StrokeIcon>
+        </button>
+      </div>
       {draft?.imported && (
         <p className="text-xs text-amber-700 dark:text-amber-400">
           {t("composer.importedDraftItsOriginalPublishedContextIs")}
@@ -192,15 +227,11 @@ export function ArtifactComposer({
           {t("composer.descriptionAnchoringIsNoLongerSupportedClear")}
         </p>
       )}
-      {draft &&
-        "locator" in draft.target &&
-        draft.target.locator &&
-        "quote" in draft.target.locator &&
-        draft.target.locator.quote && (
-          <blockquote className="max-h-24 overflow-auto border-l-2 border-neutral-300 pl-2 text-xs text-neutral-500 whitespace-pre-wrap">
-            {draft.target.locator.quote}
-          </blockquote>
-        )}
+      {quote && !quoteInLabel && (
+        <blockquote className="max-h-24 overflow-auto border-l-2 border-neutral-300 pl-2 text-xs text-neutral-500 whitespace-pre-wrap">
+          {quote}
+        </blockquote>
+      )}
       {!commentTo && draft?.target.kind === "media" && draft.mediaSnapshot && (
         <MediaTargetPreview image={draft.mediaSnapshot} box={draft.target.locator.box} />
       )}
@@ -227,7 +258,7 @@ export function ArtifactComposer({
           }
         }}
       />
-      <div className="px-3">
+      <div className="px-3 empty:hidden">
         <MessageAttachments
           artifactId={artifactId}
           images={draft?.attachments}
@@ -245,31 +276,30 @@ export function ArtifactComposer({
           {post.error.message}
         </p>
       )}
-      <div className="flex items-center gap-2 px-3">
+      <div className="mt-1 flex items-center gap-2 px-3">
         {attachments.controls}
         <span className="flex-1" />
-        <Button
-          type="button"
-          disabled={post.isPending}
-          onClick={() => {
-            artifactDrafts.clear(artifactId, commentTo);
-            onDone?.();
-          }}
+        <span
+          aria-hidden="true"
+          className="flex items-center gap-0.5 text-neutral-400 dark:text-neutral-500"
         >
-          {hasMessageContent(draft) ? t("composer.discard") : t("common.cancel")}
-        </Button>
+          {[submitModifier, "↵"].map((key) => (
+            <kbd
+              key={key}
+              className="inline-flex h-4.5 min-w-4.5 items-center justify-center rounded border border-current px-1 font-mono text-[0.625rem] font-semibold leading-none"
+            >
+              {key}
+            </kbd>
+          ))}
+        </span>
         <Button
           type="submit"
           variant="primary"
-          disabled={
-            !hasMessageContent(draft) || attachments.unfinished || post.isPending || retiredTarget
-          }
+          className="h-7 px-3"
+          title={`${t("composer.comment")} (${submitModifier}↵)`}
+          disabled={!hasContent || attachments.unfinished || post.isPending || retiredTarget}
         >
-          {post.isPending
-            ? t("composer.posting")
-            : commentTo
-              ? t("composer.comment")
-              : t("thread.addComment")}
+          {post.isPending ? t("composer.posting") : t("composer.comment")}
         </Button>
       </div>
     </form>

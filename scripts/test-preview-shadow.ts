@@ -171,8 +171,9 @@ try {
     if (result.exceptionDetails) throw new Error(result.exceptionDetails.text);
     return result.result.value;
   };
-  const action = (index: number) => ui(`.controls button:nth-child(${index})`, "el.click()");
-  const capture = async (expression: string, parents = 0) => {
+  const action = (name: "comment" | "parent" | "child") =>
+    ui(`.controls [data-action=${name}]`, "el.click()");
+  const capture = async (expression: string, parents = 0, children = 0) => {
     await page.evaluate("messages=[]");
     const activations = await content.evaluate("window.activations");
     await content.evaluate(`getSelection().removeAllRanges();(${expression}).click()`);
@@ -181,8 +182,9 @@ try {
       activations,
       "picks never activate publisher handlers",
     );
-    for (let i = 0; i < parents; i++) await action(2);
-    await action(1);
+    for (let i = 0; i < parents; i++) await action("parent");
+    for (let i = 0; i < children; i++) await action("child");
+    await action("comment");
     const message = await eventually(
       () => page.evaluate("messages.find(m=>m.type==='r3-preview-target')"),
       "picked target",
@@ -207,6 +209,9 @@ try {
   const outer = await capture(node("second"), 2);
   assert.equal(outer.selector, "#second");
   assert.equal(outer.shadowHosts, undefined);
+  const back = await capture(node("second"), 2, 1);
+  assert.equal(back.selector, "#nested", "Select child steps back down the parent trail");
+  assert.deepEqual(back.shadowHosts, ["#second"]);
   const plain = await capture("document.querySelector('#inner')");
   assert.equal(plain.quote, "Light DOM control");
   assert.equal(plain.shadowHosts, undefined, "ordinary selectors keep their document scope");

@@ -10,7 +10,7 @@ export function previewLabels(locale: Locale = getLocale()): NonNullable<Preview
     commentHere: label("previewLabels.commentHere"),
     commentHereHint: label("previewLabels.commentHereSpace"),
     selectParent: label("previewLabels.selectParent"),
-    cancel: label("common.cancel"),
+    selectChild: label("previewLabels.selectChild"),
     wholePage: label("previewLabels.wholePage"),
   };
 }

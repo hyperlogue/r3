@@ -450,7 +450,7 @@ try {
     "Typing must not add a header row above the composer",
   );
   await page.evaluate(
-    "[...document.querySelectorAll('[data-artifact-composer] button')].find(b=>b.textContent==='Discard').click()",
+    "document.querySelector('[data-artifact-composer] button[aria-label=Discard]').click()",
   );
   await eventually(
     () =>
@@ -475,7 +475,7 @@ try {
     "Promise.all(document.getAnimations().map(animation=>animation.finished.catch(()=>{})))",
   );
   await page.evaluate(
-    "[...document.querySelectorAll('[data-artifact-composer] button')].find(b=>b.textContent==='Cancel').click()",
+    "document.querySelector('[data-artifact-composer] button[aria-label=Cancel]').click()",
   );
   await eventually(
     () =>
@@ -498,7 +498,7 @@ try {
     "reopening during exit focuses the live composer",
   );
   await page.evaluate(
-    "[...document.querySelectorAll('[data-artifact-composer]:not([inert] *) button')].find(button=>button.textContent==='Cancel').click()",
+    "document.querySelector('[data-artifact-composer]:not([inert] *) button[aria-label=Cancel]').click()",
   );
   const panel = "document.querySelector('[data-discussion-mode]')";
   const geometry = () =>

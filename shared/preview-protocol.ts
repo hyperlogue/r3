@@ -40,7 +40,7 @@ export interface PreviewDisplay {
     commentHere: string;
     commentHereHint: string;
     selectParent: string;
-    cancel: string;
+    selectChild: string;
     wholePage?: string;
   };
   // r3 appearance for retained Markdown; authored HTML retains its own styling.

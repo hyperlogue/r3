@@ -523,6 +523,7 @@
     "dragToMove": "Drag to move",
     "importedDraftItsOriginalPublishedContextIs": "Imported draft. Its original published context is unknown; the saved text and anchor evidence are preserved.",
     "moveComposer": "Move composer",
+    "onTarget": "on {{target}}",
     "posting": "Posting…",
     "writeAComment": "Write a comment…",
     "writeAReply": "Write a reply…"
@@ -687,10 +688,11 @@
     "viewed": "Viewed"
   },
   "previewLabels": {
-    "commentHere": "Comment here",
-    "commentHereSpace": "Comment here (Space)",
+    "commentHere": "Comment",
+    "commentHereSpace": "Comment (Space)",
     "openComment": "Open comment",
-    "selectParent": "Select parent"
+    "selectChild": "Select child (↓)",
+    "selectParent": "Select parent (↑)"
   },
   "comparison": {
     "compareFix": "Compare fix",

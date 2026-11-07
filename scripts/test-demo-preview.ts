@@ -337,7 +337,7 @@ try {
     const find = (node: any): any => {
       if (
         node.nodeName === "BUTTON" &&
-        node.children?.some((child: any) => child.nodeValue === "Comment here")
+        node.children?.some((child: any) => child.nodeValue === "Comment")
       )
         return node;
       for (const child of [
