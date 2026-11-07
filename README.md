@@ -29,3 +29,33 @@ No global r3 installation is required. Then ask your agent:
 Open the link, leave comments, and click **Send to agent** to request revisions.
 
 [Other installation methods](https://hyperlogue.github.io/r3/docs/get-started/#other-installation-methods)
+
+## Feature highlights
+
+### Point to exactly what needs changing
+
+Anchor a comment to a UI element and keep the agent's reply beside the target.
+Follow up in the same thread when a detail still needs work.
+
+![A comment anchored to a button, with an agent reply and a follow-up requesting a spacing change](site/assets/fieldwork-comment-light.png)
+
+### Review proposals with the discussion in view
+
+Read a document alongside questions and agent replies. Jump from a reply to its
+linked fix, then resolve the thread when you're satisfied.
+
+![A project visibility proposal beside a discussion clarifying access rules and linking to the fix](site/assets/fieldwork-brief-light.png)
+
+### Check the fix side by side
+
+Compare the original and proposed fix at the commented location, with the review
+thread still visible.
+
+![Original and revised button spacing shown side by side alongside the comment that requested the change](site/assets/fieldwork-comparison-light.png)
+
+### Give feedback on a specific video moment
+
+Attach a comment to a timestamp and region in a video. Frame previews in the
+thread show the detail you flagged and the agent's proposed fix.
+
+![A video paused at two seconds with a highlighted date label and frame previews in the review thread](site/assets/fieldwork-media-video-light.png)
