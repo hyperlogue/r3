@@ -1050,7 +1050,7 @@ function Workspace({
                 }}
                 className={cn(
                   "min-h-0 min-w-0 flex-1 overflow-y-auto",
-                  !mobile && detail.kind !== "files" && "[contain:paint]",
+                  !mobile && "[contain:paint]",
                   detail.kind === "html" && "flex flex-col [&>*]:shrink-0",
                 )}
                 onClick={(event) => {
