@@ -1032,7 +1032,7 @@ function Workspace({
           <div
             data-comparison-track
             className="flex w-[200%] shrink-0 transition-transform duration-[480ms] ease-[cubic-bezier(.22,.78,.2,1)] motion-reduce:transition-none"
-            style={{ transform: comparison.active ? "translateX(-50%)" : "none" }}
+            style={{ transform: comparison.active ? "translateX(-50%)" : "translateX(0)" }}
           >
             <div
               data-artifact-surface
@@ -1050,7 +1050,7 @@ function Workspace({
                 }}
                 className={cn(
                   "min-h-0 min-w-0 flex-1 overflow-y-auto",
-                  !mobile && "[contain:paint]",
+                  !mobile && detail.kind !== "files" && "[contain:paint]",
                   detail.kind === "html" && "flex flex-col [&>*]:shrink-0",
                 )}
                 onClick={(event) => {
