@@ -71,7 +71,10 @@ await storage.artifacts.publish(files.id, {
         path: "index.md",
         mediaType: "text/markdown",
         base64: Buffer.from(
-          "# Published Markdown\n\nA selectable Markdown paragraph.\n\nAnother paragraph for quoting.",
+          "# Published Markdown\n\nA selectable Markdown paragraph.\n\nAnother paragraph for quoting." +
+            "\n\nAdditional text in a long Markdown document with **inline formatting**.".repeat(
+              1000,
+            ),
         ).toString("base64"),
       },
     ],
@@ -127,7 +130,8 @@ const app = Bun.serve({
 });
 let browser: Awaited<ReturnType<typeof openTestBrowser>> | undefined;
 try {
-  browser = await openTestBrowser();
+  // The harness inspects selection and closed-shadow actions through one CDP target.
+  browser = await openTestBrowser(["--disable-site-isolation-trials"]);
   const { targetId } = await browser.send("Target.createTarget", { url: "about:blank" });
   const page = await browser.attach(targetId);
   type Document = Pick<typeof page, "evaluate">;
@@ -161,14 +165,16 @@ try {
         }
       }
       return null;
-    }, "rendered document");
+    }, `rendered document ${heading}`);
   const threadField =
     "document.querySelector('[data-artifact-composer]:not([data-comment-to]) textarea')";
   const hasComposer = () => page.evaluate(`!!${threadField}`);
   const focused = () => page.evaluate(`document.activeElement === ${threadField}`);
   const click = async (label: string) => {
     await page.evaluate(
-      `Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim() === ${JSON.stringify(label)} || b.getAttribute('aria-label') === ${JSON.stringify(label)})?.click()`,
+      label.startsWith("[")
+        ? `document.querySelector(${JSON.stringify(label)})?.click()`
+        : `Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim() === ${JSON.stringify(label)} || b.getAttribute('aria-label') === ${JSON.stringify(label)})?.click()`,
     );
   };
   const select = async (doc: Document, selector: string, keyboard = false) => {
@@ -345,6 +351,69 @@ try {
   );
   await click('[data-file="index.md"] button[title="Rendered"]');
   content = await frame("Published Markdown");
+  for (const acrossParagraphs of [false, true]) {
+    await content.evaluate("getSelection().removeAllRanges()");
+    const origin = await page.evaluate<{ x: number; y: number }>(`(() => {
+    const rect = document.querySelector('iframe').getBoundingClientRect();
+    return { x: rect.left, y: rect.top };
+  })()`);
+    const points = await content.evaluate<{
+      start: number;
+      end: number;
+      y: number;
+      endY: number;
+    }>(`(() => {
+    const text = document.querySelector('p').firstChild;
+    const range = document.createRange();
+    range.setStart(text, 0); range.setEnd(text, 1);
+    const first = range.getBoundingClientRect();
+    const end = ${acrossParagraphs} ? document.querySelectorAll('p')[1].firstChild : text;
+    const offset = ${acrossParagraphs} ? 7 : 12;
+    range.setStart(end, offset); range.setEnd(end, offset + 1);
+    const last = range.getBoundingClientRect();
+    return { start: first.left, end: last.left, y: (first.top + first.bottom) / 2, endY: (last.top + last.bottom) / 2 };
+  })()`);
+    await page.command("Input.dispatchMouseEvent", {
+      type: "mousePressed",
+      button: "left",
+      clickCount: 1,
+      x: origin.x + points.start,
+      y: origin.y + points.y,
+    });
+    for (let step = 1; step <= 12; step++) {
+      await page.command("Input.dispatchMouseEvent", {
+        type: "mouseMoved",
+        button: "left",
+        buttons: 1,
+        x: origin.x + points.start + ((points.end - points.start) * step) / 12,
+        y: origin.y + points.y + ((points.endY - points.y) * step) / 12,
+      });
+    }
+    const expected = acrossParagraphs
+      ? "A selectable Markdown paragraph.\n\nAnother"
+      : "A selectable";
+    assert.equal(await hasComposer(), false, "dragging must not open a composer");
+    assert.equal(
+      await content.evaluate("getSelection().toString()"),
+      expected,
+      "mouse dragging selects the text under the pointer",
+    );
+    await page.command("Input.dispatchMouseEvent", {
+      type: "mouseReleased",
+      button: "left",
+      clickCount: 1,
+      x: origin.x + points.end,
+      y: origin.y + points.endY,
+    });
+    await waitComposer("dragged Markdown selection composer");
+    assert.equal(
+      await content.evaluate("getSelection().toString()"),
+      expected,
+      "opening a note preserves the dragged selection",
+    );
+    await click("Cancel");
+    await eventually(async () => !(await hasComposer()), "cancel dragged Markdown note");
+  }
   await select(content, "h1");
   await waitComposer("Markdown selection composer");
   assert.equal(await focused(), false);
