@@ -35,10 +35,10 @@ type Gesture = {
   width: number;
 };
 const tools: { id: ImageTool; label: AppMessageKey; key: string }[] = [
-  { id: "crop", label: "common.crop", key: "c" },
   { id: "pen", label: "common.pen", key: "p" },
   { id: "arrow", label: "common.arrow", key: "a" },
   { id: "rectangle", label: "common.rectangle", key: "r" },
+  { id: "crop", label: "common.crop", key: "c" },
 ];
 
 export function ImageEditor({
@@ -60,7 +60,7 @@ export function ImageEditor({
   const [gesture, setGesture] = useState<Gesture | null>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [history, dispatch] = useReducer(imageHistory, undefined, emptyImageHistory);
-  const [tool, setTool] = useState<ImageTool>("crop");
+  const [tool, setTool] = useState<ImageTool>("pen");
   const [color, setColor] = useState("#ef4444");
   const [width, setWidth] = useState(4);
   const [saving, setSaving] = useState(false);
