@@ -152,12 +152,19 @@ const api = createArtifactApi(
   },
   { previews: preview },
 );
+let holdLibraryReads = false;
+let releaseLibraryReads: () => void = () => {};
+const libraryReads = new Promise<void>((resolve) => {
+  releaseLibraryReads = resolve;
+});
 const server = Bun.serve({
   hostname: "127.0.0.1",
   port: 0,
   fetch(request) {
     const path = new URL(request.url).pathname;
     if (path.startsWith(PREVIEW_PREFIX)) return preview.fetch(request);
+    if (holdLibraryReads && path.startsWith("/api/artifacts") && request.method === "GET")
+      return libraryReads.then(() => api.app.fetch(request));
     if (path.startsWith("/api/")) return api.app.fetch(request);
     const asset = assets.get(path.slice(1));
     if (asset) return new Response(asset);
@@ -745,6 +752,7 @@ try {
     () => page.evaluate('!!document.querySelector("dialog[open]")'),
     "bulk archive confirmation",
   );
+  holdLibraryReads = true;
   await clickText("Archive artifacts", "dialog[open]");
   await eventually(
     async () => batch.every((item) => storage.artifacts.get(item.id).state === "archived"),
@@ -754,6 +762,14 @@ try {
     () => page.evaluate('!document.querySelector("dialog[open]")'),
     "bulk archive finished",
   );
+  for (const item of batch)
+    assert.equal(
+      await page.evaluate(`!!document.querySelector('[data-library-row][href^="/${item.id}?"]')`),
+      false,
+      "confirmed archives disappear from Active without waiting for a library refresh",
+    );
+  holdLibraryReads = false;
+  releaseLibraryReads();
   await select('[aria-label="Library view"]', "archived");
   await ready();
   for (const item of batch) await click(`[aria-label="Select ${item.title}"]`);
@@ -816,6 +832,7 @@ try {
     "Library browser acceptance passed: compact rows, desktop/dark/mobile, animated selection mode, Shift-click ranges and anchor resets, repeated search matches, keyboard toggle, inert hidden controls, reduced motion, archive-aware review attention, history, source locations, earlier comments, pinned versions, return filters, empty search, usage windows, bulk archive/delete, single delete, and confirmed GC.",
   );
 } finally {
+  releaseLibraryReads();
   await browser?.close();
   api.close();
   preview.close();

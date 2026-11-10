@@ -109,6 +109,20 @@ export function ArtifactActionDialog({
           if (pending) return;
           setPending(true);
           const results = await actOnArtifacts(items, action, message, keys.current, api);
+          const completed = new Set(
+            results.filter((result) => result.state !== "failed").map((result) => result.id),
+          );
+          await qc.cancelQueries({ queryKey: ["artifacts"] });
+          await Promise.all(
+            [...completed].map((id) => qc.cancelQueries({ queryKey: ["artifact-summary", id] })),
+          );
+          qc.setQueryData<Artifact[]>(["artifacts"], (current) =>
+            action === "delete"
+              ? current?.filter((item) => !completed.has(item.id))
+              : current?.map((item) =>
+                  completed.has(item.id) ? { ...item, state: "archived" } : item,
+                ),
+          );
           for (const key of [
             "artifacts",
             "artifact",
