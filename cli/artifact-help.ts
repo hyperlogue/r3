@@ -361,6 +361,8 @@ Standard \`localStorage\` calls save browser-local state for this artifact acros
 
 Bundle dependencies and assets locally: external requests are blocked by default. If the page requires external services or device access, explain that requirement to the human.
 
+Nested browsing contexts and workers are blocked: \`<iframe>\`, \`<object>\`, \`<embed>\`, and \`Worker\` do not load, even for published files. Render device mockups and embedded screens directly in the page, using container queries for a phone width, or inside an open shadow root so rendered threads can still anchor there.
+
 Give important sections and controls unique, descriptive HTML IDs, such as \`id="pricing-comparison"\` or \`id="save-draft"\`. Keep each ID stable across revisions of the same element; avoid random IDs or IDs based on list position, and do not reuse an ID for an unrelated element. Stable IDs make rendered threads easier to anchor and inspect.
 
 For a new rendered target, \`thread add\` accepts \`--file <path> --version <seq> --view rendered --selector <CSS>\` with optional \`--quote <text>\` and \`--route <query/hash>\`, or a complete \`--target <JSON>\` document target. Target the recorded page and route. The main guide explains original evidence and comment/fix references.
