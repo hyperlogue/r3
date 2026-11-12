@@ -307,6 +307,13 @@ try {
     const expected = await content.evaluate(`${node("second")}.getBoundingClientRect().top`);
     return Math.abs((await ui(".marker", "parseFloat(el.style.top)")) - expected) < 1;
   }, "shadow mutations reposition markers");
+  const markerColor = () => ui(".marker", "getComputedStyle(el).backgroundColor");
+  const openColor = await markerColor();
+  await display(false, null, [{ threadId: thread.id, locator, resolved: true }]);
+  const resolvedColor = await markerColor();
+  assert.notEqual(resolvedColor, openColor, "resolved threads use a distinct marker color");
+  await display(false, null, [{ threadId: thread.id, locator }]);
+  assert.equal(await markerColor(), openColor, "open markers return to the open color");
 
   const savedText = JSON.stringify(textLocator);
   await content.evaluate(`${node("second", "#text b")}.textContent='revised passage'`);

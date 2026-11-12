@@ -289,6 +289,7 @@ export function installPreviewRuntime(
         const count = (counts.get(match.element) ?? 0) + 1;
         counts.set(match.element, count);
         button.className = "marker";
+        if (target.resolved) button.dataset.resolved = "";
         button.textContent = "●";
         button.title = display.labels?.openComment ?? "Open comment";
         button.setAttribute("aria-label", display.labels?.openComment ?? "Open comment");
@@ -792,7 +793,7 @@ export function installPreviewRuntime(
     shadow.append(markers);
     const markerStyle = document.createElement("style");
     markerStyle.textContent =
-      ".location{position:fixed;box-sizing:border-box;border:2px solid #3b82f6;pointer-events:none}.location[data-fallback=ancestor]{border-style:dashed}.location[data-large=true]{border-width:0 0 0 3px}.location-label{position:fixed;border:1px solid #737373;border-radius:4px;padding:4px 8px;background:#262626;color:white;font:12px system-ui;pointer-events:none}.marker{position:fixed;width:24px;height:24px;padding:0;background:#2563eb;color:white;pointer-events:auto;border:1px solid white;border-radius:50%;font:12px system-ui;cursor:pointer}";
+      ".location{position:fixed;box-sizing:border-box;border:2px solid #3b82f6;pointer-events:none}.location[data-fallback=ancestor]{border-style:dashed}.location[data-large=true]{border-width:0 0 0 3px}.location-label{position:fixed;border:1px solid #737373;border-radius:4px;padding:4px 8px;background:#262626;color:white;font:12px system-ui;pointer-events:none}.marker{position:fixed;width:24px;height:24px;padding:0;background:#2563eb;color:white;pointer-events:auto;border:1px solid white;border-radius:50%;font:12px system-ui;cursor:pointer}.marker[data-resolved]{background:#009966}";
     shadow.append(markerStyle);
     const [up, down, comment] = controls.querySelectorAll("button");
     up.onclick = selectParent;

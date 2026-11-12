@@ -57,7 +57,7 @@ export interface PreviewDisplay {
   replaceLocateRoute?: boolean;
   noteHasText?: boolean;
   composerVisible?: boolean;
-  targets: { threadId: string; locator: RenderedLocator | null }[];
+  targets: { threadId: string; locator: RenderedLocator | null; resolved?: boolean }[];
   jump: { locator: RenderedLocator | null; nonce: number } | null;
 }
 

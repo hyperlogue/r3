@@ -3,6 +3,7 @@ import type {
   ArtifactDocumentTarget,
   ArtifactKind,
   ArtifactTarget,
+  ArtifactThread,
   Representation,
 } from "../../shared/artifacts.ts";
 import type { ArtifactViewSelection } from "./artifact-version.ts";
@@ -103,6 +104,21 @@ export function visibleArtifactTargets(
       )
       .map((placement) => ({ threadId: threads.id, target: placement.target }));
   });
+}
+
+// Rendered markers follow the discussion queue: the active tab marks open
+// threads, the resolved tab marks resolved threads.
+export function artifactMarkerTargets(
+  detail: ArtifactDetail,
+  seq: number,
+  status: ArtifactThread["status"],
+): { threadId: string; target: ArtifactDocumentTarget; resolved: boolean }[] {
+  const shown = new Set(
+    detail.threads.filter((thread) => thread.status === status).map((thread) => thread.id),
+  );
+  return visibleArtifactTargets(detail, seq, "rendered").flatMap((marker) =>
+    shown.has(marker.threadId) ? [{ ...marker, resolved: status === "resolved" }] : [],
+  );
 }
 
 export function artifactRegions(

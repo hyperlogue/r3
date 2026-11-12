@@ -4,11 +4,12 @@ import type {
   ArtifactDetail,
   ArtifactFile,
   ArtifactReferenceContext,
+  ArtifactThread,
 } from "../../shared/artifacts.ts";
 import {
+  artifactMarkerTargets,
   artifactRegions,
   defaultFileRepresentation,
-  visibleArtifactTargets,
 } from "./artifact-navigation.ts";
 import { useArtifactClient } from "./artifact-ui-context.tsx";
 import { type ArtifactViewSelection, selectedArtifactVersion } from "./artifact-version.ts";
@@ -29,6 +30,7 @@ export function useArtifactContent(
   detail: ArtifactDetail,
   view: ArtifactViewSelection,
   onReadError: (message: string) => void,
+  markerStatus: ArtifactThread["status"] = "open",
 ) {
   const { t } = useTranslation();
   const artifactApi = useArtifactClient();
@@ -95,8 +97,8 @@ export function useArtifactContent(
     [detail, version, view.representation, diffQuery.data],
   );
   const renderedTargets = useMemo(
-    () => (version ? visibleArtifactTargets(detail, version.seq, "rendered") : []),
-    [detail, version],
+    () => (version ? artifactMarkerTargets(detail, version.seq, markerStatus) : []),
+    [detail, version, markerStatus],
   );
   const viewedPaths = useMemo(
     () =>

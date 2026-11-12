@@ -3,6 +3,7 @@ import type { ArtifactTarget } from "../../shared/artifacts.ts";
 import { artifactFixture, artifactFixtureThread } from "./artifact-fixtures.ts";
 import {
   artifactLocationSearch,
+  artifactMarkerTargets,
   artifactRegions,
   artifactWorkspaceSearch,
   defaultFileRepresentation,
@@ -105,4 +106,24 @@ test("version changes clear comparisons and retired parameters but preserve libr
   expect(moved.has("compare")).toBe(false);
   expect(moved.get("lang")).toBe("zh-CN");
   expect(moved.get("library")).toBe("?q=keyboard");
+});
+
+test("rendered markers show only the selected queue and flag resolved threads", () => {
+  const thread = artifactFixture.threads.find(
+    (note) => visibleArtifactTargets(artifactFixture, 1, "rendered")[0]?.threadId === note.id,
+  )!;
+  const resolved = {
+    ...artifactFixture,
+    threads: artifactFixture.threads.map((note) =>
+      note.id === thread.id ? { ...note, status: "resolved" as const } : note,
+    ),
+  };
+  expect(artifactMarkerTargets(artifactFixture, 1, "open")).toEqual([
+    expect.objectContaining({ threadId: thread.id, resolved: false }),
+  ]);
+  expect(artifactMarkerTargets(artifactFixture, 1, "resolved")).toEqual([]);
+  expect(artifactMarkerTargets(resolved, 1, "open")).toEqual([]);
+  expect(artifactMarkerTargets(resolved, 1, "resolved")).toEqual([
+    expect.objectContaining({ threadId: thread.id, resolved: true }),
+  ]);
 });

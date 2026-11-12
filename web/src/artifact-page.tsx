@@ -111,6 +111,7 @@ export interface ArtifactRenderedPaneProps {
   targets: {
     threadId: string;
     target: ArtifactDocumentTarget;
+    resolved?: boolean;
   }[];
   onTarget: (target: ArtifactDocumentTarget) => void;
   onSelection?: (target: ArtifactDocumentTarget, rect: AnchorRect, quote: boolean) => void;
@@ -263,7 +264,7 @@ function Workspace({
     viewedPaths,
     patch,
     fetchContext,
-  } = useArtifactContent(detail, view, setNotice);
+  } = useArtifactContent(detail, view, setNotice, threadTab === "resolved" ? "resolved" : "open");
   const syntaxPalette = useSyntaxPalette(theme, detail.kind !== "html");
   const fileMode = useCallback(
     (filePath: string): "source" | "rendered" =>

@@ -461,11 +461,11 @@ function PreviewSession(
         replaceLocateRoute: props.independentReading,
         commenting:
           props.active !== false && props.commenting && context.presentation === "document",
-        targets: props.targets.flatMap(({ threadId, target }) =>
+        targets: props.targets.flatMap(({ threadId, target, resolved }) =>
           target.kind === "rendered" &&
           target.versionSeq === seq &&
           target.path === currentPath.current
-            ? [{ threadId, locator: target.locator }]
+            ? [{ threadId, locator: target.locator, resolved }]
             : [],
         ),
         jump:
@@ -897,9 +897,9 @@ function PreviewSession(
       highlightLocated: props.highlightLocated,
       replaceLocateRoute: props.independentReading,
       commenting: props.active !== false && props.commenting && context.presentation === "document",
-      targets: props.targets.flatMap(({ threadId, target }) =>
+      targets: props.targets.flatMap(({ threadId, target, resolved }) =>
         target.kind === "rendered" && target.versionSeq === seq && target.path === props.path
-          ? [{ threadId, locator: target.locator }]
+          ? [{ threadId, locator: target.locator, resolved }]
           : [],
       ),
       jump:
