@@ -224,6 +224,17 @@ export function ImageEditor({
           event.altKey
         )
           return;
+        if (
+          event.key === "Enter" &&
+          !event.ctrlKey &&
+          !event.metaKey &&
+          !event.shiftKey &&
+          !(event.target instanceof HTMLElement && event.target.closest("button, a"))
+        ) {
+          event.preventDefault();
+          if (!gesture) void save();
+          return;
+        }
         const key = event.key.toLowerCase();
         if (event.ctrlKey || event.metaKey) {
           if (key === "z" || key === "y") {
@@ -268,6 +279,9 @@ export function ImageEditor({
               onClick={() => edit({ ...present, drawings: [] })}
             >
               {t("imageEditor.clearDrawings")}
+            </Button>
+            <Button type="button" disabled={busy || !!gesture} onClick={() => setOptimizing(true)}>
+              {t("imageEditor.optimizeSize")}
             </Button>
           </div>
         </div>
@@ -431,13 +445,22 @@ export function ImageEditor({
           {t("common.cancel")}
         </Button>
         {!optimizing && (
-          <Button type="button" disabled={busy || !!gesture} onClick={() => setOptimizing(true)}>
-            {t("imageEditor.optimizeImage")}
-          </Button>
-        )}
-        {!optimizing && (
-          <Button variant="primary" disabled={busy || !!gesture} onClick={() => void save()}>
-            {saving ? t("common.saving") : t("imageEditor.useImage")}
+          <Button
+            variant="primary"
+            disabled={busy || !!gesture}
+            aria-label={saving ? t("common.saving") : t("common.save")}
+            aria-keyshortcuts="Enter"
+            title={t("imageEditor.saveEnter")}
+            onClick={() => void save()}
+          >
+            {saving ? (
+              t("common.saving")
+            ) : (
+              <>
+                {t("common.save")}
+                <kbd className="ml-1 font-mono text-[0.625rem] opacity-60">↵</kbd>
+              </>
+            )}
           </Button>
         )}
       </div>

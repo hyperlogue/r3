@@ -277,7 +277,14 @@ try {
     true,
     "new drawing discards undone branch",
   );
-  await page.evaluate(`${button("Use image")}.click()`);
+  await page.evaluate("document.querySelector('dialog[open] canvas').focus()");
+  for (const type of ["keyDown", "keyUp"])
+    await page.command("Input.dispatchKeyEvent", {
+      type,
+      key: "Enter",
+      code: "Enter",
+      windowsVirtualKeyCode: 13,
+    });
   await eventually(
     () => page.evaluate("!document.querySelector('dialog[open]')"),
     "flattened drawings in draft",
@@ -479,7 +486,7 @@ try {
   await setNumber("Crop y", "10");
   await setNumber("Crop width", "100");
   await setNumber("Crop height", "80");
-  await page.evaluate(`${button("Use image")}.click()`);
+  await page.evaluate(`${button("Save")}.click()`);
   await eventually(
     () => page.evaluate("!!document.querySelector('[data-artifact-composer] img')"),
     "captured image in native draft",
