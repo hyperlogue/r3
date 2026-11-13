@@ -399,7 +399,7 @@ Locate retries the exact target first. If it remains unavailable, it shows the e
 
 ## Page utility
 
-A page can read and extend its own discussion, so the human can answer inside the page instead of typing a comment. Use it for decisions the page already presents: option pickers, questionnaires, approve/reject buttons, ranked lists. The page writes each answer as a thread and submits; you receive it through the normal comment fetch.
+The page utility helps you build interactive UI: the human chooses from options in the page, and the page submits those choices directly back to you. Each choice arrives as a thread through the normal comment fetch.
 
 \`\`\`html
 <script type="module">
@@ -426,7 +426,7 @@ document.querySelector("#choose-b").onclick = async () => {
 | \`isCommentMode()\` | Whether comment mode is on, synchronously |
 | \`onCommentModeChange(listener)\` | Calls \`listener(commentMode)\` only when the mode changes. Returns an unsubscribe function |
 
-\`createThread\`, \`comment\`, and \`submit\` act as the signed-in human and require a click or key press in the page; a call made on load or from a timer is rejected. \`body\` holds 1 to 1,048,576 characters. A \`locator\` takes the rendered fields described above except \`label\`. Thread status is read-only: the page cannot resolve, reopen, edit, claim, or re-anchor a thread. At most 32 calls may be pending, and each fails after 30 seconds without a workspace response.
+Call \`createThread\`, \`comment\`, and \`submit\` from a click or key-press handler; they act as the signed-in human. \`body\` holds 1 to 1,048,576 characters. A \`locator\` takes \`selector\` with optional \`shadowHosts\`, \`ancestors\`, \`quote\`, \`prefix\`, \`suffix\`, \`route\`, and \`viewport\`.
 
 Comment mode lets the human pick any element, so page clicks do not reach your handlers while it is on. r3 adds the \`r3-comment-mode\` class to the \`<html>\` element for its duration. Use the class, or \`isCommentMode()\` with \`onCommentModeChange\`, to make hidden content commentable: expand collapsed sections, show every tab panel, pause animation.
 
