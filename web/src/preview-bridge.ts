@@ -3,7 +3,6 @@ import { MAX_RENDERED_HEIGHT } from "../../shared/artifacts.ts";
 import type { PreviewPageContext, PreviewViewport } from "../../shared/preview-protocol.ts";
 import { normalizeRenderedText } from "../../shared/rendered-text.ts";
 import type { artifactApi } from "./artifact-api.ts";
-import type { previewThemePreference } from "./preview-theme.ts";
 import type { AnchorRect } from "./selection.ts";
 export function previewLocator(value: unknown): RenderedLocator | null {
   if (value === null || value === undefined) return null;
@@ -126,9 +125,7 @@ export async function previewBridgeCall(
   detail: ArtifactDetail,
   api: Pick<typeof artifactApi, "addThread" | "comment" | "submit">,
   userActivated: boolean,
-  theme: ReturnType<typeof previewThemePreference>,
 ): Promise<unknown> {
-  if (method === "getTheme") return theme.get();
   if (method === "getContext") return context;
   if (method === "getThreads")
     return detail.threads.map(({ comments, ...thread }) => ({
@@ -142,25 +139,15 @@ export async function previewBridgeCall(
         ...(comment.target ? { target: previewTarget(comment.target) } : {}),
       })),
     }));
-  if (!["createThread", "comment", "submit", "setTheme"].includes(method))
+  if (!["createThread", "comment", "submit"].includes(method))
     throw new Error("Unsupported r3 preview operation");
   // Browser user activation propagates from the preview to its parent. Loading
   // a page or receiving an agent comment cannot silently start another handoff.
   if (!userActivated) throw new Error("Use a button or another user action to send through r3");
-  if (method === "setTheme") {
-    if (value !== "light" && value !== "dark") throw new Error("Theme must be light or dark");
-    return theme.set(value);
-  }
   if (method === "submit") return api.submit(context.artifactId);
   if (!value || typeof value !== "object" || Array.isArray(value))
     throw new Error("Invalid r3 message");
-  let input = value as Record<string, unknown>;
-  // Older published documents address replies with discussionId. Normalize
-  // only that spelling; ambiguous scope and extra fields still fail validation.
-  if (method === "comment" && "discussionId" in input && !("threadId" in input)) {
-    const { discussionId, ...rest } = input;
-    input = { ...rest, threadId: discussionId };
-  }
+  const input = value as Record<string, unknown>;
   const allowed = method === "comment" ? ["body", "threadId"] : ["body", "locator"];
   if (Object.keys(input).some((key) => !allowed.includes(key)))
     throw new Error("Preview messages cannot change actor, publication, or scope");

@@ -74,10 +74,6 @@ export type PreviewTheme = "light" | "dark";
 export type PreviewLocateState = "anchored" | "ancestor" | "ambiguous" | "unplaced";
 
 export interface ArtifactUtility {
-  /** @deprecated Use localStorage for artifact preferences. */
-  getTheme(): Promise<PreviewTheme | null>;
-  /** @deprecated Use localStorage for artifact preferences. */
-  setTheme(theme: PreviewTheme): Promise<void>;
   getUserMedia(constraints: MediaStreamConstraints): Promise<MediaStream>;
   getContext(): Promise<PreviewPageContext>;
   getThreads(): Promise<ArtifactThread[]>;

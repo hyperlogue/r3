@@ -32,7 +32,6 @@ import {
   useCompatibilityConsent,
 } from "../preview-protection.ts";
 import { previewSessions } from "../preview-sessions.ts";
-import { previewThemePreference } from "../preview-theme.ts";
 import { observePreviewViewport, scrollPreviewQuote } from "../preview-viewport.ts";
 import { isReadingPosition, readingKey, readingPositions } from "../reading-position.ts";
 import { navigate } from "../router.ts";
@@ -836,7 +835,6 @@ function PreviewSession(
             props.detail,
             artifactApi,
             props.active !== false && navigator.userActivation?.isActive === true,
-            previewThemePreference(() => localStorage, id),
           )
             .then((value) => {
               if (!closed) comment({ type: "r3-preview-result", id: message.id, value });

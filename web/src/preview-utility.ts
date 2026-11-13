@@ -60,8 +60,6 @@ export function createArtifactUtility(
   });
   const utility = {
     getUserMedia,
-    getTheme: () => call("getTheme"),
-    setTheme: (theme) => call("setTheme", theme),
     getContext: () => call("getContext"),
     getThreads: () => call("getThreads"),
     createThread: (input) => call("createThread", input),
@@ -74,7 +72,5 @@ export function createArtifactUtility(
       };
     },
   } satisfies ArtifactUtility;
-  // Published HTML is immutable. Keep its former entrypoint at the boundary;
-  // new documents and the bridge use the canonical Thread operation.
-  return Object.freeze({ ...utility, createDiscussion: utility.createThread });
+  return Object.freeze(utility);
 }
