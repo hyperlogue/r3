@@ -964,5 +964,16 @@
     "saveError": "Couldn’t save your tour progress. Please try Skip tour or Finish again.",
     "commentModeTitle": "Use Comment mode",
     "commentModeBody": "Turn on Comment mode, then click an element to comment. Turn it off to use the page."
+  },
+  "titleCard": {
+    "id": "ID",
+    "kind": "Kind",
+    "state": "State",
+    "latest": "Latest",
+    "created": "Created",
+    "updated": "Updated",
+    "publisher": "Publisher",
+    "storage": "Storage",
+    "label": "Artifact info"
   }
 }

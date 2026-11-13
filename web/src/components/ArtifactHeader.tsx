@@ -27,6 +27,7 @@ import { ArtifactHandoffButton } from "./ArtifactHandoffButton.tsx";
 import { ArtifactHandoffNotice } from "./ArtifactHandoffNotice.tsx";
 import { ArtifactKindIcon } from "./ArtifactKindIcon.tsx";
 import { ArtifactPreviewSecurity } from "./ArtifactPreviewSecurity.tsx";
+import { ArtifactTitleCard } from "./ArtifactTitleCard.tsx";
 import { ArtifactOpenLatest, ArtifactVersionSelect } from "./ArtifactVersionSelect.tsx";
 import { CommandPaletteButton } from "./CommandPalette.tsx";
 import { MessageProse } from "./Message.tsx";
@@ -324,12 +325,7 @@ export function ArtifactHeader({
     <>
       <ArtifactKindIcon kind={detail.kind} />
       <div className="flex min-w-0 items-center self-stretch">
-        <span
-          className="min-w-0 truncate pr-2 text-sm font-semibold"
-          title={detail.title || detail.id}
-        >
-          {detail.title || detail.id}
-        </span>
+        <ArtifactTitleCard detail={detail} />
         {onSelectVersion && (
           <div className="flex shrink-0 self-stretch max-md:hidden">
             <ArtifactVersionSelect
