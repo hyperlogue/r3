@@ -2,9 +2,9 @@ import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import type { ArtifactDetail } from "../../../shared/artifacts.ts";
 import { formatBytes } from "../format-bytes.ts";
 import { getLanguageTag, useTranslation } from "../i18n.ts";
+import { relativeArtifactTime } from "../relative-artifact-time.ts";
 import { CopyMeta, useEscape } from "../ui.tsx";
 import { AgentName } from "./AgentName.tsx";
-import { relativeArtifactTime } from "./ArtifactLibraryRow.tsx";
 
 const OPEN_DELAY_MS = 350;
 const CLOSE_DELAY_MS = 150;
