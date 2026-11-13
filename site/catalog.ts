@@ -5,7 +5,7 @@ export interface Page {
   description: string;
   group: string;
   source?: string;
-  guide?: "main" | "html" | "files" | "diff" | "cli" | "keys";
+  guide?: "main" | "html" | "files" | "diff" | "page-utility" | "cli" | "keys";
   navigation?: boolean;
   canonicalPath?: string;
 }
@@ -167,6 +167,14 @@ export function getCatalog(locale: Locale = "en") {
       group: t("navigation.groups.agentReference"),
       navigation: false,
       guide: "diff",
+    },
+    {
+      path: "/docs/agents/page-utility/",
+      title: t("pages.docsAgentsPageUtility.title"),
+      description: t("pages.docsAgentsPageUtility.description"),
+      group: t("navigation.groups.agentReference"),
+      navigation: false,
+      guide: "page-utility",
     },
     {
       path: "/docs/cli/",

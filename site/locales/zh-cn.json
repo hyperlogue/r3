@@ -84,6 +84,10 @@
       "title": "发布差异",
       "description": "选择 Git 捕获模式并保留原生代码行目标。"
     },
+    "docsAgentsPageUtility": {
+      "title": "构建交互式页面",
+      "description": "让读者在页面中选择选项，并直接提交给你的智能体。"
+    },
     "docsCli": {
       "title": "命令参考",
       "description": "在 r3 内置帮助中查找准确语法。"
