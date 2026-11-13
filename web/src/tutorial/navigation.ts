@@ -4,6 +4,7 @@ import { useSyncExternalStore } from "react";
 let route = "/";
 const listeners = new Set<() => void>();
 export const hrefFor = (_route: string) => "#practice";
+export const routeFor = (_pathname: string): string | null => null;
 export function navigate(next: string) {
   route = next;
   for (const listener of listeners) listener();
