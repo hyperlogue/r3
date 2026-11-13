@@ -19,11 +19,16 @@ export function hrefFor(route: string): string {
   return BASE + route;
 }
 
-// The current app-relative route: the live pathname with BASE stripped off.
+// Map a real pathname back to an app-relative route, or null outside BASE.
+export function routeFor(pathname: string): string | null {
+  if (!BASE) return pathname;
+  if (pathname === BASE || pathname.startsWith(`${BASE}/`))
+    return pathname.slice(BASE.length) || "/";
+  return null;
+}
+
 function currentRoute(): string {
-  const p = window.location.pathname;
-  if (BASE && (p === BASE || p.startsWith(`${BASE}/`))) return p.slice(BASE.length) || "/";
-  return p;
+  return routeFor(window.location.pathname) ?? window.location.pathname;
 }
 
 function subscribe(cb: () => void) {

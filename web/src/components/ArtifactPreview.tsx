@@ -25,6 +25,7 @@ import type { ArtifactRenderedPaneProps } from "../pages/ArtifactView.tsx";
 import { previewBridgeCall, previewLocator, previewSelectionPosition } from "../preview-bridge.ts";
 import { PreviewCapture } from "../preview-capture.ts";
 import { previewLabels } from "../preview-labels.ts";
+import { previewLinkAction } from "../preview-links.ts";
 import {
   type PreviewVerification,
   previewCompatibility,
@@ -34,6 +35,7 @@ import { previewSessions } from "../preview-sessions.ts";
 import { previewThemePreference } from "../preview-theme.ts";
 import { observePreviewViewport, scrollPreviewQuote } from "../preview-viewport.ts";
 import { isReadingPosition, readingKey, readingPositions } from "../reading-position.ts";
+import { navigate } from "../router.ts";
 import { Button, cn } from "../ui.tsx";
 import { ArtifactLoading } from "./ArtifactLoading.tsx";
 import { ArtifactPreviewCompatibilityConsent } from "./ArtifactPreviewCompatibilityConsent.tsx";
@@ -630,6 +632,12 @@ function PreviewSession(
             /^[?#]/.test(message.route)
           )
             current.current.onDocument(message.targetPath, message.route);
+        } else if (message.type === "r3-preview-open-link") {
+          // A frame click activates this document too; scripts cannot open links unprompted.
+          if (navigator.userActivation && !navigator.userActivation.isActive) return;
+          const action = previewLinkAction(message.href, message.newTab, location.origin);
+          if (action?.kind === "route") navigate(action.route);
+          else if (action) window.open(action.href, "_blank", "noopener,noreferrer");
         } else if (message.type === "r3-preview-document") {
           const route =
             typeof message.route === "string" &&

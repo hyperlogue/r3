@@ -108,7 +108,8 @@ const server = Bun.serve({
 });
 let browser: Awaited<ReturnType<typeof openTestBrowser>> | undefined;
 try {
-  browser = await openTestBrowser();
+  // Link checks evaluate the preview frame through the page target.
+  browser = await openTestBrowser(["--disable-site-isolation-trials"]);
   const errors: string[] = [];
   browser.listen((event) => {
     if (event.method === "Runtime.exceptionThrown")
@@ -270,6 +271,77 @@ try {
     "library",
   ]);
 
+  // Sandboxed HTML cannot open popups or navigate the app, so r3 opens links that leave it.
+  const links = storage.artifacts.create({ kind: "html", actor, title: "Link fixture" });
+  storage.onboarding.update({ status: "skipped" });
+  const block = 'style="display:block;height:150px"';
+  await storage.artifacts.publish(links.id, {
+    actor,
+    expectedSeq: 0,
+    publicationKey: "links-1",
+    content: {
+      kind: "html",
+      files: [
+        {
+          path: "index.html",
+          mediaType: "text/html",
+          base64: Buffer.from(
+            `<!doctype html><body style="margin:0"><a id="away" href="https://example.invalid/r3-link" ${block}>Away</a><a id="tab" href="https://example.invalid/r3-tab" target="_blank" ${block}>Tab</a><a id="inside" href="${origin}/${artifact.id}?version=1#top" ${block}>Inside</a><script>window.unprompted = () => document.getElementById("away").click()</script></body>`,
+          ).toString("base64"),
+        },
+      ],
+    },
+  });
+  const opened: string[] = [];
+  browser.listen((event) => {
+    if (event.method === "Target.targetCreated" || event.method === "Target.targetInfoChanged")
+      opened.push(event.params.targetInfo.url);
+  });
+  await browser.send("Target.setDiscoverTargets", { discover: true });
+  await page.evaluate('localStorage.setItem("r3-login-disabled-notice", "seen")');
+  await page.command("Page.navigate", { url: `${origin}/${links.id}` });
+  const doc = await eventually(async () => {
+    for (const context of page.contexts.values()) {
+      if (context.origin !== "://" || !context.auxData?.isDefault) continue;
+      const frame = page.inContext(context.id);
+      try {
+        if (await frame.evaluate("!!document.getElementById('inside')")) return frame;
+      } catch {
+        /* A replaced gate is gone. */
+      }
+    }
+    return null;
+  }, "link fixture document");
+  const tap = async (index: number) => {
+    const rect = await page.evaluate<{ x: number; y: number }>(
+      "(() => { const r = document.querySelector('iframe').getBoundingClientRect(); return { x: r.x, y: r.y }; })()",
+    );
+    for (const type of ["mousePressed", "mouseReleased"])
+      await page.command("Input.dispatchMouseEvent", {
+        type,
+        button: "left",
+        clickCount: 1,
+        x: rect.x + 20,
+        y: rect.y + 75 + index * 150,
+      });
+  };
+  await doc.evaluate("window.unprompted()");
+  await Bun.sleep(300);
+  assert.equal(opened.filter((url) => url.includes("example.invalid")).length, 0);
+  assert.equal(await doc.evaluate("!!document.getElementById('away')"), true);
+  await tap(0);
+  await eventually(async () => opened.some((url) => url.endsWith("/r3-link")), "external link tab");
+  await tap(1);
+  await eventually(async () => opened.some((url) => url.endsWith("/r3-tab")), "target=_blank tab");
+  assert.equal(await page.evaluate("location.pathname"), `/${links.id}`);
+  await tap(2);
+  await wait(
+    `location.pathname === "/${artifact.id}" && document.querySelector('[data-version-count]')?.value === '1'`,
+    "artifact link routes the app",
+  );
+  await page.evaluate("history.back()");
+  await wait(`location.pathname === "/${links.id}"`, "Back returns to the linking artifact");
+
   const blocked = await createPage(true);
   await blocked.command("Page.navigate", { url });
   await eventually(
@@ -289,7 +361,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "Navigation browser acceptance passed: clean URLs, version authority, tab-local reloads, independent tabs, comparison Back/Forward/reload/reset, search context, and unavailable storage.",
+    "Navigation browser acceptance passed: clean URLs, version authority, tab-local reloads, independent tabs, comparison Back/Forward/reload/reset, search context, unavailable storage, and links leaving a sandboxed preview.",
   );
 } finally {
   await browser?.close();

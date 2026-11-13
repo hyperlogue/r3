@@ -39,23 +39,9 @@ export function installPreviewNavigation(
     });
   });
   window.addEventListener("click", (event) => {
-    if (
-      event.defaultPrevented ||
-      event.button !== 0 ||
-      event.ctrlKey ||
-      event.metaKey ||
-      event.altKey ||
-      event.shiftKey ||
-      !paths.size
-    )
-      return;
+    if (event.defaultPrevented || event.button !== 0 || event.altKey) return;
     const target = event.target instanceof Element ? event.target.closest("a[href]") : null;
-    if (
-      !(target instanceof HTMLAnchorElement) ||
-      target.hasAttribute("download") ||
-      (target.target && target.target !== "_self")
-    )
-      return;
+    if (!(target instanceof HTMLAnchorElement) || target.hasAttribute("download")) return;
     let destination: URL;
     try {
       destination = new URL(target.href);
@@ -63,7 +49,25 @@ export function installPreviewNavigation(
       return;
     }
     const root = new URL(config.resourceRoot);
-    if (destination.origin !== root.origin || !destination.pathname.startsWith(root.pathname))
+    if (destination.origin !== root.origin || !destination.pathname.startsWith(root.pathname)) {
+      // The sandbox blocks popups and top-level navigation, so the app opens
+      // links that leave the artifact instead of this frame loading them.
+      if (destination.protocol !== "http:" && destination.protocol !== "https:") return;
+      event.preventDefault();
+      connection.send({
+        type: "r3-preview-open-link",
+        href: destination.href,
+        newTab: event.ctrlKey || event.metaKey || event.shiftKey || target.target === "_blank",
+      });
+      return;
+    }
+    if (
+      event.ctrlKey ||
+      event.metaKey ||
+      event.shiftKey ||
+      !paths.size ||
+      (target.target && target.target !== "_self")
+    )
       return;
     let path: string;
     try {

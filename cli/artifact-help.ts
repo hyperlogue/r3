@@ -363,6 +363,8 @@ Bundle dependencies and assets locally: external requests are blocked by default
 
 Nested browsing contexts and workers are blocked: \`<iframe>\`, \`<object>\`, \`<embed>\`, and \`Worker\` do not load, even for published files. Render device mockups and embedded screens directly in the page, using container queries for a phone width, or inside an open shadow root so rendered threads can still anchor there.
 
+Links that leave the artifact work with absolute http(s) URLs. A link to another r3 artifact on the same server opens it in r3; other links, and any link a reader opens in a new tab, open in a new browser tab. Scripts cannot open them without a click.
+
 Give important sections and controls unique, descriptive HTML IDs, such as \`id="pricing-comparison"\` or \`id="save-draft"\`. Keep each ID stable across revisions of the same element; avoid random IDs or IDs based on list position, and do not reuse an ID for an unrelated element. Stable IDs make rendered threads easier to anchor and inspect.
 
 For a new rendered target, \`thread add\` accepts \`--file <path> --version <seq> --view rendered --selector <CSS>\` with optional \`--quote <text>\` and \`--route <query/hash>\`, or a complete \`--target <JSON>\` document target. Target the recorded page and route. The main guide explains original evidence and comment/fix references.
