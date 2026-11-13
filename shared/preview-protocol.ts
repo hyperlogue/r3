@@ -81,4 +81,8 @@ export interface ArtifactUtility {
   comment(input: { threadId: string; body: string }): Promise<unknown>;
   submit(): Promise<{ notification: ArtifactNotification }>;
   subscribe(listener: () => void): () => void;
+  // Comment mode intercepts page clicks. The same state toggles the
+  // r3-comment-mode class on the document element.
+  isCommentMode(): boolean;
+  onCommentModeChange(listener: (commentMode: boolean) => void): () => void;
 }

@@ -16,7 +16,7 @@ const artifact = storage.artifacts.create({ kind: "html", actor });
 const files: Record<string, [string, string]> = {
   "index.html": [
     "text/html",
-    '<!doctype html><html><head><title>Preview fixture</title><script>window.activations=0;addEventListener("click",()=>window.activations++,true)</script></head><body><h1 id="heading">Published heading</h1><p id="repeated">First <b>same quote</b> between <em>same quote</em> last.</p><button id="action">Page action</button><canvas width="20" height="20"></canvas><script type="module">import r3 from "/r3/utility.js";window.r3=r3;window.fixtureData=await(await fetch("data.json")).json();r3.subscribe(()=>window.changed=(window.changed||0)+1)</script></body></html>',
+    '<!doctype html><html><head><title>Preview fixture</title><script>window.activations=0;addEventListener("click",()=>window.activations++,true)</script></head><body><h1 id="heading">Published heading</h1><p id="repeated">First <b>same quote</b> between <em>same quote</em> last.</p><button id="action">Page action</button><canvas width="20" height="20"></canvas><script type="module">import r3 from "/r3/utility.js";window.r3=r3;window.fixtureData=await(await fetch("data.json")).json();r3.subscribe(()=>window.changed=(window.changed||0)+1);window.modes=[];r3.onCommentModeChange((mode)=>window.modes.push(mode))</script></body></html>',
   ],
   "data.json": ["application/json", '{"retained":true}'],
 };
@@ -104,8 +104,22 @@ try {
       page.evaluate(
         `send(${JSON.stringify({ type: "r3-preview-display", display: { commenting, targets: [], jump } })})`,
       );
+    const commentMode = () =>
+      content.evaluate(
+        "[r3.isCommentMode(),document.documentElement.classList.contains('r3-comment-mode'),window.modes]",
+      );
+    assert.deepEqual(await commentMode(), [false, false, []]);
     await display(true);
     await Bun.sleep(80);
+    assert.deepEqual(await commentMode(), [true, true, [true]]);
+    await content.evaluate("document.documentElement.className=''");
+    await display(true);
+    await Bun.sleep(80);
+    assert.deepEqual(
+      await commentMode(),
+      [true, true, [true]],
+      "an unchanged mode restores the class without notifying again",
+    );
     await content.evaluate("document.querySelector('#action').click()");
     assert.equal(
       await content.evaluate("window.activations"),
@@ -154,6 +168,7 @@ try {
       ),
       "EM",
     );
+    assert.deepEqual(await commentMode(), [false, false, [true, false]]);
     await display(false, { nonce: 2, locator: { selector: "#repeated", quote: "same quote" } });
     assert.equal(
       (
@@ -172,7 +187,7 @@ try {
       false,
     );
     console.log(
-      "Preview acceptance: gate, modules, utility, comment interception, native targets, quote disambiguation, and normal interaction passed",
+      "Preview acceptance: gate, modules, utility, comment mode state, comment interception, native targets, quote disambiguation, and normal interaction passed",
     );
   }
 } finally {
