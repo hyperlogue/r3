@@ -4,6 +4,27 @@ All notable changes to r3 are documented here. The format is adapted from
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [2.9.0] - 2026-11-13
+
+### New
+
+- **Comment-aware pages.** Published pages can read comment mode with `r3.isCommentMode()`, subscribe with `r3.onCommentModeChange()`, and style it with the `r3-comment-mode` root class.
+- **Page utility guide.** `r3 guide page-utility` and the website reference explain how pages can read context, create threads, submit feedback, and use browser capabilities.
+- **Artifact details at a glance.** Hover over or select an artifact's title to see its ID, publisher, dates, storage size, and metadata.
+- **External-link confirmation.** Links that leave the r3 origin ask for confirmation before opening, including when external resource access is enabled.
+- **Image editor controls.** Editing starts with the pen tool, size optimization is available in the toolbar, and Enter saves the image.
+
+### Fixed
+
+- **Preview links.** Links out of sandboxed previews now open correctly, including links to other r3 artifacts.
+- **Comment markers.** Rendered markers follow the selected discussion tab and show resolved threads in green.
+- **Library updates.** Archived and deleted artifacts update immediately after a successful action, before the background refresh finishes.
+- **Markdown selection.** Text selection in file previews works without the idle comparison transform interfering.
+
+### Removed
+
+- **Legacy page APIs (breaking).** Replace `r3.createDiscussion()` with `r3.createThread()` and `comment({ discussionId })` with `comment({ threadId })`. `r3.getTheme()` and `r3.setTheme()` are removed; use `localStorage` for page preferences. Previously published pages using these APIs must be updated and republished.
+
 ## [2.8.0] - 2026-11-07
 
 ### New
@@ -853,6 +874,7 @@ and files reviews, anchored discussions with quote-first re-anchoring, comments,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 
+[2.9.0]: https://github.com/hyperlogue/r3/compare/v2.8.0...v2.9.0
 [2.8.0]: https://github.com/hyperlogue/r3/compare/v2.7.0...v2.8.0
 [2.7.0]: https://github.com/hyperlogue/r3/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/hyperlogue/r3/compare/v2.5.0...v2.6.0
