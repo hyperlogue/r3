@@ -641,7 +641,7 @@ function PreviewSession(
         } else if (message.type === "r3-preview-open-link") {
           // A frame click activates this document too; scripts cannot open links unprompted.
           if (!navigator.userActivation?.isActive) return;
-          const action = previewLinkAction(message.href, message.newTab, location.origin, network);
+          const action = previewLinkAction(message.href, message.newTab, location.origin);
           if (action?.kind === "route") navigate(action.route);
           else if (action?.confirm) setPendingLink(action.href);
           else if (action) openLink(action.href);
