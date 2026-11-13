@@ -169,7 +169,7 @@ confirmation before restarting. Server start/status also report mismatches.
   server start|stop|status|restart            # local storage and browser server
   worker start|stop|status|restart            # local notification delivery
   start | stop | status | restart            # deprecated aliases; use server <command>
-  guide [html|files|diff]                     # workflow and optional preparation guides
+  guide [html|files|diff|page-utility]        # workflow and optional preparation guides
 
 The top-level start/stop/status/restart aliases warn on stderr and will be removed
 in a future release. Use r3 server <command> to manage the local server.
@@ -257,6 +257,8 @@ Read this guide once per session. Specify \`--kind html|files|diff\` at creation
 | \`html\` | A rendered HTML page with optional assets such as images | \`r3 guide html\` |
 | \`files\` | A directory with a file browser | \`r3 guide files\` |
 | \`diff\` | An independent captured patch | \`r3 guide diff\` |
+
+For an HTML page where the human chooses from options and submits them back to you, also read \`r3 guide page-utility\`.
 
 ## Server versions
 
@@ -397,45 +399,9 @@ r3 comment <thread-id> -m 'Fixed the Save button.' \\
 
 Locate retries the exact target first. If it remains unavailable, it shows the element matched by the selector alone when only its quote changed, otherwise the nearest visible, uniquely matched recorded ancestor, with a dashed outline and an explicit context notice. Saved shadow hosts provide a further fallback, including for older targets. Ambiguous exact targets remain ambiguous. Context fallback never changes the original target, creates an exact-match marker, or establishes that a fix was found; whole-page guesses and inferred parents from arbitrary CSS selectors are excluded.\n
 
-## Page utility
+## Interactive pages
 
-The page utility helps you build interactive UI: the human chooses from options in the page, and the page submits those choices directly back to you. Each choice arrives as a thread through the normal comment fetch.
-
-\`\`\`html
-<script type="module">
-import r3 from "/r3/utility.js";
-
-document.querySelector("#choose-b").onclick = async () => {
-  await r3.createThread({
-    body: "Chose option B: keep the staged rollout.",
-    locator: { selector: "#option-b" },
-  });
-  await r3.submit();
-};
-</script>
-\`\`\`
-
-| Method | Result |
-| --- | --- |
-| \`getContext()\` | \`{artifactId, versionSeq, path, resourceRoot, representation, state}\` for this page; \`state\` is the artifact's \`active\` or \`archived\` |
-| \`getThreads()\` | Every thread on the artifact with \`status\` (\`open\` or \`resolved\`) and its comments, without image attachments |
-| \`createThread({body, locator?})\` | A new thread on this version and page; omit \`locator\` for a whole-page thread |
-| \`comment({threadId, body})\` | A reply in a thread of this artifact |
-| \`submit()\` | Sends every pending comment on the artifact, as the workspace Submit button does |
-| \`subscribe(listener)\` | Calls \`listener()\` after workspace updates; read \`getThreads()\` again. Returns an unsubscribe function |
-| \`isCommentMode()\` | Whether comment mode is on, synchronously |
-| \`onCommentModeChange(listener)\` | Calls \`listener(commentMode)\` only when the mode changes. Returns an unsubscribe function |
-
-Call \`createThread\`, \`comment\`, and \`submit\` from a click or key-press handler; they act as the signed-in human. \`body\` holds 1 to 1,048,576 characters. A \`locator\` takes \`selector\` with optional \`shadowHosts\`, \`ancestors\`, \`quote\`, \`prefix\`, \`suffix\`, \`route\`, and \`viewport\`.
-
-Comment mode lets the human pick any element, so page clicks do not reach your handlers while it is on. r3 adds the \`r3-comment-mode\` class to the \`<html>\` element for its duration. Use the class, or \`isCommentMode()\` with \`onCommentModeChange\`, to make hidden content commentable: expand collapsed sections, show every tab panel, pause animation.
-
-\`\`\`css
-.r3-comment-mode [role="tabpanel"][hidden] { display: block; }
-.r3-comment-mode .ticker { animation-play-state: paused; }
-\`\`\`
-
-The module exists only inside r3. For a page that should also open from disk, load it with \`await import("/r3/utility.js")\` inside \`try\`/\`catch\` and keep the page readable without it.`;
+A page can let the human choose from options and submit the choices directly back to you, and can adapt its layout while comment mode is on. Read \`r3 guide page-utility\` before building such a page; other HTML artifacts do not need it.`;
 
 const FILES_GUIDE = `# Files artifacts
 
@@ -521,9 +487,166 @@ Read the captured patch with \`r3 patch <id> --version <seq>\`. For a new line t
 
 The side distinguishes removed and added content. Line numbers and quote text must match the selected captured side. Omit side, line, and quote for a whole-file diff target. Use the main guide for original evidence and commenting with a native fix target.`;
 
+const PAGE_UTILITY_GUIDE = `# Page utility
+
+Read this once per session before building an HTML artifact that collects input or adapts to comment mode; \`r3 guide html\` covers preparing the page itself.
+
+The page utility helps you build interactive UI: the human chooses from options in the page, and the page submits those choices directly back to you. Each choice arrives as a thread through the normal comment fetch, so the human never has to type or copy an answer.
+
+## Load the utility
+
+\`\`\`html
+<script type="module">
+import r3 from "/r3/utility.js";
+</script>
+\`\`\`
+
+r3 serves the module to every published HTML page of the artifact, and it is ready before your first script runs. Use exactly this specifier; a static import and \`await import("/r3/utility.js")\` both work. The module exists only in the r3 workspace. For a page that should also open from disk, use the dynamic import inside \`try\`/\`catch\` and keep the page readable without it.
+
+## Collect choices and submit them
+
+\`\`\`html
+<form id="rollout">
+  <fieldset id="rollout-question">
+    <legend>How should we roll out the migration?</legend>
+    <label><input type="radio" name="plan" value="staged" required> Staged, 10% per day</label>
+    <label><input type="radio" name="plan" value="all"> All at once</label>
+  </fieldset>
+  <label>Notes <textarea name="notes"></textarea></label>
+  <button type="button" id="send-choice">Send to agent</button>
+  <p id="send-status" role="status"></p>
+</form>
+
+<script type="module">
+import r3 from "/r3/utility.js";
+
+const form = document.querySelector("#rollout");
+const button = document.querySelector("#send-choice");
+const status = document.querySelector("#send-status");
+
+button.onclick = async () => {
+  if (!form.reportValidity()) return;
+  const data = new FormData(form);
+  button.disabled = true;
+  try {
+    await r3.createThread({
+      body: [
+        "Rollout plan: " + data.get("plan"),
+        data.get("notes") ? "Notes: " + data.get("notes") : "",
+      ].filter(Boolean).join("\\n\\n"),
+      locator: { selector: "#rollout-question" },
+    });
+    const { notification } = await r3.submit();
+    status.textContent =
+      notification.state === "none"
+        ? "Saved. No agent is listening yet; it will read this on its next fetch."
+        : "Sent to the agent.";
+  } catch (error) {
+    status.textContent = error.message;
+    button.disabled = false;
+  }
+};
+</script>
+\`\`\`
+
+Follow this shape:
+
+1. Start from a click or key press on a \`type="button"\` control. The preview runs scripts without native form submission, so handle \`click\` and validate with \`form.reportValidity()\`. \`createThread\`, \`comment\`, and \`submit\` act as the signed-in human, so r3 accepts them only while the browser reports a recent user action. Call them at the start of the handler and one after another. That window lasts a few seconds: finish slow work such as animation or timers after the calls, not before.
+2. Write a body that stands alone. You will read it later as plain comment text, without the page in front of you. Name the question and the chosen option by its stable value, and include any free text the human entered. The workspace renders the body as Markdown.
+3. Anchor the thread. \`locator.selector\` points at the question or option the answer belongs to, so the human sees the thread on that element and you get the target back with the comment. Use a unique, stable \`id\`. Omit \`locator\` for an answer about the whole page.
+4. Call \`submit()\` last. Threads and replies stay pending until it runs. It sends every pending comment on the artifact, including ones the human typed in the workspace, exactly as the workspace Submit button does.
+5. Disable the control while the calls run. Every \`createThread\` call creates a new thread, so a double click would send the answer twice.
+6. Show the result in the page. Each call rejects with an \`Error\` whose \`message\` is written for the human; display it and re-enable the control so they can retry.
+
+Use one thread per independent question when you intend to answer each one separately; the human can then resolve them one by one. Use a single thread for a form that is one decision. To add to a thread the page already created, keep the returned \`thread.id\` and call \`comment({ threadId, body })\`.
+
+## Methods
+
+| Method | Resolves to |
+| --- | --- |
+| \`getContext()\` | \`{artifactId, versionSeq, path, resourceRoot, representation, state}\` |
+| \`getThreads()\` | An array of threads on this artifact |
+| \`createThread({body, locator?})\` | The new thread |
+| \`comment({threadId, body})\` | The new comment |
+| \`submit()\` | \`{notification: {state}}\` |
+| \`subscribe(listener)\` | Returns an unsubscribe function immediately |
+| \`isCommentMode()\` | Returns a boolean immediately |
+| \`onCommentModeChange(listener)\` | Returns an unsubscribe function immediately |
+
+\`createThread\` and \`comment\` accept exactly the keys shown. \`body\` holds 1 to 1,048,576 characters. \`locator\` takes \`selector\` with optional \`shadowHosts\`, \`ancestors\`, \`quote\`, \`prefix\`, \`suffix\`, \`route\`, and \`viewport\`, as described in \`r3 guide html\`; \`route\` starts with \`?\` or \`#\`. The thread is recorded against the version and page the human is viewing.
+
+\`submit()\` resolves with \`state\` \`sent\` or \`queued\` when you were notified, and \`none\` when no agent is listening; the comments then wait for your next \`r3 comment fetch\`. It rejects when delivery fails, leaving the comments pending for another submit.
+
+## Read the discussion
+
+\`getContext()\` identifies the page. \`path\` is the published document, \`versionSeq\` the version on screen, and \`state\` is \`active\` or \`archived\`. Enable input controls only while \`state\` is \`active\`.
+
+\`getThreads()\` returns every thread on the artifact, yours and the human's:
+
+\`\`\`js
+{
+  id: "thread_…",
+  status: "open",              // or "resolved"
+  target: { kind: "rendered", versionSeq: 2, path: "index.html", locator: { selector: "#rollout-question" } },
+  createdAt: "2026-01-01T00:00:00.000Z",
+  updatedAt: "2026-01-01T00:00:00.000Z",
+  comments: [                   // opening comment first
+    {
+      id: "comment_…",
+      author: { role: "human", sessionId: null },   // or { role: "agent", sessionId }
+      body: "Rollout plan: staged",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      sentAt: null              // set once the comment was delivered to you
+    }
+  ]
+}
+\`\`\`
+
+Use it to restore the page after a reload or on a later version: find the thread anchored to a question through \`target.locator.selector\`, mark that question answered, and show your own replies (\`author.role === "agent"\`) beside it. A thread created by the page is an ordinary thread: reply with \`r3 comment <thread-id> -m <message>\`, and the human resolves it in the workspace.
+
+\`subscribe(listener)\` calls \`listener()\` with no arguments after workspace updates, including new comments and status changes. Read \`getThreads()\` again inside it and render from the result.
+
+\`\`\`js
+const render = async () => showAnswers(await r3.getThreads());
+r3.subscribe(render);
+render();
+\`\`\`
+
+Keep unsent draft state, such as a half-filled form, in \`localStorage\`.
+
+## Adapt to comment mode
+
+In comment mode the human picks any element to comment on, so clicks select elements and your click handlers do not run. Content that needs a click to appear cannot be reached. r3 adds the \`r3-comment-mode\` class to the \`<html>\` element while the mode is on; use it to lay everything out for review.
+
+\`\`\`css
+.r3-comment-mode [role="tabpanel"][hidden] { display: block; }
+.r3-comment-mode .accordion-body { display: block; }
+.r3-comment-mode .ticker { animation-play-state: paused; }
+\`\`\`
+
+For changes CSS cannot express, read the state in script:
+
+\`\`\`js
+const apply = (on) => {
+  for (const item of document.querySelectorAll("details")) item.open = on;
+};
+apply(r3.isCommentMode());
+r3.onCommentModeChange(apply);
+\`\`\`
+
+\`isCommentMode()\` answers immediately and is \`false\` until the workspace reports otherwise, so always pair it with \`onCommentModeChange\`, which calls \`listener(on)\` each time the mode actually changes.
+
+The plain \`c\` key toggles comment mode from inside the page unless focus is in an input, textarea, select, or editable region. Leave it unbound.
+
+## After publishing
+
+Tell the human that the page sends their choices to you when they press its button. Then follow the main guide: the notification arrives in your session, \`r3 comment fetch <id>\` returns each choice as a thread with its target, and you reply to those threads after acting on them.`;
+
 export function artifactGuide(args: string[]): string {
   if (args.length > 1)
-    throw new ArtifactCommandError("guide expects at most one topic: html, files, or diff");
+    throw new ArtifactCommandError(
+      "guide expects at most one topic: html, files, diff, or page-utility",
+    );
   switch (args[0]) {
     case undefined:
       return ARTIFACT_GUIDE;
@@ -533,9 +656,11 @@ export function artifactGuide(args: string[]): string {
       return FILES_GUIDE;
     case "diff":
       return DIFF_GUIDE;
+    case "page-utility":
+      return PAGE_UTILITY_GUIDE;
     default:
       throw new ArtifactCommandError(
-        "Unknown guide topic. Choose html, files, or diff, or run r3 guide for the workflow.",
+        "Unknown guide topic. Choose html, files, diff, or page-utility, or run r3 guide for the workflow.",
       );
   }
 }

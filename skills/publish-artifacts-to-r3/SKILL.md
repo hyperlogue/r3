@@ -27,7 +27,9 @@ nix run github:hyperlogue/r3#r3 -- guide
 
 Follow the executable's guide for publication and the feedback workflow. Before
 preparing an artifact kind for the first time in a session, read its preparation
-guide using the `guide html`, `guide files`, or `guide diff` subcommand.
+guide using the `guide html`, `guide files`, or `guide diff` subcommand. Read
+`guide page-utility` before building an HTML page that collects the user's
+choices and submits them back to you.
 Use `--help` for command details.
 
 Share the returned artifact URL. When responding to feedback, publish changes as
