@@ -395,7 +395,47 @@ r3 comment <thread-id> -m 'Fixed the Save button.' \\
 
 \`ancestors\` is optional, nearest-first evidence of actual parents. \`shadowDepth\` selects a prefix of \`shadowHosts\`: 0 means the document, 1 means the first host's root, and so on. Supply at most 16 ancestors, with nonincreasing depths and selectors of at most 4,096 characters. Browser picks capture this evidence automatically, stopping before body/html. CLI callers should supply only parents verified in that published DOM; omit it when unknown.
 
-Locate retries the exact target first. If it remains unavailable, it shows the element matched by the selector alone when only its quote changed, otherwise the nearest visible, uniquely matched recorded ancestor, with a dashed outline and an explicit context notice. Saved shadow hosts provide a further fallback, including for older targets. Ambiguous exact targets remain ambiguous. Context fallback never changes the original target, creates an exact-match marker, or establishes that a fix was found; whole-page guesses and inferred parents from arbitrary CSS selectors are excluded.\n`;
+Locate retries the exact target first. If it remains unavailable, it shows the element matched by the selector alone when only its quote changed, otherwise the nearest visible, uniquely matched recorded ancestor, with a dashed outline and an explicit context notice. Saved shadow hosts provide a further fallback, including for older targets. Ambiguous exact targets remain ambiguous. Context fallback never changes the original target, creates an exact-match marker, or establishes that a fix was found; whole-page guesses and inferred parents from arbitrary CSS selectors are excluded.\n
+
+## Page utility
+
+A page can read and extend its own discussion, so the human can answer inside the page instead of typing a comment. Use it for decisions the page already presents: option pickers, questionnaires, approve/reject buttons, ranked lists. The page writes each answer as a thread and submits; you receive it through the normal comment fetch.
+
+\`\`\`html
+<script type="module">
+import r3 from "/r3/utility.js";
+
+document.querySelector("#choose-b").onclick = async () => {
+  await r3.createThread({
+    body: "Chose option B: keep the staged rollout.",
+    locator: { selector: "#option-b" },
+  });
+  await r3.submit();
+};
+</script>
+\`\`\`
+
+| Method | Result |
+| --- | --- |
+| \`getContext()\` | \`{artifactId, versionSeq, path, resourceRoot, representation, state}\` for this page; \`state\` is the artifact's \`active\` or \`archived\` |
+| \`getThreads()\` | Every thread on the artifact with \`status\` (\`open\` or \`resolved\`) and its comments, without image attachments |
+| \`createThread({body, locator?})\` | A new thread on this version and page; omit \`locator\` for a whole-page thread |
+| \`comment({threadId, body})\` | A reply in a thread of this artifact |
+| \`submit()\` | Sends every pending comment on the artifact, as the workspace Submit button does |
+| \`subscribe(listener)\` | Calls \`listener()\` after workspace updates; read \`getThreads()\` again. Returns an unsubscribe function |
+| \`isCommentMode()\` | Whether comment mode is on, synchronously |
+| \`onCommentModeChange(listener)\` | Calls \`listener(commentMode)\` only when the mode changes. Returns an unsubscribe function |
+
+\`createThread\`, \`comment\`, and \`submit\` act as the signed-in human and require a click or key press in the page; a call made on load or from a timer is rejected. \`body\` holds 1 to 1,048,576 characters. A \`locator\` takes the rendered fields described above except \`label\`. Thread status is read-only: the page cannot resolve, reopen, edit, claim, or re-anchor a thread. At most 32 calls may be pending, and each fails after 30 seconds without a workspace response.
+
+Comment mode lets the human pick any element, so page clicks do not reach your handlers while it is on. r3 adds the \`r3-comment-mode\` class to the \`<html>\` element for its duration. Use the class, or \`isCommentMode()\` with \`onCommentModeChange\`, to make hidden content commentable: expand collapsed sections, show every tab panel, pause animation.
+
+\`\`\`css
+.r3-comment-mode [role="tabpanel"][hidden] { display: block; }
+.r3-comment-mode .ticker { animation-play-state: paused; }
+\`\`\`
+
+The module exists only inside r3. For a page that should also open from disk, load it with \`await import("/r3/utility.js")\` inside \`try\`/\`catch\` and keep the page readable without it.`;
 
 const FILES_GUIDE = `# Files artifacts
 
