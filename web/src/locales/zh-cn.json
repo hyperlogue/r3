@@ -176,6 +176,12 @@
     "theArtifactStaysIsolatedFromR3S": "Artifact 与 r3 的凭据以及无关 Artifact 保持隔离。摄像头与麦克风保持拦截状态，除非你单独允许共享。",
     "thisBrowserCannotEnforceCompleteBlockingOf": "此浏览器无法强制完全拦截外部连接。已发布的页面限制了常规的外部资源，但恶意脚本仍可能通过页面导航或其他浏览器功能发送数据。通过导航访问的页面可能没有任何网络限制。"
   },
+  "previewLink": {
+    "cancel": "留在此页",
+    "explanation": "此预览无法访问网络。打开链接会将完整地址发送到其他网站，包括页面添加到地址中的任何内容。仅在目标符合预期时打开。",
+    "open": "打开链接",
+    "title": "在 r3 之外打开此链接？"
+  },
   "settingsPopup": {
     "access": "访问权限",
     "fontSizePx": "字号 · {{size}}px",

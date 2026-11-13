@@ -329,10 +329,41 @@ try {
   await Bun.sleep(300);
   assert.equal(opened.filter((url) => url.includes("example.invalid")).length, 0);
   assert.equal(await doc.evaluate("!!document.getElementById('away')"), true);
+  const external = () => opened.filter((url) => url.includes("example.invalid"));
+  const confirmShows = (href: string) =>
+    wait(
+      `document.querySelector('[data-preview-link-href]')?.textContent === ${JSON.stringify(href)}`,
+      `confirmation for ${href}`,
+    );
   await tap(0);
-  await eventually(async () => opened.some((url) => url.endsWith("/r3-link")), "external link tab");
+  await confirmShows("https://example.invalid/r3-link");
+  await click("[data-preview-link-confirm] button:not([data-preview-link-open])");
+  await wait("!document.querySelector('[data-preview-link-confirm]')", "cancelled link");
+  await Bun.sleep(300);
+  assert.deepEqual(external(), [], "a blocked preview must not open a link before confirmation");
+  await tap(0);
+  await confirmShows("https://example.invalid/r3-link");
+  const center = await page.evaluate<{ x: number; y: number }>(
+    "(() => { const r = document.querySelector('[data-preview-link-open]').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()",
+  );
+  for (const type of ["mousePressed", "mouseReleased"])
+    await page.command("Input.dispatchMouseEvent", {
+      type,
+      button: "left",
+      clickCount: 1,
+      ...center,
+    });
+  await eventually(
+    async () => external().some((url) => url.endsWith("/r3-link")),
+    "confirmed link tab",
+  );
   await tap(1);
-  await eventually(async () => opened.some((url) => url.endsWith("/r3-tab")), "target=_blank tab");
+  await confirmShows("https://example.invalid/r3-tab");
+  await click("[data-preview-link-confirm] button:not([data-preview-link-open])");
+  await wait(
+    "!document.querySelector('[data-preview-link-confirm]')",
+    "closed target=_blank prompt",
+  );
   assert.equal(await page.evaluate("location.pathname"), `/${links.id}`);
   await tap(2);
   await wait(
@@ -361,7 +392,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "Navigation browser acceptance passed: clean URLs, version authority, tab-local reloads, independent tabs, comparison Back/Forward/reload/reset, search context, unavailable storage, and links leaving a sandboxed preview.",
+    "Navigation browser acceptance passed: clean URLs, version authority, tab-local reloads, independent tabs, comparison Back/Forward/reload/reset, search context, unavailable storage, and confirmed links leaving a sandboxed preview.",
   );
 } finally {
   await browser?.close();

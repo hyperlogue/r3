@@ -14,6 +14,7 @@ import { ArtifactDiscussionPanel } from "../components/ArtifactDiscussionPanel.t
 import { ArtifactHeader } from "../components/ArtifactHeader.tsx";
 import { ArtifactLoading } from "../components/ArtifactLoading.tsx";
 import { ArtifactPreviewCompatibilityConsent } from "../components/ArtifactPreviewCompatibilityConsent.tsx";
+import { ArtifactPreviewLinkConfirm } from "../components/ArtifactPreviewLinkConfirm.tsx";
 import { ArtifactPreviewNetworkControl } from "../components/ArtifactPreviewNetworkControl.tsx";
 import {
   ArtifactPreviewSecurityProvider,
@@ -394,6 +395,7 @@ function Content({ kind, announce }: { kind: "files" | "diff"; announce: (text: 
 
 function Protection() {
   const [warning, setWarning] = useState(false);
+  const [link, setLink] = useState(false);
   return (
     <>
       <p className="text-sm text-neutral-500">
@@ -409,11 +411,22 @@ function Protection() {
           <h3 className="text-sm font-medium">Browser compatibility warning</h3>
           <Button onClick={() => setWarning(true)}>Show sample risk prompt</Button>
         </div>
+        <div className="space-y-3 border border-neutral-300 p-4 dark:border-neutral-700">
+          <h3 className="text-sm font-medium">Outbound link confirmation</h3>
+          <Button onClick={() => setLink(true)}>Show sample link prompt</Button>
+        </div>
       </div>
       {warning && (
         <ArtifactPreviewCompatibilityConsent
           onCancel={() => setWarning(false)}
           onContinue={() => setWarning(false)}
+        />
+      )}
+      {link && (
+        <ArtifactPreviewLinkConfirm
+          href="https://example.com/report?section=findings&utm_source=artifact-preview-with-a-long-query-string"
+          onCancel={() => setLink(false)}
+          onOpen={() => setLink(false)}
         />
       )}
     </>

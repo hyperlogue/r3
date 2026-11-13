@@ -39,6 +39,7 @@ import { navigate } from "../router.ts";
 import { Button, cn } from "../ui.tsx";
 import { ArtifactLoading } from "./ArtifactLoading.tsx";
 import { ArtifactPreviewCompatibilityConsent } from "./ArtifactPreviewCompatibilityConsent.tsx";
+import { ArtifactPreviewLinkConfirm } from "./ArtifactPreviewLinkConfirm.tsx";
 import { ArtifactPreviewNetworkControl } from "./ArtifactPreviewNetworkControl.tsx";
 import { ArtifactPreviewSecuritySource } from "./ArtifactPreviewSecurity.tsx";
 import { Notification } from "./Notifications.tsx";
@@ -56,6 +57,10 @@ function forgetDeniedMarkdown(error: unknown, artifactId?: string) {
     artifactLocalStorage.forget(artifactId);
     void markdownCache.forget(artifactId);
   }
+}
+
+function openLink(href: string) {
+  window.open(href, "_blank", "noopener,noreferrer");
 }
 
 export function ArtifactPreview(props: ArtifactRenderedPaneProps) {
@@ -278,6 +283,7 @@ function PreviewSession(
   const seq = props.version.seq;
   const network = props.network;
   const [screenshotRoute, setScreenshotRoute] = useState("#");
+  const [pendingLink, setPendingLink] = useState<string | null>(null);
   const capture = props.capture;
   useEffect(() => {
     if (!context || !ready) return;
@@ -634,10 +640,11 @@ function PreviewSession(
             current.current.onDocument(message.targetPath, message.route);
         } else if (message.type === "r3-preview-open-link") {
           // A frame click activates this document too; scripts cannot open links unprompted.
-          if (navigator.userActivation && !navigator.userActivation.isActive) return;
-          const action = previewLinkAction(message.href, message.newTab, location.origin);
+          if (!navigator.userActivation?.isActive) return;
+          const action = previewLinkAction(message.href, message.newTab, location.origin, network);
           if (action?.kind === "route") navigate(action.route);
-          else if (action) window.open(action.href, "_blank", "noopener,noreferrer");
+          else if (action?.confirm) setPendingLink(action.href);
+          else if (action) openLink(action.href);
         } else if (message.type === "r3-preview-document") {
           const route =
             typeof message.route === "string" &&
@@ -1041,6 +1048,16 @@ function PreviewSession(
               value?.key === cacheKey && value.height !== height ? { ...value, height } : value,
             )
           }
+        />
+      )}
+      {pendingLink && (
+        <ArtifactPreviewLinkConfirm
+          href={pendingLink}
+          onCancel={() => setPendingLink(null)}
+          onOpen={() => {
+            setPendingLink(null);
+            openLink(pendingLink);
+          }}
         />
       )}
       {notice && (

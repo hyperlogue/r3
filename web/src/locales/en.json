@@ -176,6 +176,12 @@
     "theArtifactStaysIsolatedFromR3S": "The artifact stays isolated from r3’s credentials and unrelated artifacts. Camera and microphone stay blocked unless you separately allow sharing.",
     "thisBrowserCannotEnforceCompleteBlockingOf": "This browser cannot enforce complete blocking of external connections. Published pages restrict ordinary external resources, but a malicious script could send data through navigation or other browser features. A page reached through navigation may have no network restrictions."
   },
+  "previewLink": {
+    "cancel": "Stay here",
+    "explanation": "This preview has no network access. Opening the link sends its full address to another site, including anything the page added to it. Open it only if you expected this destination.",
+    "open": "Open link",
+    "title": "Open this link outside r3?"
+  },
   "settingsPopup": {
     "access": "Access",
     "fontSizePx": "Font size · {{size}}px",
