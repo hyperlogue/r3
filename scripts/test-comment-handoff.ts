@@ -135,8 +135,18 @@ try {
   await page.command("Page.bringToFront");
   assert.equal(await page.evaluate("!!document.querySelector('[data-threads-attention]')"), false);
   await page.evaluate("document.querySelector('[aria-label=\"Hide discussion\"]').click()");
-  await page.evaluate(`(${navButton}).click()`);
-  await eventually(async () => deliveries.length === 1, "pending notification delivery");
+  await page.command("Input.dispatchKeyEvent", {
+    type: "keyDown",
+    key: "S",
+    code: "KeyS",
+    text: "S",
+    modifiers: 8,
+  });
+  await page.command("Input.dispatchKeyEvent", { type: "keyUp", key: "S", code: "KeyS" });
+  await eventually(
+    async () => deliveries.length === 1,
+    "S sends through the navbar while the discussion is hidden",
+  );
   assert.equal(await page.evaluate(`(${button}).textContent`), "Sending…");
   assert.equal(await page.evaluate(`(${button}).disabled`), true);
   assert.equal(await page.evaluate(`(${navButton}).disabled`), true);

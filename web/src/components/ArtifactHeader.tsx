@@ -9,6 +9,7 @@ import { useOptimisticArtifact } from "../artifact-thread-status.ts";
 import { useArtifactClient, useArtifactUI } from "../artifact-ui-context.tsx";
 import { formatBytes } from "../format-bytes.ts";
 import { getLanguageTag, useTranslation } from "../i18n.ts";
+import { useKeyBindings } from "../keys.ts";
 import type { MessageRef } from "../markdown.ts";
 
 import {
@@ -36,8 +37,20 @@ import { WorkspaceHeader } from "./WorkspaceHeader.tsx";
 
 function ArtifactSendComments({ detail, visible }: { detail: ArtifactDetail; visible: boolean }) {
   const handoff = useArtifactHandoff(detail);
+  const root = useRef<HTMLDivElement>(null);
+  useKeyBindings({
+    handOff:
+      visible && handoff.showAction
+        ? () => root.current?.querySelector<HTMLButtonElement>("[data-artifact-handoff]")?.click()
+        : undefined,
+  });
   return (
-    <div className="r3-nav-handoff relative shrink-0" aria-hidden={!visible} inert={!visible}>
+    <div
+      ref={root}
+      className="r3-nav-handoff relative shrink-0"
+      aria-hidden={!visible}
+      inert={!visible}
+    >
       <div className="r3-nav-handoff-content flex min-w-0 justify-end">
         {handoff.showAction && (
           <div className="flex shrink-0 items-center pr-2">
