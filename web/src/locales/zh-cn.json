@@ -251,7 +251,7 @@
     "importedAnchorEvidence": "导入的锚点依据",
     "importedReferenceEvidence": "导入的引用依据",
     "keep": "保留",
-    "listenerRegistered": "监听器已注册",
+    "listenerRegistered": "智能体已就绪",
     "moreActions": "更多操作",
     "noResolvedThreads": "没有已解决的主题。",
     "notSent": "未发送",
