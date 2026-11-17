@@ -43,6 +43,16 @@ for (const seq of [1, 2])
       kind: "html",
       files: [
         {
+          path: "models/test.bin",
+          mediaType: "application/octet-stream",
+          base64: Buffer.from([0, 255, seq]).toString("base64"),
+        },
+        {
+          path: "assets/test.svg",
+          mediaType: "image/svg+xml",
+          base64: btoa('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="16"/>'),
+        },
+        {
           path: "index.html",
           mediaType: "text/html",
           base64: Buffer.from(
@@ -75,6 +85,8 @@ const api = createArtifactApi(
   },
   { previews: preview },
 );
+const reads: { path: string; status: number }[] = [];
+const nativeAssetRequests: string[] = [];
 const app = Bun.serve({
   hostname: "127.0.0.1",
   port: 0,
@@ -87,8 +99,20 @@ const app = Bun.serve({
       if (renewalFailure)
         return Response.json({ error: "Renewal denied by fixture" }, { status: renewalFailure });
     }
-    if (path.startsWith(PREVIEW_PREFIX)) return preview.fetch(request);
-    if (path.startsWith("/api/")) return api.app.fetch(request);
+    if (path.startsWith(PREVIEW_PREFIX)) {
+      if (path.endsWith("/assets/test.svg") || path.endsWith("/models/test.bin"))
+        nativeAssetRequests.push(path);
+      return preview.fetch(request);
+    }
+    if (path.startsWith("/api/")) {
+      const response = await api.app.fetch(request);
+      if (path.endsWith("/resource"))
+        reads.push({
+          path: new URL(request.url).searchParams.get("path")!,
+          status: response.status,
+        });
+      return response;
+    }
     const asset = assets.get(path.slice(1));
     if (asset) return new Response(asset);
     return new Response(
@@ -104,18 +128,38 @@ try {
   const page = await browser.attach(targetId);
   const initialHistory = await page.evaluate<number>("history.length");
   await page.command("Page.navigate", { url: `http://localhost:${app.port}/?version=1` });
-  const content = await eventually(async () => {
-    const context = [...page.contexts.values()].find(
-      (context) => context.origin === "://" && context.auxData?.isDefault,
-    );
-    if (!context) return null;
-    const frame = page.inContext(context.id);
-    try {
-      return (await frame.evaluate("!!window.r3")) ? frame : null;
-    } catch {
+  const attached = new Map<string, Awaited<ReturnType<typeof browser.attach>>>();
+  const findContent = (expression: string, description: string) =>
+    eventually(async () => {
+      const frames = [...page.contexts.values()]
+        .filter((context) => context.origin === "://" && context.auxData?.isDefault)
+        .map((context) => page.inContext(context.id));
+      const targets = (await browser!.send("Target.getTargets")).targetInfos;
+      for (const target of targets) {
+        if (
+          target.type !== "iframe" ||
+          !target.url.startsWith(`http://localhost:${app.port}${PREVIEW_PREFIX}`) ||
+          !target.url.includes("/files/")
+        )
+          continue;
+        try {
+          const frame = attached.get(target.targetId) ?? (await browser!.attach(target.targetId));
+          attached.set(target.targetId, frame);
+          frames.push(frame);
+        } catch {
+          // A navigation can replace the target before attachment.
+        }
+      }
+      for (const frame of frames) {
+        try {
+          if (await frame.evaluate(expression)) return frame;
+        } catch {
+          // A navigation can replace the execution context before evaluation.
+        }
+      }
       return null;
-    }
-  }, "workspace published preview");
+    }, description);
+  let content = await findContent("!!window.r3", "workspace published preview");
   assert.equal(
     await content.evaluate("document.querySelector('h1').textContent"),
     "Published first version",
@@ -142,10 +186,87 @@ try {
     true,
     "page load alone must not send threads",
   );
+  const modelBytes = `Promise.all([r3.readAsset("models/test.bin"), r3.readAsset("models/test.bin")]).then(async ([a,b])=>[a.type,[...new Uint8Array(await b.arrayBuffer())]])`;
+  assert.deepEqual(await content.evaluate(modelBytes), ["application/octet-stream", [0, 255, 1]]);
+  for (const path of ["missing.bin", "/api/boot", "../index.html", "https://example.invalid/x"]) {
+    assert.equal(
+      await content.evaluate(
+        `r3.readAsset(${JSON.stringify(path)}).then(()=>false,e=>e.message.includes("not a published file"))`,
+      ),
+      true,
+    );
+  }
+  assert.deepEqual(reads, [{ path: "models/test.bin", status: 200 }]);
+  await content.evaluate(`(() => {
+    const img=window.boundImage=new Image(32,16);
+    img.style.cssText="position:fixed;top:200vh";
+    window.releaseImage=r3.bindImage(img,"assets/test.svg");
+    document.body.append(img);
+    return new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve(true))));
+  })()`);
+  assert.equal(reads.length, 1, "offscreen dynamic images reserve space without a download");
+  assert.equal(await content.evaluate(`boundImage.getBoundingClientRect().width`), 32);
+  await content.evaluate(`boundImage.style.top="10px"`);
+  await eventually(() => content.evaluate("boundImage.naturalWidth===32"), "visible dynamic image");
+  assert.deepEqual(reads.at(-1), { path: "assets/test.svg", status: 200 });
+  await content.evaluate("releaseImage()");
+  assert.equal(await content.evaluate("boundImage.hasAttribute('src')"), false);
+  await content.evaluate("window.beforeAssetReload = true");
+  await page.command("Page.reload");
+  content = await findContent(
+    "!!window.r3 && !window.beforeAssetReload",
+    "fresh preview after reload",
+  );
+  assert.deepEqual(await content.evaluate(modelBytes), ["application/octet-stream", [0, 255, 1]]);
+  assert.deepEqual(
+    reads.at(-1),
+    { path: "models/test.bin", status: 304 },
+    "warm model read transfers no body",
+  );
+  assert.deepEqual(
+    await content.evaluate(`(async () => {
+    const img = new Image();
+    img.loading = "eager";
+    let errors = 0;
+    img.onerror = () => errors++;
+    const loaded = new Promise(resolve => img.onload = resolve);
+    const releaseOld = r3.bindImage(img, "missing.svg");
+    const release = r3.bindImage(img, "assets/test.svg");
+    releaseOld();
+    await loaded;
+    const width = img.naturalWidth;
+    release();
+    const failed = new Promise(resolve => img.onerror = () => resolve(true));
+    const releaseMissing = r3.bindImage(img, "missing.svg");
+    await failed;
+    releaseMissing();
+    return [width, errors, img.hasAttribute("src")];
+  })()`),
+    [32, 0, false],
+  );
+  assert.deepEqual(reads.slice(1), [
+    { path: "assets/test.svg", status: 200 },
+    { path: "models/test.bin", status: 304 },
+    { path: "assets/test.svg", status: 304 },
+  ]);
+  assert.deepEqual(
+    nativeAssetRequests,
+    [],
+    "bound images and model reads avoid a second request from the preview",
+  );
   // Trusted pointer input activates the real embedded control and its parent.
   const click = async (expression: string) => {
-    const position = await page.evaluate(
-      `(()=>{const r=(${expression}).getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`,
+    const position = await eventually(
+      () =>
+        page.evaluate(`(async () => {
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        const element = (${expression});
+        if (!element) return null;
+        const rect = element.getBoundingClientRect();
+        const x = rect.x + rect.width / 2, y = rect.y + rect.height / 2;
+        return element.contains(document.elementFromPoint(x, y)) ? {x, y} : null;
+      })()`),
+      "workspace control ready for pointer input",
     );
     await page.command("Input.dispatchMouseEvent", {
       type: "mousePressed",
@@ -194,83 +315,32 @@ try {
   );
   await click("document.querySelector('[aria-label=\"Published version\"]')");
   await click("document.querySelector('[data-version-seq=\"2\"]')");
-  const next = await eventually(async () => {
-    for (const context of page.contexts.values()) {
-      if (context.origin !== "://" || !context.auxData?.isDefault) continue;
-      const frame = page.inContext(context.id);
-      try {
-        if (
-          await frame.evaluate(
-            "!!window.r3 && document.querySelector('h1')?.textContent==='Published second version'",
-          )
-        )
-          return frame;
-      } catch {
-        /* The old context can disappear during the switch. */
-      }
-    }
-    return null;
-  }, "second immutable version");
+  const next = await findContent(
+    "!!window.r3 && document.querySelector('h1')?.textContent==='Published second version'",
+    "second immutable version",
+  );
   assert.equal(await next.evaluate("r3.getContext().then(c=>c.versionSeq)"), 2);
+  assert.deepEqual(await next.evaluate(modelBytes), ["application/octet-stream", [0, 255, 2]]);
   await next.evaluate("window.beforeReload = true");
   await page.command("Page.reload");
-  await eventually(async () => {
-    for (const context of page.contexts.values()) {
-      if (context.origin !== "://" || !context.auxData?.isDefault) continue;
-      try {
-        if (
-          await page
-            .inContext(context.id)
-            .evaluate("!window.beforeReload && !!window.r3 && typeof r3.getThreads === 'function'")
-        )
-          return true;
-      } catch {
-        /* Preview setup can replace the document. */
-      }
-    }
-    return false;
-  }, "utility returns after reloading the workspace");
+  await findContent(
+    "!window.beforeReload && !!window.r3 && typeof r3.getThreads === 'function'",
+    "utility returns after reloading the workspace",
+  );
   await click("document.querySelector('[data-thread-action=\"locations\"]')");
   await click("document.querySelector('[data-thread-action=\"original\"]')");
-  const original = await eventually(async () => {
-    for (const context of page.contexts.values()) {
-      if (context.origin !== "://" || !context.auxData?.isDefault) continue;
-      const frame = page.inContext(context.id);
-      try {
-        if (
-          await frame.evaluate(
-            "!!CSS.highlights.get('r3-preview-active') && document.querySelector('h1')?.textContent==='Published first version'",
-          )
-        )
-          return frame;
-      } catch {
-        /* Locate replaces the preview document. */
-      }
-    }
-    return null;
-  }, "Locate opens and highlights the original published target");
+  const original = await findContent(
+    "!!CSS.highlights.get('r3-preview-active') && document.querySelector('h1')?.textContent==='Published first version'",
+    "Locate opens and highlights the original published target",
+  );
   const beforeLink = await page.evaluate<number>("history.length");
   assert.equal(beforeLink, initialHistory + 1, "Version changes and Locate add no setup entries");
   const originalRoot = await original.evaluate<string>("r3.getContext().then(c=>c.resourceRoot)");
   await original.evaluate("document.querySelector('a').click()");
-  await eventually(async () => {
-    for (const context of page.contexts.values()) {
-      if (context.origin !== "://" || !context.auxData?.isDefault) continue;
-      try {
-        if (
-          await page
-            .inContext(context.id)
-            .evaluate(
-              `location.href.startsWith(${JSON.stringify(originalRoot)}) && globalThis.origin === "null" && document.querySelector('h1')?.textContent==='Other published document'`,
-            )
-        )
-          return true;
-      } catch {
-        /* Native document navigation replaces its JS context. */
-      }
-    }
-    return false;
-  }, "version-local document navigation retains its version scope");
+  await findContent(
+    `location.href.startsWith(${JSON.stringify(originalRoot)}) && globalThis.origin === "null" && document.querySelector('h1')?.textContent==='Other published document'`,
+    "version-local document navigation retains its version scope",
+  );
   const workspacePath = () =>
     page.evaluate<string>(
       `JSON.parse(sessionStorage.getItem('r3-workspace-selections-1')??'[]').find(([id])=>id===${JSON.stringify(artifact.id)})?.[1].path`,
@@ -370,22 +440,10 @@ try {
     );
     await click("document.querySelector('[aria-label=\"Published version\"]')");
     await click(`document.querySelector('[data-version-seq="${seq}"]')`);
-    await eventually(async () => {
-      for (const context of page.contexts.values()) {
-        if (context.origin !== "://" || !context.auxData?.isDefault) continue;
-        try {
-          if (
-            await page
-              .inContext(context.id)
-              .evaluate(`document.querySelector('h1')?.textContent === ${JSON.stringify(text)}`)
-          )
-            return true;
-        } catch {
-          /* Navigation replaces the old execution context. */
-        }
-      }
-      return false;
-    }, "selected version returns to its published root page");
+    await findContent(
+      `document.querySelector('h1')?.textContent === ${JSON.stringify(text)}`,
+      "selected version returns to its published root page",
+    );
   }
   for (const status of [401, 403, 500]) {
     await eventually(visiblePreview, "preview before renewal failure");
@@ -410,7 +468,7 @@ try {
     await Bun.write(screenshot, Buffer.from(image.data, "base64"));
   }
   console.log(
-    "Preview workspace acceptance: isolated render, human utility, shared thread, version switching, native Locate, document navigation, and context recovery passed",
+    "Preview workspace acceptance: isolated render, cached assets, dynamic images, human utility, shared thread, version switching, native Locate, document navigation, and context recovery passed",
   );
 } finally {
   await browser?.close();

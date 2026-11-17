@@ -65,7 +65,7 @@ Publication: --version-label L --summary S --key K --no-listen
 Create: --kind is required; --project ID --meta k=v (repeatable).
         New IDs use artifact_<22 alphanumeric characters> with no timestamp or ordering.
         Existing IDs remain valid; treat IDs as opaque and order by createdAt.
-HTML images: publish standalone assets with relative <img src> URLs; see r3 guide html.
+HTML assets: publish companion files with the page. See r3 guide html for cached reads and images.
 
   thread add <id> [-m <message>] [--attach <image>]... [--key K] [target flags]
   thread edit <thread-id> [-m <message>] [--status open|resolved --human]
@@ -347,15 +347,34 @@ r3 publish <id> --dir ./prototype --version-label 'Revised prototype'
 
 Build dependencies before capture. Publish every referenced local asset on every version. An index-only \`--file\` filter omits companion assets.
 
-Keep large images in standalone files and reference them with native HTML:
+Keep large assets in standalone files and reuse the same path wherever a file repeats. Use the exact publication-root path (for example, \`models/f1.clm.gz\`) with the r3 asset helpers, even from a nested HTML page. A missing file rejects the read; check \`r3 files <id> --version <seq>\` if a published page is missing an asset.
 
-\`\`\`html
-<img src="./assets/hero.webp" alt="Hero illustration">
+For models, JSON, or other whole-file reads, prefer \`r3.readAsset(path)\`. It returns a \`Blob\` with the published media type. The workspace revalidates the file with the server and the browser can reuse its cached bytes after refresh. Read a model when the user selects it:
+
+\`\`\`js
+import r3 from "/r3/utility.js";
+
+const model = await r3.readAsset("models/f1.clm.gz");
+const bytes = await model.arrayBuffer(); // original compressed bytes
 \`\`\`
 
-Extract large embedded base64/data-URL images into files, and reuse the same path where an image repeats. Relative URLs resolve from the document; a leading slash addresses the preview origin. The preview also supplies a version-root URL for constructed asset URLs. Use hash routes or published document paths for navigation.
+For a displayed image, set its dimensions and bind the published path to a source-free image. The binding starts a cached read when the image is visible, including when you insert it later:
 
-For canvas pixel reads or export, set \`image.crossOrigin = "anonymous"\` before assigning \`image.src\` (or use \`<img crossorigin="anonymous" src="…">\`). Even published images otherwise taint the canvas in the isolated preview, causing \`SecurityError\`; r3 already supplies the required CORS headers.
+\`\`\`js
+import r3 from "/r3/utility.js";
+
+const image = new Image(320, 180);
+image.alt = "Front view";
+const release = r3.bindImage(image, "assets/front.webp");
+gallery.append(image);
+// When removing this item: release(); image.remove();
+\`\`\`
+
+Use the same binding on a static \`<img width="320" height="180" alt="Front view">\` or in a component's mount effect; call the returned cleanup on unmount. Set \`loading="eager"\` before binding for an immediate load. Handle the image's \`error\` event for missing files or decode failures. Rebinding an element replaces its previous binding.
+
+Native \`<img src="./assets/front.webp">\`, \`<picture>\`, \`srcset\`, and ordinary \`fetch()\` use the preview's own URLs and can download the file again after refresh. Use these for responsive image selection, streaming, or range reads. Native relative URLs resolve from the document. A leading slash addresses the preview origin. For constructed URLs, \`r3.getContext()\` provides the version's \`resourceRoot\`. Use hash routes or published document paths for navigation.
+
+For canvas pixel reads or export from a native image URL, set \`image.crossOrigin = "anonymous"\` before assigning \`image.src\` (or use \`<img crossorigin="anonymous" src="…">\`). Even published images otherwise taint the canvas in the isolated preview, causing \`SecurityError\`; r3 already supplies the required CORS headers.
 
 Standard \`localStorage\` calls save browser-local state for this artifact across reloads and versions, isolated from r3 settings and other artifacts. Saved values are available to the first publisher script. Storage is limited to 256 KiB and 1,024 keys; logout and artifact deletion clear it. Downloads work through normal export buttons without an r3 permission prompt. Print/PDF remains unavailable.
 
@@ -564,6 +583,8 @@ Use one thread per independent question when you intend to answer each one separ
 
 | Method | Resolves to |
 | --- | --- |
+| \`readAsset(path)\` | A \`Blob\` of the published file in this version |
+| \`bindImage(img, path)\` | Returns cleanup immediately; loads the image when visible |
 | \`getContext()\` | \`{artifactId, versionSeq, path, resourceRoot, representation, state}\` |
 | \`getThreads()\` | An array of threads on this artifact |
 | \`createThread({body, locator?})\` | The new thread |

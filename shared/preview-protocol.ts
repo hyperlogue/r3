@@ -74,6 +74,8 @@ export type PreviewTheme = "light" | "dark";
 export type PreviewLocateState = "anchored" | "ancestor" | "ambiguous" | "unplaced";
 
 export interface ArtifactUtility {
+  readAsset(path: string): Promise<Blob>;
+  bindImage(image: HTMLImageElement, path: string): () => void;
   getUserMedia(constraints: MediaStreamConstraints): Promise<MediaStream>;
   getContext(): Promise<PreviewPageContext>;
   getThreads(): Promise<ArtifactThread[]>;

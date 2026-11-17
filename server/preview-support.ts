@@ -1,4 +1,5 @@
 import { normalizeRenderedText } from "../shared/rendered-text.ts";
+import { createPreviewAssets } from "../web/src/preview-assets.ts";
 import { previewIceComplete } from "../web/src/preview-capture.ts";
 import { connectPreview } from "../web/src/preview-channel.ts";
 import { installPreviewLayout } from "../web/src/preview-layout.ts";
@@ -42,7 +43,7 @@ const install = () => {
 (${installPreviewLayout.toString()})(config, connection, markdown || config.presentation === "media");
 (${installPreviewNavigation.toString()})(config, connection);
 const getUserMedia = (${createPreviewMedia.toString()})(config, connection, ${previewIceComplete.toString()});
-Object.defineProperty(globalThis, "__r3ArtifactUtility", {value: (${createArtifactUtility.toString()})(config, connection, getUserMedia)});
+Object.defineProperty(globalThis, "__r3ArtifactUtility", {value: (${createArtifactUtility.toString()})(config, connection, (${createPreviewAssets.toString()}), getUserMedia)});
 (${installPreviewRuntime.toString()})(config, ${normalizeRenderedText.toString()}, connection, ${observeTextSelection.toString()}, ${composerKeyAction.toString()}); };
 if (shell) (${installMarkdownDocument.toString()})(config, connection, install); else install(); };
 if (htmlShell) (${bootstrapPreviewDocument.toString()})(config, start, ${installPreviewStorage.toString()}); else start(); })();`,

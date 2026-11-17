@@ -1,4 +1,5 @@
 import type { ArtifactUtility, PreviewBootstrap } from "../../shared/preview-protocol.ts";
+import type { createPreviewAssets } from "./preview-assets.ts";
 import type { PreviewConnection } from "./preview-channel.ts";
 
 // Serialized into the isolated origin as an ES module. Keep runtime dependencies
@@ -6,6 +7,7 @@ import type { PreviewConnection } from "./preview-channel.ts";
 export function createArtifactUtility(
   config: PreviewBootstrap,
   connection: PreviewConnection,
+  assets: typeof createPreviewAssets,
   getUserMedia: ArtifactUtility["getUserMedia"] = () =>
     Promise.reject(new Error("Device capture is unavailable")),
 ): ArtifactUtility {
@@ -52,8 +54,13 @@ export function createArtifactUtility(
       else request.resolve(message.value);
     }
   });
-  const call = <T>(method: string, input?: unknown): Promise<T> =>
+  let closed = false;
+  const call = <T>(method: string, input?: unknown, timeout = 30_000): Promise<T> =>
     new Promise((resolve, reject) => {
+      if (closed) {
+        reject(new Error("The artifact document was closed"));
+        return;
+      }
       if (pending.size >= 32) {
         reject(new Error("Too many pending r3 requests"));
         return;
@@ -62,11 +69,12 @@ export function createArtifactUtility(
       const timer = setTimeout(() => {
         pending.delete(id);
         reject(new Error("r3 did not respond; open this page from the artifact workspace"));
-      }, 30_000);
+      }, timeout);
       pending.set(id, { resolve: resolve as (value: unknown) => void, reject, timer });
       connection.send({ type: "r3-preview-call", id, method, input });
     });
   window.addEventListener("pagehide", () => {
+    closed = true;
     for (const request of pending.values()) {
       clearTimeout(request.timer);
       request.reject(new Error("The artifact document was closed"));
@@ -74,6 +82,7 @@ export function createArtifactUtility(
     pending.clear();
   });
   const utility = {
+    ...assets((path) => call<Blob>("readAsset", path, 180_000)),
     getUserMedia,
     getContext: () => call("getContext"),
     getThreads: () => call("getThreads"),

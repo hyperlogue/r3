@@ -62,6 +62,24 @@ function openLink(href: string) {
   window.open(href, "_blank", "noopener,noreferrer");
 }
 
+async function readPreviewAsset(
+  path: unknown,
+  members: string[],
+  id: string,
+  seq: number,
+  signal: AbortSignal,
+): Promise<Blob> {
+  if (typeof path !== "string" || !members.includes(path))
+    throw new Error("Asset is not a published file in this version");
+  const response = await artifactApi.download(
+    id,
+    seq,
+    path,
+    AbortSignal.any([signal, AbortSignal.timeout(180_000)]),
+  );
+  return response.blob();
+}
+
 export function ArtifactPreview(props: ArtifactRenderedPaneProps) {
   // External resources and devices belong to this version visit. Compatibility
   // acknowledgment belongs to the browser and survives version visits.
@@ -413,6 +431,7 @@ function PreviewSession(
     let pending = 0;
     let connected = false;
     let closeStorage = () => {};
+    let assetReads: AbortController | undefined;
     artifactLocalStorage.snapshot(id);
     let check: { nonce: string; timer: ReturnType<typeof setTimeout> } | null = null;
     const clearCheck = () => {
@@ -543,6 +562,9 @@ function PreviewSession(
       if (network === "compatible") current.current.onVerification("ready");
       clearCheck();
       connection.current?.close();
+      assetReads?.abort();
+      const reads = new AbortController();
+      assetReads = reads;
       const port = event.ports[0];
       connection.current = port;
       fittedPath.current = null;
@@ -622,6 +644,7 @@ function PreviewSession(
         } else if (message.type === "r3-preview-capture") {
           receiveCapture(message);
         } else if (message.type === "r3-preview-disconnect") {
+          reads.abort();
           clearCheck();
           capture.close();
           current.current.onDevicesReset();
@@ -821,28 +844,33 @@ function PreviewSession(
           if (seen.size > 512) seen.delete(seen.values().next().value!);
           pending++;
           const props = current.current;
-          void previewBridgeCall(
-            message.method,
-            message.input,
-            {
-              artifactId: id,
-              versionSeq: seq,
-              path: message.path,
-              resourceRoot: context.resourceRoot,
-              representation: context.presentation === "media" ? "source" : "rendered",
-              state: props.detail.state,
-            },
-            props.detail,
-            artifactApi,
-            props.active !== false && navigator.userActivation?.isActive === true,
-          )
+          const operation =
+            message.method === "readAsset"
+              ? readPreviewAsset(message.input, props.paths, id, seq, reads.signal)
+              : previewBridgeCall(
+                  message.method,
+                  message.input,
+                  {
+                    artifactId: id,
+                    versionSeq: seq,
+                    path: message.path,
+                    resourceRoot: context.resourceRoot,
+                    representation: context.presentation === "media" ? "source" : "rendered",
+                    state: props.detail.state,
+                  },
+                  props.detail,
+                  artifactApi,
+                  props.active !== false && navigator.userActivation?.isActive === true,
+                );
+          void operation
             .then((value) => {
-              if (!closed) comment({ type: "r3-preview-result", id: message.id, value });
+              if (!closed && connection.current === port)
+                comment({ type: "r3-preview-result", id: message.id, value });
               if (["createThread", "comment", "submit"].includes(message.method))
                 void qc.invalidateQueries({ queryKey: ["artifact", id] });
             })
             .catch((error) => {
-              if (!closed)
+              if (!closed && connection.current === port)
                 comment({
                   type: "r3-preview-result",
                   id: message.id,
@@ -858,6 +886,7 @@ function PreviewSession(
     window.addEventListener("message", listener);
     return () => {
       closed = true;
+      assetReads?.abort();
       closeStorage();
       clearCheck();
       checkDocument.current = () => {};
