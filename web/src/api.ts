@@ -3,11 +3,13 @@ import { applicationFetch } from "./application-fetch.ts";
 import { artifactLocalStorage } from "./artifact-local-storage.ts";
 import { draftImages } from "./attachment-drafts.ts";
 import { t } from "./i18n.ts";
+
 // Application bootstrap, theme settings, and login-token access.
 // Artifact operations use artifact-api.ts and the shared ArtifactClient.
 
 import { markdownCache } from "./markdown-cache.ts";
 import { clearPreviewResumeHints } from "./preview-resume.ts";
+import { stopSharedArtifactEvents } from "./shared-artifact-events.ts";
 import type {
   ApplicationBootstrap,
   ArtifactDetail,
@@ -169,6 +171,7 @@ export const api = {
       return await req<{ ok: true }>("POST", "/api/auth/logout");
     } finally {
       artifactLocalStorage.suspend();
+      stopSharedArtifactEvents();
       clearPreviewResumeHints();
       await markdownCache.suspend();
       await draftImages.clear();

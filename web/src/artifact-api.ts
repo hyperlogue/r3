@@ -49,8 +49,10 @@ import { type AttachmentInput, attachmentPath } from "../../shared/attachments.t
 import { readEventStream } from "../../shared/event-stream.ts";
 import { TOKEN } from "./api.ts";
 import { applicationFetch } from "./application-fetch.ts";
+import { artifactLocalStorage } from "./artifact-local-storage.ts";
 import { t } from "./i18n.ts";
 import { hrefFor } from "./router.ts";
+import { type ArtifactLiveEvent, sharedArtifactEvents } from "./shared-artifact-events.ts";
 import type { DiffFileChange, DiffLine } from "./types.ts";
 
 export const HUMAN_ACTOR: ArtifactActor = { role: "human", sessionId: null };
@@ -214,7 +216,7 @@ export const artifactApi = {
   revokePreview: (id: string) => client().json("DELETE", `/api/previews/${encodeURIComponent(id)}`),
 };
 
-export async function* artifactEventStream(
+async function* readArtifactEvents(
   signal: AbortSignal,
 ): AsyncGenerator<ArtifactStreamEvent | { type: "ready" }> {
   const response = await client().request("GET", "/api/events", undefined, signal);
@@ -223,4 +225,28 @@ export async function* artifactEventStream(
     if (frame.event === "ready") yield { type: "ready" };
     else if (frame.event !== "heartbeat") yield JSON.parse(frame.data) as ArtifactStreamEvent;
   }
+}
+
+export async function* artifactEventStream(signal: AbortSignal): AsyncGenerator<ArtifactLiveEvent> {
+  // Token-bearing fixtures do not share the browser's cookie identity.
+  if (TOKEN) {
+    yield* readArtifactEvents(signal);
+    return;
+  }
+  const epoch = artifactLocalStorage.authenticationEpoch();
+  if (artifactLocalStorage.authenticationSuspended()) {
+    await new Promise<void>((resolve) => {
+      if (signal.aborted) resolve();
+      else signal.addEventListener("abort", () => resolve(), { once: true });
+    });
+    return;
+  }
+  yield* sharedArtifactEvents(
+    readArtifactEvents,
+    signal,
+    `${hrefFor("/")}:${epoch ?? "initial"}`,
+    () =>
+      artifactLocalStorage.authenticationEpoch() === epoch &&
+      !artifactLocalStorage.authenticationSuspended(),
+  );
 }

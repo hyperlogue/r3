@@ -33,6 +33,10 @@ export function useArtifactEvents(): boolean {
         try {
           for await (const event of artifactEventStream(controller.signal)) {
             if (controller.signal.aborted) break;
+            if (event.type === "disconnected") {
+              setConnected(false);
+              continue;
+            }
             setConnected(true);
             delay = 500;
             if (event.type === "ready") {
