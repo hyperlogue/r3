@@ -228,7 +228,7 @@ export class PreviewHost {
       ? `W/"${createHash("sha256")
           .update(
             JSON.stringify([
-              "r3-preview-3",
+              "r3-preview-4",
               file.renderedHash ?? file.hash,
               !!file.renderedHash,
               scope.id,
@@ -256,48 +256,36 @@ export class PreviewHost {
         documentHeaders,
       );
     }
-    let readRequest = request;
     if (html) {
-      const headers = new Headers(request.headers);
-      for (const name of ["range", "if-range", "if-none-match"]) headers.delete(name);
-      readRequest = new Request(request.url, { method: request.method, headers });
+      if (request.method === "HEAD") return new Response(null, { headers: documentHeaders });
+      const { beforeUrl, afterUrl } = await this.artifacts.htmlPreview(
+        scope.artifactId,
+        scope.versionSeq,
+        filePath,
+      );
+      // The URL is inside the import map's JSON string, itself inside the shell's JSON string.
+      const url = JSON.stringify(JSON.stringify(`${root}/r3/utility.js`).slice(1, -1))
+        .slice(1, -1)
+        .replaceAll("<", "\\u003c");
+      const body = new Blob([
+        '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script type="application/json" id="r3-document-source">',
+        beforeUrl,
+        url,
+        afterUrl,
+        `</script>${this.runtimeScript(scope, " data-r3-html-shell")}</head><body></body></html>`,
+      ]);
+      return new Response(body, { headers: documentHeaders });
     }
     const response = await artifactResourceResponse(
       this.artifacts,
-      readRequest,
+      request,
       scope.artifactId,
       scope.versionSeq,
       filePath,
-      { inline: true, rendered: document && !!file.renderedHash },
+      { inline: true },
     );
     response.headers.set("vary", "Sec-Fetch-Dest");
-    if (!html) {
-      response.headers.set("access-control-allow-origin", "*");
-      return response;
-    }
-    for (const [name, value] of Object.entries(documentHeaders)) response.headers.set(name, value);
-    for (const name of ["content-length", "accept-ranges"]) response.headers.delete(name);
-    if (request.method === "HEAD") return response;
-    let injected = false;
-    const imports = JSON.stringify({ imports: { "/r3/utility.js": `${root}/r3/utility.js` } });
-    const source = await new HTMLRewriter()
-      .on("*", {
-        element(element) {
-          if (injected || element.tagName === "html") return;
-          injected = true;
-          element.before(`<script type="importmap">${imports}</script>`, { html: true });
-        },
-      })
-      .onDocument({
-        end(end) {
-          if (!injected) end.append(`<script type="importmap">${imports}</script>`, { html: true });
-        },
-      })
-      .transform(response)
-      .text();
-    return new Response(
-      `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script type="application/json" id="r3-document-source">${JSON.stringify(source).replaceAll("<", "\\u003c")}</script>${this.runtimeScript(scope, " data-r3-html-shell")}</head><body></body></html>`,
-      { headers: response.headers },
-    );
+    response.headers.set("access-control-allow-origin", "*");
+    return response;
   }
 }

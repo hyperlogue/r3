@@ -12,6 +12,7 @@ import {
   requireString,
 } from "./artifact-validation.ts";
 import { type BlobStore, hashBytes, type StoredBlob } from "./blobs.ts";
+import { type HtmlTemplate, prepareHtmlTemplate } from "./html-preview.ts";
 import { validateStoredPatch } from "./patch-content.ts";
 
 export const PUBLICATION_LIMITS = {
@@ -46,6 +47,7 @@ export interface ValidatedPublication {
 export interface PreparedFile extends StoredBlob {
   path: string;
   mediaType: string;
+  template: HtmlTemplate | null;
   rendered: (StoredBlob & { revision: string }) | null;
 }
 
@@ -193,11 +195,14 @@ export async function prepareFiles(
   blobs: BlobStore,
   renderDocument: DocumentRenderer,
   retained?: (hash: string, path: string, revision: string) => StoredBlob | null,
+  retainedHtml?: (hash: string) => Promise<HtmlTemplate | null>,
 ): Promise<PreparedFile[]> {
+  const templates = new Map<string, HtmlTemplate>();
   const prepared: PreparedFile[] = [];
   for (const file of publication.files) {
     const stored = await blobs.put(file.bytes);
     let rendered: PreparedFile["rendered"] = null;
+    let template: HtmlTemplate | null = null;
     if (/\.(md|markdown)$/i.test(file.path)) {
       const source = decodeMarkdown(file);
       const declared = renderDocument.revision;
@@ -214,8 +219,14 @@ export async function prepareFiles(
           throw new Error("Document renderer returned a different revision");
         rendered = { ...(await blobs.put(document.html)), revision };
       }
+    } else if (file.mediaType.split(";")[0] === "text/html") {
+      template =
+        templates.get(stored.hash) ??
+        (await retainedHtml?.(stored.hash)) ??
+        (await prepareHtmlTemplate(file.bytes, blobs));
+      templates.set(stored.hash, template);
     }
-    prepared.push({ path: file.path, mediaType: file.mediaType, ...stored, rendered });
+    prepared.push({ path: file.path, mediaType: file.mediaType, ...stored, rendered, template });
   }
   return prepared;
 }

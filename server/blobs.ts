@@ -138,7 +138,7 @@ export class BlobStore {
     }
   }
 
-  async read(hash: string): Promise<Buffer> {
+  async read(hash: string): Promise<Buffer<ArrayBuffer>> {
     const { file } = this.location(hash);
     // A store entry is always a regular file owned by this store. Never follow
     // an accidentally substituted symlink to content outside it.

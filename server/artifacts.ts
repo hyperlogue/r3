@@ -26,6 +26,7 @@ import {
   requireString,
 } from "./artifact-validation.ts";
 import type { BlobStore } from "./blobs.ts";
+import { type HtmlTemplate, prepareHtmlTemplate } from "./html-preview.ts";
 import { nowIso } from "./ids.ts";
 import {
   type DocumentRenderer,
@@ -364,6 +365,8 @@ export class ArtifactStore {
           SELECT blob_hash AS hash, version_seq AS seq FROM files
           UNION ALL
           SELECT rendered_blob_hash, version_seq FROM files WHERE rendered_blob_hash IS NOT NULL
+          UNION ALL
+          SELECT p.template_hash, f.version_seq FROM files f JOIN html_previews p USING (artifact_id, version_seq, path)
         ) GROUP BY hash
       ), sizes AS (
         SELECT b.byte_length, r.last_seq FROM references_by_hash r JOIN blobs b ON b.hash = r.hash
@@ -494,6 +497,67 @@ export class ArtifactStore {
     return artifact;
   }
 
+  private async retainedHtmlTemplate(sourceHash: string): Promise<HtmlTemplate | null> {
+    const template = this.db
+      .query<HtmlTemplate, [string]>(`SELECT b.hash, b.byte_length AS byteLength,
+      p.url_offset AS urlOffset FROM version_files f
+      JOIN html_previews p USING (artifact_id, version_seq, path)
+      JOIN blobs b ON b.hash = p.template_hash WHERE f.blob_hash = ? LIMIT 1`)
+      .get(sourceHash);
+    if (template) await this.blobs.read(template.hash);
+    return template;
+  }
+
+  private recordHtmlTemplate(
+    id: string,
+    seq: number,
+    path: string,
+    template: HtmlTemplate,
+    time: string,
+  ) {
+    this.db
+      .query(
+        "INSERT INTO blobs(hash, byte_length, created_at) VALUES (?, ?, ?) ON CONFLICT(hash) DO NOTHING",
+      )
+      .run(template.hash, template.byteLength, time);
+    this.db
+      .query(
+        "INSERT INTO html_previews(artifact_id, version_seq, path, template_hash, url_offset) VALUES (?, ?, ?, ?, ?)",
+      )
+      .run(id, seq, path, template.hash, template.urlOffset);
+  }
+
+  async backfillHtmlPreviews(): Promise<void> {
+    const missing = this.db
+      .query<{ id: string; seq: number; path: string; hash: string }, []>(`
+      SELECT f.artifact_id AS id, f.version_seq AS seq, f.path, f.blob_hash AS hash
+      FROM version_files f LEFT JOIN html_previews p USING (artifact_id, version_seq, path)
+      WHERE p.template_hash IS NULL AND f.rendered_blob_hash IS NULL
+      AND (f.media_type = 'text/html' OR f.media_type LIKE 'text/html;%')`)
+      .all();
+    for (const file of missing) {
+      const template =
+        (await this.retainedHtmlTemplate(file.hash)) ??
+        (await prepareHtmlTemplate(await this.blobs.read(file.hash), this.blobs));
+      this.db
+        .transaction(() =>
+          this.recordHtmlTemplate(file.id, file.seq, file.path, template, this.clock()),
+        )
+        .immediate();
+    }
+  }
+
+  async htmlPreview(id: string, seq: number, path: string) {
+    const row = this.db
+      .query<{ hash: string; offset: number }, [string, number, string]>(
+        "SELECT template_hash AS hash, url_offset AS offset FROM html_previews WHERE artifact_id = ? AND version_seq = ? AND path = ?",
+      )
+      .get(id, seq, path);
+    if (!row) throw new Error("Missing published HTML template");
+    const bytes = await this.blobs.read(row.hash);
+    return { beforeUrl: bytes.subarray(0, row.offset), afterUrl: bytes.subarray(row.offset) };
+  }
+
   async publish(
     id: string,
     value: unknown,
@@ -526,6 +590,7 @@ export class ArtifactStore {
         WHERE f.blob_hash = ? AND f.path = ? AND f.renderer_revision = ?
           AND v.published_at IS NOT NULL LIMIT 1`)
           .get(hash, path, revision),
+      (hash) => this.retainedHtmlTemplate(hash),
     );
     let committed = false;
     const result = this.db
@@ -586,6 +651,7 @@ export class ArtifactStore {
               file.rendered?.hash ?? null,
               file.rendered?.revision ?? null,
             );
+          if (file.template) this.recordHtmlTemplate(id, seq, file.path, file.template, time);
         }
         this.db
           .query("UPDATE artifact_versions SET published_at = ? WHERE artifact_id = ? AND seq = ?")

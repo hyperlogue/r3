@@ -5,10 +5,11 @@ import { ARTIFACT_COMMENT_SCHEMA } from "./artifact-comments.ts";
 import { ARTIFACT_SEARCH_SCHEMA } from "./artifact-search-schema.ts";
 import { installArtifactUsage } from "./artifact-usage-schema.ts";
 import { CLIENT_AUTH_SCHEMA } from "./client-auth.ts";
+import { HTML_PREVIEW_SCHEMA } from "./html-preview.ts";
 import { ONBOARDING_SCHEMA } from "./onboarding.ts";
 import { WORKER_SCHEMA } from "./worker-records.ts";
 
-export const ARTIFACT_SCHEMA_VERSION = 20;
+export const ARTIFACT_SCHEMA_VERSION = 21;
 
 export const PROJECT_REMOTE_SCHEMA = `
 CREATE TABLE IF NOT EXISTS project_remotes (
@@ -477,6 +478,7 @@ END;
 
 export function createArtifactTables(db: Database): void {
   db.exec(ARTIFACT_SCHEMA);
+  db.exec(HTML_PREVIEW_SCHEMA);
   db.exec(ONBOARDING_SCHEMA);
   db.exec(CLIENT_AUTH_SCHEMA);
   db.exec(WORKER_SCHEMA);

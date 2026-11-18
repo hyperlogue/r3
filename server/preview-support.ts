@@ -29,10 +29,7 @@ function parameters(scope: PreviewScope): string {
   }).replaceAll("<", "\\u003c");
 }
 
-export const previewSupport: PreviewSupport = {
-  runtime: (scope) =>
-    `(() => { const config = ${parameters(scope)};
-const markdown = document.currentScript?.hasAttribute("data-r3-markdown") === true;
+const runtime = `const markdown = document.currentScript?.hasAttribute("data-r3-markdown") === true;
 const shell = document.currentScript?.hasAttribute("data-r3-markdown-shell") === true;
 const htmlShell = document.currentScript?.hasAttribute("data-r3-html-shell") === true;
 const start = () => {
@@ -46,6 +43,9 @@ const getUserMedia = (${createPreviewMedia.toString()})(config, connection, ${pr
 Object.defineProperty(globalThis, "__r3ArtifactUtility", {value: (${createArtifactUtility.toString()})(config, connection, (${createPreviewAssets.toString()}), getUserMedia)});
 (${installPreviewRuntime.toString()})(config, ${normalizeRenderedText.toString()}, connection, ${observeTextSelection.toString()}, ${composerKeyAction.toString()}); };
 if (shell) (${installMarkdownDocument.toString()})(config, connection, install); else install(); };
-if (htmlShell) (${bootstrapPreviewDocument.toString()})(config, start, ${installPreviewStorage.toString()}); else start(); })();`,
+if (htmlShell) (${bootstrapPreviewDocument.toString()})(config, start, ${installPreviewStorage.toString()}); else start();`;
+
+export const previewSupport: PreviewSupport = {
+  runtime: (scope) => `(() => { const config = ${parameters(scope)};\n${runtime} })();`,
   utility: () => "const r3 = globalThis.__r3ArtifactUtility; export { r3 }; export default r3;",
 };

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test } from "bun:test";
+import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -247,6 +247,47 @@ test("HTML stays inert until storage initialization and Markdown retains its sep
   expect(await (await read("/r3/utility.js")).text()).toContain("export const fixture");
 });
 
+test("fresh contexts splice their own import URL into retained HTML without parsing it", async () => {
+  const prefix = '<!doctype html><!-- 🎨 "quoted" -->';
+  const suffix = "<html><head><title>Nested</title></head></html>";
+  const html = prefix + suffix;
+  const files = storage.artifacts.create({ kind: "files", actor });
+  const file = {
+    path: "nested/é.html",
+    mediaType: "text/html;charset=utf-8",
+    base64: Buffer.from(html).toString("base64"),
+  };
+  const content = { kind: "files", files: [file] };
+  await storage.artifacts.publish(files.id, {
+    actor,
+    expectedSeq: 0,
+    publicationKey: "initial",
+    content,
+  });
+  const transform = spyOn(HTMLRewriter.prototype, "transform");
+  try {
+    await storage.artifacts.publish(files.id, {
+      actor,
+      expectedSeq: 1,
+      publicationKey: "same-html",
+      content,
+    });
+    for (const seq of [1, 2]) {
+      context = host.create(files.id, seq, file.path, "https://app.example");
+      const response = await read("/files/nested/%C3%A9.html", { "sec-fetch-dest": "iframe" });
+      const body = await response.text();
+      const source = JSON.parse(/id="r3-document-source">([\s\S]*?)<\/script>/.exec(body)![1]);
+      const imports = JSON.stringify({ imports: { "/r3/utility.js": context.utilityUrl } });
+      expect(source).toBe(
+        html.replace("<head>", `<script type="importmap">${imports}</script><head>`),
+      );
+    }
+    expect(transform).not.toHaveBeenCalled();
+  } finally {
+    transform.mockRestore();
+  }
+});
+
 test("preview hosting never serves application routes, another version, service workers, or a history fallback", async () => {
   await storage.artifacts.publish(id, {
     actor,
@@ -291,6 +332,7 @@ test("cached HTML and Markdown revalidate without blob reads and preserve naviga
   for (const path of ["index.html", "notes.md"]) {
     const document = await read(`/files/${path}`, { "sec-fetch-dest": "iframe" });
     const headers = { "sec-fetch-dest": "iframe", "if-none-match": document.headers.get("etag")! };
+    const preview = spyOn(storage.artifacts, "htmlPreview");
     const original = storage.artifacts.resource;
     storage.artifacts.resource = () => {
       throw new Error("Unexpected blob access");
@@ -310,6 +352,9 @@ test("cached HTML and Markdown revalidate without blob reads and preserve naviga
       ).toBe(403);
     } finally {
       storage.artifacts.resource = original;
+      const reads = preview.mock.calls.length;
+      preview.mockRestore();
+      expect(reads).toBe(0);
     }
   }
   const document = await read("/files/index.html", { "sec-fetch-dest": "iframe" });

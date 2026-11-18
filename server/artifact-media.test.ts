@@ -15,6 +15,7 @@ import { type ArtifactStorage, openArtifactStorage } from "./artifact-storage.ts
 import { installArtifactUsage } from "./artifact-usage-schema.ts";
 import { ArtifactStore } from "./artifacts.ts";
 import { BlobStore } from "./blobs.ts";
+import { HTML_PREVIEW_SCHEMA } from "./html-preview.ts";
 import { upgradeArtifactStore } from "./migration.ts";
 
 const png = {
@@ -192,6 +193,7 @@ test("version 9 constraint upgrade retains conversations and restores foreign ke
     db.exec(ATTACHMENT_SCHEMA);
     // Current fixture writers need the auxiliary tables; remove them before the real old-schema upgrade.
     db.exec(ARTIFACT_ANCHOR_SCHEMA);
+    db.exec(HTML_PREVIEW_SCHEMA);
     installArtifactUsage(db, null);
     const artifacts = new ArtifactStore(db, new BlobStore(join(root, "blobs")), async (text) => ({
       html: text,
@@ -223,7 +225,7 @@ test("version 9 constraint upgrade retains conversations and restores foreign ke
     const before = conversations.get(note.id);
     const activity = db.query("SELECT * FROM artifact_activity ORDER BY occurred_at, metric").all();
     db.exec(
-      "DROP TABLE thread_anchor_frames; DROP TABLE thread_anchor_operations; DROP TABLE thread_anchors",
+      "DROP TABLE html_previews; DROP TABLE thread_anchor_frames; DROP TABLE thread_anchor_operations; DROP TABLE thread_anchors",
     );
     db.exec(
       "DROP INDEX target_frame_threads; DROP INDEX target_frame_comment; DROP TRIGGER immutable_message_attachment; ALTER TABLE message_attachments DROP COLUMN purpose; PRAGMA user_version = 9",

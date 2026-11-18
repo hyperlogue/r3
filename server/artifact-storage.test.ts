@@ -41,6 +41,36 @@ const publication = () => ({
   },
 });
 describe("private artifact storage bootstrap", () => {
+  test("upgrade prepares historical HTML and retains its template until artifact deletion", async () => {
+    const settings = options();
+    storage = await openArtifactStorage(settings);
+    const { id } = storage.artifacts.create({ kind: "files", actor });
+    const upload = publication();
+    const text = "Only text 🎨";
+    upload.content.files = [
+      { path: "old.html", mediaType: "text/html", base64: Buffer.from(text).toString("base64") },
+    ];
+    await storage.artifacts.publish(id, upload);
+    storage.close();
+    storage = null;
+    const old = new Database(settings.databasePath);
+    old.exec("DROP TABLE html_previews; PRAGMA user_version = 20");
+    old.close();
+    storage = await openArtifactStorage(settings);
+    expect(storage.migration?.migrated).toBe(true);
+    const template = await storage.artifacts.htmlPreview(id, 1, "old.html");
+    const source = JSON.parse(
+      Buffer.concat([template.beforeUrl, Buffer.from("example"), template.afterUrl]).toString(),
+    );
+    expect(source).toBe(
+      `${text}<script type="importmap">{"imports":{"/r3/utility.js":"example"}}</script>`,
+    );
+    expect((await storage.artifacts.readFile(id, 1, "old.html")).toString()).toBe(text);
+    expect(await storage.collectBlobs()).toBe(0);
+    storage.artifacts.delete(id);
+    expect(await storage.collectBlobs()).toBe(2);
+  });
+
   test("local browser access survives restart alongside existing login sessions", async () => {
     const settings = options();
     storage = await openArtifactStorage(settings);
