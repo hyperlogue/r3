@@ -358,6 +358,21 @@ const model = await r3.readAsset("models/f1.clm.gz");
 const bytes = await model.arrayBuffer(); // original compressed bytes
 \`\`\`
 
+Bundle startup JavaScript into an inline \`<script type="module">\` in \`index.html\` so the browser can reuse it with the cached HTML on refresh. Keep \`/r3/utility.js\` external when bundling.
+
+Publish the renderer's \`.wasm\` file separately with the media type \`application/wasm\`. In an inline module, \`import.meta.url\` points to the HTML document. Have the build pass the exact publication-root WASM path to the loader, including any hash in the filename. Keep the renderer's existing imports and compile options.
+
+\`\`\`js
+import r3 from "/r3/utility.js";
+
+const wasm = await r3.readAsset("assets/renderer.wasm");
+const { instance } = await WebAssembly.instantiateStreaming(
+  new Response(wasm), imports, compileOptions
+);
+\`\`\`
+
+On the first load, \`readAsset()\` downloads the complete binary before compilation starts. On refresh, a \`304\` response lets the preview instantiate the renderer again from cached bytes.
+
 For a displayed image, set its dimensions and bind the published path to a source-free image. The binding starts a cached read when the image is visible, including when you insert it later:
 
 \`\`\`js
