@@ -4,6 +4,20 @@ All notable changes to r3 are documented here. The format is adapted from
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [2.10.0] - 2026-11-18
+
+### New
+
+- **Cached assets in HTML artifacts.** Opening an artifact in a new session gives its page a new URL. A relative image URL or `fetch()` call can therefore point to a different address after a refresh, even when the published file is identical. The browser can end up downloading the same large image, model, or WebAssembly module again.
+
+  At publication, r3 prepares static image `src` and `srcset` attributes so published images load through stable URLs and can reuse cached bytes across sessions. In the JavaScript of your HTML artifact, use `r3.readAsset(path)` for files or `r3.bindImage(img, path)` for images you create dynamically.
+- **Image editor shortcut.** Press Space or Enter to save the edited image.
+- **Send comments from the preview.** Press S to send pending comments while the discussion panel is hidden.
+
+### Fixed
+
+- **Browser connection limits.** Open r3 tabs share one live-update connection so opening more tabs won’t exhaust the browser’s per-origin connection limit.
+
 ## [2.9.1] - 2026-11-13
 
 ### New
@@ -874,6 +888,7 @@ and files reviews, anchored discussions with quote-first re-anchoring, comments,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 
+[2.10.0]: https://github.com/hyperlogue/r3/compare/v2.9.1...v2.10.0
 [2.9.1]: https://github.com/hyperlogue/r3/compare/v2.8.0...v2.9.1
 [2.8.0]: https://github.com/hyperlogue/r3/compare/v2.7.0...v2.8.0
 [2.7.0]: https://github.com/hyperlogue/r3/compare/v2.6.0...v2.7.0
