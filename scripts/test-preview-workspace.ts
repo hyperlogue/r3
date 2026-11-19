@@ -33,7 +33,7 @@ const storage = await openArtifactStorage({ databasePath: join(root, "store.sqli
 const actor = { role: "human" as const, sessionId: null };
 const artifact = storage.artifacts.create({ kind: "html", actor, title: "Published workspace" });
 const source =
-  '<!doctype html><html><head><title>Published fixture</title></head><body><h1 id="heading">Published first version</h1><p id="output">Ready</p><button id="send">Request revision</button><a href="other.html">Other document</a><script type="module">import r3 from "/r3/utility.js";send.onclick=async()=>{try{const note=await r3.createThread({body:"Please revise this chart",locator:{selector:"#heading",quote:document.querySelector("h1").textContent}});window.lastThread=note.id;output.textContent="Sent: "+note.id;}catch(error){output.textContent=error.message}};window.r3=r3;</script></body></html>';
+  '<!doctype html><html><head><title>Published fixture</title></head><body><h1 id="heading">Published first version</h1><p id="output">Ready</p><div id="staticImages" style="position:fixed;top:250vh"><img id="plain" loading="lazy" width="32" height="16" src="./assets/test.svg"><img id="responsive" loading="lazy" width="32" height="16" src="./assets/test.svg" sizes="32px" srcset="./assets/test.svg 32w, ./assets/wide,test.svg 64w"></div><button id="send">Request revision</button><a href="other.html">Other document</a><script type="module">import r3 from "/r3/utility.js";send.onclick=async()=>{try{const note=await r3.createThread({body:"Please revise this chart",locator:{selector:"#heading",quote:document.querySelector("h1").textContent}});window.lastThread=note.id;output.textContent="Sent: "+note.id;}catch(error){output.textContent=error.message}};window.r3=r3;</script></body></html>';
 for (const seq of [1, 2])
   await storage.artifacts.publish(artifact.id, {
     actor,
@@ -51,6 +51,11 @@ for (const seq of [1, 2])
           path: "assets/test.svg",
           mediaType: "image/svg+xml",
           base64: btoa('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="16"/>'),
+        },
+        {
+          path: "assets/wide,test.svg",
+          mediaType: "image/svg+xml",
+          base64: btoa('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="32"/>'),
         },
         {
           path: "index.html",
@@ -100,7 +105,7 @@ const app = Bun.serve({
         return Response.json({ error: "Renewal denied by fixture" }, { status: renewalFailure });
     }
     if (path.startsWith(PREVIEW_PREFIX)) {
-      if (path.endsWith("/assets/test.svg") || path.endsWith("/models/test.bin"))
+      if (path.includes("/assets/") || path.endsWith("/models/test.bin"))
         nativeAssetRequests.push(path);
       return preview.fetch(request);
     }
@@ -254,6 +259,24 @@ try {
     [],
     "bound images and model reads avoid a second request from the preview",
   );
+  const showStaticImages = async () => {
+    await content.evaluate('document.getElementById("staticImages").style.top = "0"');
+    await eventually(
+      () =>
+        content.evaluate(`plain.currentSrc.startsWith("blob:") && plain.naturalWidth === 32 &&
+      responsive.currentSrc.startsWith("blob:") && responsive.naturalWidth > 0 &&
+      /^blob:[^ ]+ 32w, blob:[^ ]+ 64w$/.test(responsive.srcset)`),
+      "cached static src and responsive srcset",
+    );
+  };
+  await showStaticImages();
+  assert(reads.some((read) => read.path === "assets/wide,test.svg" && read.status === 200));
+  await content.evaluate("window.beforeStaticReload = true");
+  await page.command("Page.reload");
+  content = await findContent("!!window.r3 && !window.beforeStaticReload", "static image reload");
+  await showStaticImages();
+  assert(reads.some((read) => read.path === "assets/wide,test.svg" && read.status === 304));
+  assert.deepEqual(nativeAssetRequests, [], "static images avoid scoped native requests");
   // Trusted pointer input activates the real embedded control and its parent.
   const click = async (expression: string) => {
     const position = await eventually(

@@ -347,47 +347,26 @@ r3 publish <id> --dir ./prototype --version-label 'Revised prototype'
 
 Build dependencies before capture. Publish every referenced local asset on every version. An index-only \`--file\` filter omits companion assets.
 
-Keep large assets in standalone files and reuse the same path wherever a file repeats. Use the exact publication-root path (for example, \`models/f1.clm.gz\`) with the r3 asset helpers, even from a nested HTML page. A missing file rejects the read; check \`r3 files <id> --version <seq>\` if a published page is missing an asset.
+Keep large assets in standalone files and reuse the same path wherever a file repeats. Use the exact publication-root path (for example, \`models/example.gz\`) with the r3 asset helpers, even from a nested HTML page. A missing file rejects the read; check \`r3 files <id> --version <seq>\` if a published page is missing an asset.
 
 For models, JSON, or other whole-file reads, prefer \`r3.readAsset(path)\`. It returns a \`Blob\` with the published media type. The workspace revalidates the file with the server and the browser can reuse its cached bytes after refresh. Read a model when the user selects it:
 
 \`\`\`js
 import r3 from "/r3/utility.js";
 
-const model = await r3.readAsset("models/f1.clm.gz");
+const model = await r3.readAsset("models/example.gz");
 const bytes = await model.arrayBuffer(); // original compressed bytes
 \`\`\`
 
 Bundle startup JavaScript into an inline \`<script type="module">\` in \`index.html\` so the browser can reuse it with the cached HTML on refresh. Keep \`/r3/utility.js\` external when bundling.
 
-Publish the renderer's \`.wasm\` file separately with the media type \`application/wasm\`. In an inline module, \`import.meta.url\` points to the HTML document. Have the build pass the exact publication-root WASM path to the loader, including any hash in the filename. Keep the renderer's existing imports and compile options.
+If your artifact uses a WebAssembly module, include the \`.wasm\` file in the directory you publish. Read it with \`r3.readAsset(path)\` and pass the bytes to your loader.
 
-\`\`\`js
-import r3 from "/r3/utility.js";
+Use ordinary \`src\` and \`srcset\` attributes for published images in static HTML. r3 prepares these attributes at publication and supplies the image bytes from the workspace cache when the page opens. With \`loading="lazy"\`, loading starts when the image becomes visible. For \`srcset\`, r3 reads the listed local candidates and the browser selects one using the original descriptors and \`sizes\`.
 
-const wasm = await r3.readAsset("assets/renderer.wasm");
-const { instance } = await WebAssembly.instantiateStreaming(
-  new Response(wasm), imports, compileOptions
-);
-\`\`\`
+For an image created in JavaScript, leave \`src\` and \`srcset\` unset and call \`r3.bindImage(img, path)\`. Call the returned cleanup function when you remove the image. Give images an alt description and, optionally, dimensions to reserve space.
 
-On the first load, \`readAsset()\` downloads the complete binary before compilation starts. On refresh, a \`304\` response lets the preview instantiate the renderer again from cached bytes.
-
-For a displayed image, set its dimensions and bind the published path to a source-free image. The binding starts a cached read when the image is visible, including when you insert it later:
-
-\`\`\`js
-import r3 from "/r3/utility.js";
-
-const image = new Image(320, 180);
-image.alt = "Front view";
-const release = r3.bindImage(image, "assets/front.webp");
-gallery.append(image);
-// When removing this item: release(); image.remove();
-\`\`\`
-
-Use the same binding on a static \`<img width="320" height="180" alt="Front view">\` or in a component's mount effect; call the returned cleanup on unmount. Set \`loading="eager"\` before binding for an immediate load. Handle the image's \`error\` event for missing files or decode failures. Rebinding an element replaces its previous binding.
-
-Native \`<img src="./assets/front.webp">\`, \`<picture>\`, \`srcset\`, and ordinary \`fetch()\` use the preview's own URLs and can download the file again after refresh. Use these for responsive image selection, streaming, or range reads. Native relative URLs resolve from the document. A leading slash addresses the preview origin. For constructed URLs, \`r3.getContext()\` provides the version's \`resourceRoot\`. Use hash routes or published document paths for navigation.
+Relative image URLs resolve from the document. External URLs and \`<picture>\` source elements use native loading. Use native \`fetch()\` for streaming or range requests.
 
 For canvas pixel reads or export from a native image URL, set \`image.crossOrigin = "anonymous"\` before assigning \`image.src\` (or use \`<img crossorigin="anonymous" src="…">\`). Even published images otherwise taint the canvas in the isolated preview, causing \`SecurityError\`; r3 already supplies the required CORS headers.
 

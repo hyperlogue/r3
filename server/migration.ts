@@ -64,7 +64,7 @@ export async function upgradeArtifactStore(
   if (tables.includes("reviews"))
     throw new Error("Upgrade live-review stores with r3 1.5.0 before opening them here");
   if (
-    ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20].includes(
+    ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21].includes(
       schemaVersion,
     ) ||
     !tables.includes("artifacts")
@@ -96,6 +96,7 @@ export async function upgradeArtifactStore(
         ALTER TABLE artifacts DROP COLUMN summary;`);
     }
     db.exec(HTML_PREVIEW_SCHEMA);
+    if (schemaVersion === 21) db.exec("DELETE FROM html_previews");
     db.exec(ONBOARDING_SCHEMA);
     db.exec(PROJECT_REMOTE_SCHEMA);
     db.exec("DROP TABLE IF EXISTS artifact_id_state");

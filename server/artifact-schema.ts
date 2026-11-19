@@ -9,7 +9,7 @@ import { HTML_PREVIEW_SCHEMA } from "./html-preview.ts";
 import { ONBOARDING_SCHEMA } from "./onboarding.ts";
 import { WORKER_SCHEMA } from "./worker-records.ts";
 
-export const ARTIFACT_SCHEMA_VERSION = 21;
+export const ARTIFACT_SCHEMA_VERSION = 22;
 
 export const PROJECT_REMOTE_SCHEMA = `
 CREATE TABLE IF NOT EXISTS project_remotes (
