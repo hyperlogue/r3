@@ -225,7 +225,7 @@ export function ImageEditor({
         )
           return;
         if (
-          event.key === "Enter" &&
+          (event.key === "Enter" || event.key === " ") &&
           !event.ctrlKey &&
           !event.metaKey &&
           !event.shiftKey &&
@@ -449,8 +449,8 @@ export function ImageEditor({
             variant="primary"
             disabled={busy || !!gesture}
             aria-label={saving ? t("common.saving") : t("common.save")}
-            aria-keyshortcuts="Enter"
-            title={t("imageEditor.saveEnter")}
+            aria-keyshortcuts="Enter Space"
+            title={t("imageEditor.saveEnterOrSpace")}
             onClick={() => void save()}
           >
             {saving ? (
@@ -458,7 +458,7 @@ export function ImageEditor({
             ) : (
               <>
                 {t("common.save")}
-                <kbd className="ml-1 font-mono text-[0.625rem] opacity-60">↵</kbd>
+                <kbd className="ml-1 font-mono text-[0.625rem] opacity-60">↵ / ␣</kbd>
               </>
             )}
           </Button>

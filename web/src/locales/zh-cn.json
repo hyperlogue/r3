@@ -640,7 +640,7 @@
     "optimizeSize": "优化大小",
     "redo": "重做",
     "redoCtrlShiftZ": "重做 (Ctrl/Cmd Shift Z)",
-    "saveEnter": "保存 (Enter)",
+    "saveEnterOrSpace": "保存（Enter 或空格）",
     "stroke": "笔触",
     "strokeWidth": "笔触宽度",
     "unableToOpenThisImage": "无法打开此图像",

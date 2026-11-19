@@ -640,7 +640,7 @@
     "optimizeSize": "Optimize size",
     "redo": "Redo",
     "redoCtrlShiftZ": "Redo (Ctrl/⌘ Shift Z)",
-    "saveEnter": "Save (Enter)",
+    "saveEnterOrSpace": "Save (Enter or Space)",
     "stroke": "Stroke",
     "strokeWidth": "Stroke width",
     "unableToOpenThisImage": "Unable to open this image",

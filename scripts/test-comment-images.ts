@@ -277,18 +277,22 @@ try {
     true,
     "new drawing discards undone branch",
   );
-  await page.evaluate("document.querySelector('dialog[open] canvas').focus()");
-  for (const type of ["keyDown", "keyUp"])
-    await page.command("Input.dispatchKeyEvent", {
-      type,
-      key: "Enter",
-      code: "Enter",
-      windowsVirtualKeyCode: 13,
-    });
-  await eventually(
-    () => page.evaluate("!document.querySelector('dialog[open]')"),
-    "flattened drawings in draft",
-  );
+  for (const shortcut of [
+    { key: " ", code: "Space", windowsVirtualKeyCode: 32 },
+    { key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 },
+  ]) {
+    if (shortcut.code === "Enter") {
+      await openEditor();
+      assert.equal(await previewPixels(), annotatedPixels, "Space saves the edited pixels");
+    }
+    await page.evaluate("document.querySelector('dialog[open] canvas').focus()");
+    for (const type of ["keyDown", "keyUp"])
+      await page.command("Input.dispatchKeyEvent", { type, ...shortcut });
+    await eventually(
+      () => page.evaluate("!document.querySelector('dialog[open]')"),
+      `${shortcut.code} saves the image draft`,
+    );
+  }
   // Reopen the saved draft in the actual phone layout and exercise touch input.
   await page.command("Emulation.setDeviceMetricsOverride", {
     width: 390,
