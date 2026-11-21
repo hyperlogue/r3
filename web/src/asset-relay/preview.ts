@@ -5,7 +5,8 @@ export type RelayedAssets = Pick<ArtifactUtility, "readAsset" | "bindImage">;
 // Serialized into the preview document: every dependency stays inside this
 // function. The preview's own requests are never cached by the browser, so
 // published bytes arrive from the workspace as Blobs instead. `prepared` also
-// serves the sources that publication deferred in static HTML.
+// serves the sources that publication deferred in static HTML. A workspace that
+// does not relay leaves every read on the preview origin.
 export function installAssetRelay(
   root: string,
   call: <T>(method: string, input: unknown) => Promise<T>,
@@ -23,6 +24,33 @@ export function installAssetRelay(
       return null;
     }
   };
+  const direct = globalThis.fetch;
+  const streamURL = (path: string) =>
+    root + String(path).split("/").map(encodeURIComponent).join("/");
+  // A relaying workspace answers at once. Reads that cannot wait for a late
+  // answer use the preview origin; later reads follow the answer when it comes.
+  let relays: boolean | undefined;
+  const answered = call<boolean>("relaysAssets", null).then(
+    (value) => {
+      relays = value === true;
+    },
+    () => {
+      relays = false;
+    },
+  );
+  const relaying = () =>
+    relays === undefined
+      ? Promise.race([
+          answered.then(() => relays === true),
+          new Promise<boolean>((resolve) => setTimeout(resolve, 1000, false)),
+        ])
+      : Promise.resolve(relays);
+  const streamedBlob = async (path: string) => {
+    const file = publishedFile(streamURL(path), root);
+    const response = file && (await direct.call(globalThis, file.href));
+    if (!response?.ok) throw new Error("Asset is not a published file in this version");
+    return response.blob();
+  };
   const pending = new Map<string, Promise<Blob>>();
   const waiting: (() => void)[] = [];
   let active = 0;
@@ -30,7 +58,7 @@ export function installAssetRelay(
     if (active >= 6) await new Promise<void>((resolve) => waiting.push(resolve));
     else active++;
     try {
-      return await call<Blob>("readAsset", path);
+      return await ((await relaying()) ? call<Blob>("readAsset", path) : streamedBlob(path));
     } finally {
       pending.delete(path);
       const next = waiting.shift();
@@ -101,7 +129,7 @@ export function installAssetRelay(
     const urls = new Map<string, Promise<string>>();
     async function cachedURL(value: string, base: string) {
       const file = publishedFile(value, base);
-      if (!file) return value;
+      if (!file || !(await relaying())) return value;
       try {
         let reading = urls.get(file.path);
         if (!reading) {
@@ -185,7 +213,6 @@ export function installAssetRelay(
   // answered from relayed bytes. Anything the relay cannot answer exactly, such
   // as a missing file or an unsatisfiable range, goes to the server unchanged.
   const installFetch = () => {
-    const native = globalThis.fetch;
     const respond = (blob: Blob, range: string | null, href: string) => {
       const headers = new Headers({
         "content-type": blob.type || "application/octet-stream",
@@ -208,27 +235,31 @@ export function installAssetRelay(
       return response;
     };
     globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
-      const direct = () => native.call(globalThis, input, init);
+      const unrelayed = () => direct.call(globalThis, input, init);
       let file: ReturnType<typeof publishedFile>;
       let range: string | null;
       let signal: AbortSignal | null | undefined;
       try {
         const request = input instanceof Request ? input : null;
-        if ((init?.method ?? request?.method ?? "GET").toUpperCase() !== "GET") return direct();
+        if ((init?.method ?? request?.method ?? "GET").toUpperCase() !== "GET") return unrelayed();
         file = publishedFile(request ? request.url : String(input), document.baseURI);
         range = new Headers(init?.headers ?? request?.headers).get("range");
         signal = init?.signal ?? request?.signal;
       } catch {
-        return direct();
+        return unrelayed();
       }
-      if (!file) return direct();
+      if (!file) return unrelayed();
       if (signal?.aborted) return Promise.reject(signal.reason);
       const { path, href } = file;
       return new Promise<Response>((resolve, reject) => {
         const abort = () => reject(signal?.reason);
         signal?.addEventListener("abort", abort, { once: true });
-        readAsset(path)
-          .then((blob) => respond(blob, range, href) ?? direct(), direct)
+        relaying()
+          .then((relay) =>
+            relay
+              ? readAsset(path).then((blob) => respond(blob, range, href) ?? unrelayed(), unrelayed)
+              : unrelayed(),
+          )
           .then(resolve, reject)
           .finally(() => signal?.removeEventListener("abort", abort));
       });
