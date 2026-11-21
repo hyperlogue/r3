@@ -1,5 +1,13 @@
 import type { ArtifactStore } from "./artifacts.ts";
 
+export interface StoredResource {
+  hash: string;
+  byteLength: number;
+  mediaType: string;
+  read(): Promise<Uint8Array<ArrayBuffer>>;
+  readRange(start: number, end: number): Promise<ReadableStream<Uint8Array>>;
+}
+
 function rangeFor(value: string, length: number): { start: number; end: number } | null {
   const match = /^bytes=(\d*)-(\d*)$/.exec(value);
   if (!match || (!match[1] && !match[2]) || length === 0) return null;
@@ -20,17 +28,14 @@ function rangeFor(value: string, length: number): { start: number; end: number }
 
 // The application uses the default attachment response. Only the isolated
 // preview server may choose inline, after adding its origin/network policy.
-export async function artifactResourceResponse(
-  store: ArtifactStore,
+export async function resourceResponse(
   request: Request,
-  artifactId: string,
-  seq: number,
-  path: string,
-  options: { rendered?: boolean; inline?: boolean } = {},
+  find: () => StoredResource,
+  options: { filename: string; inline?: boolean },
 ): Promise<Response> {
   if (request.method !== "GET" && request.method !== "HEAD")
     return new Response(null, { status: 405, headers: { Allow: "GET, HEAD" } });
-  const resource = store.resource(artifactId, seq, path, options.rendered);
+  const resource = find();
   const etag = `"${resource.hash}"`;
   const headers = new Headers({
     "Content-Type": resource.mediaType,
@@ -42,7 +47,7 @@ export async function artifactResourceResponse(
     "Cross-Origin-Resource-Policy": "same-origin",
   });
   if (!options.inline) {
-    const name = encodeURIComponent(path.split("/").at(-1)!).replace(
+    const name = encodeURIComponent(options.filename).replace(
       /[!'()*]/g,
       (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
     );
@@ -78,4 +83,18 @@ export async function artifactResourceResponse(
     ? await resource.readRange(selection.start, selection.end)
     : await resource.read();
   return new Response(body, { status: selection ? 206 : 200, headers });
+}
+
+export function artifactResourceResponse(
+  store: ArtifactStore,
+  request: Request,
+  artifactId: string,
+  seq: number,
+  path: string,
+  options: { rendered?: boolean; inline?: boolean } = {},
+): Promise<Response> {
+  return resourceResponse(request, () => store.resource(artifactId, seq, path, options.rendered), {
+    filename: path.split("/").at(-1)!,
+    inline: options.inline,
+  });
 }

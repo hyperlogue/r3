@@ -25,6 +25,7 @@ import { artifactSourceResponse } from "./artifact-source.ts";
 import type { ArtifactStorage } from "./artifact-storage.ts";
 import { ArtifactUpdates } from "./artifact-updates.ts";
 import { ArtifactError, requireArtifactPath, requireSequence } from "./artifact-validation.ts";
+import { installAssetRelay } from "./asset-relay.ts";
 import { COOKIE_NAME } from "./auth.ts";
 import { listThemes, themeStyle } from "./highlight.ts";
 import { renderStoredPatch, storedPatchContext } from "./patch-content.ts";
@@ -395,6 +396,7 @@ export function createArtifactApi(
     artifacts.setViewed(c.req.param("id"), await artifactJson(c.req.raw));
     return c.json({ ok: true });
   });
+  installAssetRelay(app, artifacts);
   const conversations = installArtifactConversations(app, storage, collaboration, detail, policy);
   return {
     app,

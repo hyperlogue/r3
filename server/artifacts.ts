@@ -14,6 +14,7 @@ import type {
 } from "../shared/artifacts.ts";
 import { ArtifactAttachments } from "./artifact-attachments.ts";
 import { ArtifactProjects, type ProjectGroupingOptions } from "./artifact-projects.ts";
+import type { StoredResource } from "./artifact-resources.ts";
 import {
   ArtifactError,
   canonicalJson,
@@ -703,13 +704,32 @@ export class ArtifactStore {
       .query<{ byte_length: number }, [string]>("SELECT byte_length FROM blobs WHERE hash = ?")
       .get(hash);
     if (!length) throw new Error("Published resource is missing its blob metadata");
+    return this.stored(
+      hash,
+      length.byte_length,
+      rendered ? "text/html; charset=utf-8" : file.mediaType,
+    );
+  }
+
+  // A digest names bytes only while a retained version publishes them. Rendered
+  // documents, prepared templates, and attachments are never addressable here.
+  publishedBlob(hash: string): StoredResource {
+    const length = this.db
+      .query<{ byte_length: number }, [string]>(
+        "SELECT byte_length FROM blobs WHERE hash = ? AND EXISTS (SELECT 1 FROM version_files WHERE blob_hash = blobs.hash)",
+      )
+      .get(hash);
+    if (!length) throw new ArtifactError("No published file has this digest", 404);
+    return this.stored(hash, length.byte_length, "application/octet-stream");
+  }
+
+  private stored(hash: string, byteLength: number, mediaType: string): StoredResource {
     return {
       hash,
-      byteLength: length.byte_length,
-      mediaType: rendered ? "text/html; charset=utf-8" : file.mediaType,
+      byteLength,
+      mediaType,
       read: () => this.blobs.read(hash),
-      readRange: (start: number, end: number) =>
-        this.blobs.readRange(hash, length.byte_length, start, end),
+      readRange: (start, end) => this.blobs.readRange(hash, byteLength, start, end),
     };
   }
 
