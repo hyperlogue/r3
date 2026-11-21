@@ -97,7 +97,6 @@ export interface ArtifactRenderedPaneProps {
   active?: boolean;
   highlightLocated?: boolean;
   independentReading?: boolean;
-  mobileDocument?: boolean;
   previewLabel?: string;
   onLocated?: (state: PreviewLocateState, nonce?: number) => void;
   commenting: boolean;
@@ -996,7 +995,7 @@ function Workspace({
     [canonicalJump],
   );
   return (
-    <div ref={workspaceRoot} data-review-workspace className="flex min-h-0 flex-1 flex-col">
+    <div ref={workspaceRoot} className="flex min-h-0 flex-1 flex-col">
       <ArtifactHeader
         detail={detail}
         version={version}
@@ -1093,7 +1092,6 @@ function Workspace({
                       path,
                       commenting: detail.state === "active" && !comparison.active && commenting,
                       active: !comparison.active,
-                      mobileDocument: mobile && !comparison.active,
                       captureContainer: comparison.active ? null : captureContainer,
                       jump: renderedJump,
                       targets: renderedTargets,

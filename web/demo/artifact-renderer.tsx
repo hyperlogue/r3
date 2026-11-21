@@ -85,7 +85,7 @@ function DemoDocument(props: DemoPreviewProps) {
       const { props, dark } = current.current;
       const fitContent = props.detail.kind === "files" && prepared.markdown;
       const value: PreviewDisplay = {
-        labels: previewLabels(),
+        labels: previewLabels(props.detail.kind),
         theme: dark ? "dark" : "light",
         fitContent,
         commenting: props.active !== false && props.commenting,

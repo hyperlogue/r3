@@ -35,7 +35,6 @@ import {
 import { previewSessions } from "../preview-sessions.ts";
 import { observePreviewViewport, scrollPreviewQuote } from "../preview-viewport.ts";
 import { isReadingPosition, readingKey, readingPositions } from "../reading-position.ts";
-import { restoreReadingPosition } from "../restore-reading-position.ts";
 import { navigate } from "../router.ts";
 import { Button, cn } from "../ui.tsx";
 import { ArtifactLoading } from "./ArtifactLoading.tsx";
@@ -270,7 +269,6 @@ function PreviewSession(
   const [documentHeight, setDocumentHeight] = useState<{ path: string; height: number } | null>(
     null,
   );
-  const documentLayoutPath = useRef<string | null>(null);
   const fittedPath = useRef<string | null>(null);
   const iframe = useRef<HTMLIFrameElement>(null);
   const currentPath = useRef(initialPath);
@@ -281,12 +279,6 @@ function PreviewSession(
   const checkDocument = useRef(() => {});
   const current = useRef(props);
   current.current = props;
-  const fitsPath = useCallback(
-    (path: string) =>
-      (current.current.detail.kind === "files" && current.current.fittedPaths.includes(path)) ||
-      (!!current.current.mobileDocument && documentLayoutPath.current === path),
-    [],
-  );
   const id = props.detail.id;
   const seq = props.version.seq;
   const network = props.network;
@@ -461,9 +453,10 @@ function PreviewSession(
       connection.current?.postMessage({ contextId: context.id, ...value });
     const display = () => {
       const props = current.current;
-      const fitContent = fitsPath(currentPath.current);
+      const fitContent =
+        props.detail.kind === "files" && props.fittedPaths.includes(currentPath.current);
       const value: PreviewDisplay = {
-        labels: previewLabels(),
+        labels: previewLabels(props.detail.kind),
         theme: theme.current,
         noteHasText: props.noteHasText,
         composerVisible: props.composerVisible,
@@ -558,7 +551,6 @@ function PreviewSession(
       const port = event.ports[0];
       connection.current = port;
       fittedPath.current = null;
-      documentLayoutPath.current = null;
       setDocumentHeight(null);
       const path = message.path;
       let documentOpened = false;
@@ -566,7 +558,7 @@ function PreviewSession(
       const independentScroll = () =>
         !current.current.independentReading &&
         context.presentation === "document" &&
-        !fitsPath(path);
+        !(current.current.detail.kind === "files" && current.current.fittedPaths.includes(path));
       const scrollKey = (route: unknown) =>
         typeof route === "string" && route.length <= 4096 && /^[?#]/.test(route)
           ? readingKey(id, seq, path, `rendered:${route}`)
@@ -682,7 +674,6 @@ function PreviewSession(
             resetDocument((epoch) => epoch + 1);
             return;
           }
-          documentLayoutPath.current = message.documentLayout === true ? path : null;
           setScreenshotRoute(route);
           currentPath.current = message.path;
           current.current.onDocument(message.path, route);
@@ -707,12 +698,12 @@ function PreviewSession(
           const key = scrollKey(message.route);
           if (independentScroll() && key && isReadingPosition(message.point))
             readingPositions.set(key, message.point);
-        } else if (message.type === "r3-preview-fragment") {
-          if (current.current.mobileDocument && fittedPath.current === path && iframe.current)
-            scrollPreviewQuote(iframe.current, message.rect);
         } else if (message.type === "r3-preview-height") {
+          // Only the verified current port and an approved Markdown/video member
+          // may size a file card. Authored HTML keeps its own viewport.
           if (
-            fitsPath(path) &&
+            current.current.detail.kind === "files" &&
+            current.current.fittedPaths.includes(path) &&
             typeof message.height === "number" &&
             Number.isFinite(message.height) &&
             message.height > 0 &&
@@ -799,7 +790,12 @@ function PreviewSession(
           message.type === "r3-preview-located" &&
           message.nonce === current.current.jump?.nonce
         ) {
-          if (message.state === "anchored" && iframe.current && fitsPath(currentPath.current))
+          if (
+            message.state === "anchored" &&
+            iframe.current &&
+            current.current.detail.kind === "files" &&
+            current.current.fittedPaths.includes(currentPath.current)
+          )
             scrollPreviewQuote(iframe.current, message.rect);
           if (["anchored", "ancestor", "ambiguous", "unplaced"].includes(message.state))
             current.current.onLocated?.(message.state, message.nonce);
@@ -881,7 +877,7 @@ function PreviewSession(
       capture.close();
       window.removeEventListener("message", listener);
     };
-  }, [context, id, seq, qc, capture, network, fitsPath]);
+  }, [context, id, seq, qc, capture, network]);
 
   useEffect(() => {
     if (!context || !admitted.current || !ready || props.path === currentPath.current) return;
@@ -904,24 +900,24 @@ function PreviewSession(
     return () => clearInterval(timer);
   }, [props.capturing]);
 
-  const fitContent = fitsPath(props.path);
-  const height =
-    documentHeight?.path === props.path && fitContent ? documentHeight.height : undefined;
-  const pageReading = !!props.mobileDocument && height !== undefined && ready && !error;
   // Notify utility subscribers on thread/lifecycle changes as well as display changes.
   useEffect(() => {
     if (!context || !ready) return;
     const send = (value: Record<string, unknown>) =>
       connection.current?.postMessage({ contextId: context.id, ...value });
     const display: PreviewDisplay = {
-      labels: previewLabels(locale),
+      labels: previewLabels(props.detail.kind, locale),
       theme: dark ? "dark" : "light",
       noteHasText: props.noteHasText,
       composerVisible: props.composerVisible,
-      fitContent,
-      pageReading,
+      fitContent: props.detail.kind === "files" && props.fittedPaths.includes(props.path),
       filePaths: props.detail.kind === "files" ? props.documentPaths : undefined,
-      navigation: !fitContent || documentHeight?.path === props.path ? props.navigation : null,
+      navigation:
+        props.detail.kind !== "files" ||
+        !props.fittedPaths.includes(props.path) ||
+        documentHeight?.path === props.path
+          ? props.navigation
+          : null,
       highlightLocated: props.highlightLocated,
       replaceLocateRoute: props.independentReading,
       commenting: props.active !== false && props.commenting && context.presentation === "document",
@@ -930,7 +926,12 @@ function PreviewSession(
           ? [{ threadId, locator: target.locator, resolved }]
           : [],
       ),
-      jump: !fitContent || documentHeight?.path === props.path ? props.jump : null,
+      jump:
+        props.detail.kind !== "files" ||
+        !props.fittedPaths.includes(props.path) ||
+        documentHeight?.path === props.path
+          ? props.jump
+          : null,
     };
     send({ type: "r3-preview-display", display });
     send({ type: "r3-preview-changed" });
@@ -950,28 +951,16 @@ function PreviewSession(
     props.navigation,
     props.path,
     props.detail,
-    fitContent,
-    pageReading,
+    props.fittedPaths,
     props.documentPaths,
     documentHeight,
     dark,
   ]);
 
-  useLayoutEffect(() => {
-    if (!pageReading) return;
-    const key = readingKey(id, seq, props.path, `rendered:${screenshotRoute}`);
-    const saved = readingPositions.get(key);
-    const stop =
-      saved && !props.jump && (screenshotRoute === "#" || !screenshotRoute.includes("#"))
-        ? restoreReadingPosition(window, saved, () => {})
-        : undefined;
-    const save = () => readingPositions.set(key, { x: window.scrollX, y: window.scrollY });
-    window.addEventListener("scroll", save, { passive: true });
-    return () => {
-      stop?.();
-      window.removeEventListener("scroll", save);
-    };
-  }, [pageReading, id, seq, props.path, props.jump, screenshotRoute]);
+  const height =
+    documentHeight?.path === props.path && props.fittedPaths.includes(props.path)
+      ? documentHeight.height
+      : undefined;
   // Entry-point setup can overlap the manifest. Publisher bytes always wait
   // for membership; an acknowledged preview waits without loading a gate.
   const frameSrc =
@@ -1003,7 +992,6 @@ function PreviewSession(
 
   return (
     <div
-      data-page-reading={pageReading ? "" : undefined}
       aria-busy={
         !error &&
         !(reading && cachedDocument?.height !== undefined) &&

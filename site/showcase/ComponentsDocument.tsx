@@ -52,7 +52,7 @@ export function ComponentsDocument(
     const display = () => {
       const props = current.current;
       const value: PreviewDisplay = {
-        labels: previewLabels(),
+        labels: previewLabels(props.detail.kind),
         fitContent,
         theme: window.document.documentElement.classList.contains("dark") ? "dark" : "light",
         commenting: props.active !== false && props.commenting,

@@ -235,6 +235,64 @@ try {
     true,
     "page load alone must not send threads",
   );
+  await content.evaluate(
+    `document.body.insertAdjacentHTML("beforeend", '<section id="panel" style="height:70vh;overflow:auto"><div style="height:250vh"></div></section><article id="long-page" style="height:300vh"></article>')`,
+  );
+  const buttonVisible = () =>
+    content.evaluate<boolean>(
+      "document.elementFromPoint(innerWidth - 34, innerHeight - 34)?.hasAttribute('data-r3-preview') === true",
+    );
+  for (const width of [1200, 390]) {
+    const mobile = width === 390;
+    await page.command("Emulation.setDeviceMetricsOverride", {
+      width,
+      height: 800,
+      deviceScaleFactor: 1,
+      mobile,
+    });
+    await eventually(() => page.evaluate(`innerWidth === ${width}`), "responsive workspace");
+    assert.equal(await buttonVisible(), false);
+    await content.evaluate("scrollTo(0, innerHeight / 2)");
+    await content.evaluate(
+      "new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))",
+    );
+    assert.equal(await buttonVisible(), false, "short scroll leaves content unobstructed");
+    for (const target of ["document.scrollingElement", "document.querySelector('#panel')"]) {
+      await content.evaluate(`${target}.scrollTo(0, innerHeight * 1.5)`);
+      await eventually(buttonVisible, "back-to-top button appears over the scrolled preview");
+      const point = await page.evaluate(`(() => {
+        const frame = document.querySelector('iframe[aria-hidden="false"]').getBoundingClientRect();
+        return { x: frame.right - 34, y: frame.bottom - 34 };
+      })()`);
+      if (mobile) {
+        await page.command("Emulation.setTouchEmulationEnabled", { enabled: true });
+        await page.command("Input.dispatchTouchEvent", {
+          type: "touchStart",
+          touchPoints: [point],
+        });
+        await page.command("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      } else {
+        for (const type of ["mousePressed", "mouseReleased"])
+          await page.command("Input.dispatchMouseEvent", {
+            type,
+            button: "left",
+            clickCount: 1,
+            ...point,
+          });
+      }
+      await eventually(
+        async () =>
+          (await content.evaluate(`${target}.scrollTop === 0`)) && !(await buttonVisible()),
+        "button returns the active scroll area to its top and disappears",
+      );
+      assert.equal(await page.evaluate("scrollY"), 0);
+    }
+  }
+  await content.evaluate(
+    "document.querySelector('#panel').remove(); document.querySelector('#long-page').remove()",
+  );
+  await page.command("Emulation.setTouchEmulationEnabled", { enabled: false });
+  await page.command("Emulation.clearDeviceMetricsOverride");
   const modelBytes = `Promise.all([r3.readAsset("models/test.bin"), r3.readAsset("models/test.bin")]).then(async ([a,b])=>[a.type,[...new Uint8Array(await b.arrayBuffer())]])`;
   assert.deepEqual(await content.evaluate(modelBytes), ["application/octet-stream", [0, 255, 1]]);
   for (const path of ["missing.bin", "/api/boot", "../index.html", "https://example.invalid/x"]) {
@@ -584,9 +642,7 @@ try {
           {
             path,
             mediaType: "text/html",
-            base64: Buffer.from(
-              `<!doctype html><html data-r3-layout="document"><body><h1>${text}</h1><a href="#conclusion">Conclusion</a><article style="height:2400px"></article><p id="conclusion">Report conclusion</p></body></html>`,
-            ).toString("base64"),
+            base64: Buffer.from(`<!doctype html><h1>${text}</h1>`).toString("base64"),
           },
         ],
       },
@@ -632,105 +688,6 @@ try {
   );
   await resumed.evaluate(`__r3ArtifactUtility.readAsset("index.html").then((blob)=>blob.size)`);
   assert.equal(await retainedBytes(), 1, "an accepted session retains bytes again");
-  await page.command("Emulation.setDeviceMetricsOverride", {
-    width: 390,
-    height: 844,
-    deviceScaleFactor: 1,
-    mobile: true,
-  });
-  await eventually(
-    () => page.evaluate("document.documentElement.scrollHeight > 2400"),
-    "article expands the mobile review page",
-  );
-  await page.command("Emulation.setTouchEmulationEnabled", { enabled: true });
-  await page.command("Input.dispatchTouchEvent", {
-    type: "touchStart",
-    touchPoints: [{ x: 180, y: 620 }],
-  });
-  for (const y of [570, 510, 450, 390, 330, 270, 210]) {
-    await page.command("Input.dispatchTouchEvent", {
-      type: "touchMove",
-      touchPoints: [{ x: 180, y }],
-    });
-    await Bun.sleep(30);
-  }
-  await Bun.sleep(120);
-  await page.command("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-  const readingOffset = await eventually(
-    () => page.evaluate<number>("scrollY > 200 && scrollY"),
-    "swiping over the iframe moves the review page",
-  );
-  assert.equal(await resumed.evaluate("scrollY"), 0);
-  const bar = "document.querySelector('[data-mobile-discussion-toggle]')";
-  assert.equal(
-    await page.evaluate(
-      `${bar}.getBoundingClientRect().bottom <= innerHeight && ${bar}.getBoundingClientRect().top > 0`,
-    ),
-    true,
-  );
-  await click(bar);
-  await eventually(
-    () => page.evaluate("!document.querySelector('[data-mobile-discussion]').inert"),
-    "discussion opens while reading",
-  );
-  await page.evaluate("document.querySelector('[aria-label=\"Close discussion\"]').click()");
-  assert.equal(await page.evaluate("scrollY"), readingOffset);
-  const articleThread = await storage.conversations.add(artifact.id, {
-    actor,
-    body: "Check the conclusion",
-    target: {
-      kind: "rendered",
-      versionSeq: 4,
-      path: "index.html",
-      locator: { selector: "#conclusion", quote: "Report conclusion" },
-    },
-  });
-  await page.command("Page.reload");
-  await eventually(
-    () =>
-      page.evaluate(
-        `!!document.querySelector('[data-page-reading]') && scrollY === ${readingOffset}`,
-      ),
-    "mobile article restores its reading position",
-  );
-  await page.evaluate("window.scrollTo(0, 0)");
-  assert.equal(
-    await page.evaluate("document.querySelector('iframe').getBoundingClientRect().top >= 0"),
-    true,
-  );
-  await click(bar);
-  await eventually(
-    () =>
-      page.evaluate(
-        "document.querySelector('[data-mobile-discussion]').getBoundingClientRect().bottom <= innerHeight + 1",
-      ),
-    "discussion sheet finishes opening",
-  );
-  const point = await page.evaluate(
-    `(()=>{const r=document.querySelector('[data-artifact-thread="${articleThread.id}"] [data-thread-action="locate"]').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`,
-  );
-  await page.command("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point] });
-  await page.command("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-  await eventually(
-    () =>
-      page.evaluate("document.querySelector('[data-mobile-discussion]').inert && scrollY > 1500"),
-    "Locate closes discussion and scrolls the page to the conclusion",
-  );
-  await page.evaluate("window.scrollTo(0, 0)");
-  const article = await findContent(entrypoint, "mobile article link");
-  await article.evaluate("document.querySelector('a[href=\"#conclusion\"]').click()");
-  await eventually(
-    () => page.evaluate("scrollY > 1500"),
-    "article fragment scrolls the review page",
-  );
-  await page.command("Emulation.clearDeviceMetricsOverride");
-  await eventually(
-    () =>
-      page.evaluate(
-        "!document.querySelector('[data-page-reading]') && document.documentElement.scrollHeight <= innerHeight",
-      ),
-    "desktop resumes independent preview scrolling",
-  );
   storage.artifacts.delete(artifact.id);
   preview.revokeArtifact(artifact.id);
   api.collaboration.deleted(artifact.id);

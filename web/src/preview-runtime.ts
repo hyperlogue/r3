@@ -25,6 +25,12 @@ export function installPreviewRuntime(
   let locationLabel: HTMLDivElement;
   let controls: HTMLDivElement;
   let pickName: HTMLDivElement;
+  let backToTop: HTMLButtonElement;
+  let scrollPanel: Element | null = null;
+  const readingScroller = () =>
+    scrollPanel?.isConnected && scrollPanel.scrollTop >= innerHeight
+      ? scrollPanel
+      : document.scrollingElement;
   let markers: HTMLDivElement;
   let selectionAction: HTMLButtonElement;
   let pendingSelection: { locator: RenderedLocator; rect: PreviewViewport } | null = null;
@@ -62,7 +68,15 @@ export function installPreviewRuntime(
     const scope = element.getRootNode();
     return element.parentElement ?? (scope instanceof ShadowRoot ? scope.host : null);
   };
-  const shadowScroll = () => {
+  const onScroll = (event: Event) => {
+    const target = event.target;
+    if (target === document) scrollPanel = null;
+    else if (
+      target instanceof Element &&
+      target.scrollHeight > target.clientHeight &&
+      !target.matches("textarea, select")
+    )
+      scrollPanel = target;
     pressedSelection = pendingSelection = null;
     schedule();
   };
@@ -76,7 +90,7 @@ export function installPreviewRuntime(
       attributes: true,
     });
     // Scroll events inside a shadow root do not reach the document listener.
-    scope.addEventListener("scroll", shadowScroll, true);
+    scope.addEventListener("scroll", onScroll, true);
   };
   const visible = (element: Element) => {
     if (isOwned(element) || element.closest("script,style,noscript,template,[hidden]"))
@@ -308,6 +322,13 @@ export function installPreviewRuntime(
     const element = picked || (display.commenting ? hover : null);
     box.hidden = !element?.isConnected;
     const bounds = viewport ?? { top: 0, left: 0, right: innerWidth, bottom: innerHeight };
+    const scroller = readingScroller();
+    const label = display.labels?.backToTop;
+    if (label && backToTop.title !== label) {
+      backToTop.title = label;
+      backToTop.setAttribute("aria-label", label);
+    }
+    backToTop.hidden = !label || !scroller || scroller.scrollTop < innerHeight;
     const showLocated =
       display.highlightLocated !== false && feedbackVisible && located?.isConnected;
     const wholePage = located === document.body || located === document.documentElement;
@@ -511,10 +532,9 @@ export function installPreviewRuntime(
     send("r3-preview-located", {
       state: result.ancestor ? "ancestor" : result.state,
       nonce,
-      // Fitted frames need the parent to align the target in its scrollport.
-      rect: (locatedRange ?? (display.pageReading ? destination : null))
-        ?.getBoundingClientRect()
-        .toJSON(),
+      // A full-height Markdown iframe cannot scroll itself. Its verified parent
+      // completes quote alignment in the surrounding file stack.
+      ...(locatedRange ? { rect: locatedRange.getBoundingClientRect().toJSON() } : {}),
     });
   };
   const locate = () => {
@@ -731,22 +751,10 @@ export function installPreviewRuntime(
     },
     true,
   );
-  window.addEventListener(
-    "scroll",
-    () => {
-      pressedSelection = pendingSelection = null;
-      schedule();
-    },
-    true,
-  );
+  window.addEventListener("scroll", onScroll, true);
   window.addEventListener("resize", schedule);
-  const announceDocument = () =>
-    send("r3-preview-document", {
-      route: location.search + location.hash || "#",
-      documentLayout: document.documentElement.dataset.r3Layout === "document",
-    });
   window.addEventListener("hashchange", () => {
-    announceDocument();
+    send("r3-preview-document", { route: location.search + location.hash || "#" });
     if (restoringRoute) {
       restoringRoute = false;
       locate();
@@ -771,6 +779,14 @@ export function installPreviewRuntime(
     shadow.append(locationBox, locationLabel);
     controls = shadow.querySelector(".controls")!;
     pickName = shadow.querySelector(".name")!;
+    backToTop = document.createElement("button");
+    backToTop.type = "button";
+    backToTop.hidden = true;
+    backToTop.textContent = "↑";
+    backToTop.style.cssText =
+      "position:fixed;right:12px;bottom:12px;width:44px;height:44px;border:1px solid #737373;border-radius:50%;background:#262626;color:white;font:24px system-ui;pointer-events:auto";
+    backToTop.onclick = () => readingScroller()?.scrollTo({ top: 0, behavior: "instant" });
+    shadow.append(backToTop);
     selectionAction = document.createElement("button");
     selectionAction.hidden = true;
     selectionAction.style.cssText =
@@ -821,7 +837,7 @@ export function installPreviewRuntime(
       characterData: true,
       attributes: true,
     });
-    announceDocument();
+    send("r3-preview-document", { route: location.search + location.hash || "#" });
     locate();
   };
   if (document.readyState === "loading")
@@ -834,7 +850,7 @@ export function installPreviewRuntime(
     clearTimeout(feedbackTimer);
     stopSelection?.();
     observation?.disconnect();
-    for (const scope of shadowRoots) scope.removeEventListener("scroll", shadowScroll, true);
+    for (const scope of shadowRoots) scope.removeEventListener("scroll", onScroll, true);
     shadowRoots.clear();
     cancelAnimationFrame(frame);
   });
