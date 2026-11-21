@@ -80,7 +80,7 @@ type VersionRow = {
   published_at: string;
 };
 
-const FILE_COLUMNS = `SELECT f.path, coalesce(f.resource_seq, f.version_seq) AS resourceSeq, f.media_type AS mediaType,
+const FILE_COLUMNS = `SELECT f.path, f.media_type AS mediaType,
   f.blob_hash AS hash, b.byte_length AS byteLength, f.rendered_blob_hash AS renderedHash,
   f.renderer_revision AS rendererRevision FROM version_files f JOIN blobs b ON b.hash = f.blob_hash
   WHERE f.artifact_id = ? AND f.version_seq = ?`;
@@ -640,11 +640,8 @@ export class ArtifactStore {
           }
           this.db
             .query(`INSERT INTO version_files
-          (artifact_id, version_seq, artifact_kind, path, media_type, blob_hash, rendered_blob_hash, renderer_revision, resource_seq)
-          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, (
-            SELECT coalesce(resource_seq, version_seq) FROM version_files
-            WHERE artifact_id = ?1 AND version_seq = ?2 - 1 AND path = ?4 AND media_type = ?5 AND blob_hash = ?6
-          ))`)
+          (artifact_id, version_seq, artifact_kind, path, media_type, blob_hash, rendered_blob_hash, renderer_revision)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
             .run(
               id,
               seq,

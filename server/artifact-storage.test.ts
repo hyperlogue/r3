@@ -41,33 +41,31 @@ const publication = () => ({
   },
 });
 describe("private artifact storage bootstrap", () => {
-  test("resource URLs inherit through unchanged publications after a schema upgrade", async () => {
+  test("version 23 resource sequences are dropped without losing published files", async () => {
     const settings = options();
     storage = await openArtifactStorage(settings);
     const { id } = storage.artifacts.create({ kind: "files", actor });
     const upload = publication();
     await storage.artifacts.publish(id, upload);
+    const published = storage.artifacts.files(id, 1);
     storage.close();
     storage = null;
     const old = new Database(settings.databasePath);
-    old.exec("ALTER TABLE version_files DROP COLUMN resource_seq; PRAGMA user_version = 22");
+    old.exec(
+      "ALTER TABLE version_files ADD COLUMN resource_seq INTEGER CHECK (resource_seq BETWEEN 1 AND version_seq); PRAGMA user_version = 23",
+    );
     old.close();
     storage = await openArtifactStorage(settings);
-    expect(storage.artifacts.file(id, 1, "index.md").resourceSeq).toBe(1);
-    for (const [expectedSeq, mediaType, resourceSeq] of [
-      [1, "text/markdown", 1],
-      [2, "text/markdown", 1],
-      [3, "text/plain", 4],
-      [4, "text/plain", 4],
-    ] as const) {
-      upload.content.files[0]!.mediaType = mediaType;
-      await storage.artifacts.publish(id, {
-        ...upload,
-        expectedSeq,
-        publicationKey: String(expectedSeq),
-      });
-      expect(storage.artifacts.files(id, expectedSeq + 1)[0]!.resourceSeq).toBe(resourceSeq);
-    }
+    expect(storage.artifacts.files(id, 1)).toEqual(published);
+    await storage.artifacts.publish(id, { ...upload, expectedSeq: 1, publicationKey: "second" });
+    expect(storage.artifacts.files(id, 2)).toEqual(published);
+    storage.close();
+    storage = null;
+    const upgraded = new Database(settings.databasePath);
+    expect(
+      upgraded.query("SELECT name FROM pragma_table_info('version_files')").values().flat(),
+    ).not.toContain("resource_seq");
+    upgraded.close();
   });
 
   test("upgrade prepares historical HTML and retains its template until artifact deletion", async () => {

@@ -9,7 +9,7 @@ import { HTML_PREVIEW_SCHEMA } from "./html-preview.ts";
 import { ONBOARDING_SCHEMA } from "./onboarding.ts";
 import { WORKER_SCHEMA } from "./worker-records.ts";
 
-export const ARTIFACT_SCHEMA_VERSION = 23;
+export const ARTIFACT_SCHEMA_VERSION = 24;
 
 export const PROJECT_REMOTE_SCHEMA = `
 CREATE TABLE IF NOT EXISTS project_remotes (
@@ -146,7 +146,6 @@ CREATE TABLE version_files (
   blob_hash TEXT NOT NULL REFERENCES blobs(hash),
   rendered_blob_hash TEXT REFERENCES blobs(hash),
   renderer_revision TEXT,
-  resource_seq INTEGER CHECK (resource_seq BETWEEN 1 AND version_seq),
   PRIMARY KEY (artifact_id, version_seq, path),
   FOREIGN KEY (artifact_id, version_seq, artifact_kind)
     REFERENCES artifact_versions(artifact_id, seq, kind) ON DELETE CASCADE,
