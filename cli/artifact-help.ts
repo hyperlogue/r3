@@ -65,7 +65,7 @@ Publication: --version-label L --summary S --key K --no-listen
 Create: --kind is required; --project ID --meta k=v (repeatable).
         New IDs use artifact_<22 alphanumeric characters> with no timestamp or ordering.
         Existing IDs remain valid; treat IDs as opaque and order by createdAt.
-HTML assets: publish companion files with the page. See r3 guide html for cached reads and images.
+HTML assets: publish companion files with the page. See r3 guide html for cached reads, images, and mobile article layout.
 
   thread add <id> [-m <message>] [--attach <image>]... [--key K] [target flags]
   thread edit <thread-id> [-m <message>] [--status open|resolved --human]
@@ -357,6 +357,8 @@ import r3 from "/r3/utility.js";
 const model = await r3.readAsset("models/example.gz");
 const bytes = await model.arrayBuffer(); // original compressed bytes
 \`\`\`
+
+For long articles and reports, set \`<html data-r3-layout="document">\` to let the mobile review page scroll with the article. Keep the body in normal flow with content-driven height. Dashboards and pages with their own scroll panels use the default layout.
 
 Bundle startup JavaScript into an inline \`<script type="module">\` in \`index.html\` so the browser can reuse it with the cached HTML on refresh. Keep \`/r3/utility.js\` external when bundling.
 

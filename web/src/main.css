@@ -117,6 +117,28 @@ body {
   font-family: var(--font-sans);
 }
 
+/* Opted-in mobile documents grow the existing workspace into the page scroller. */
+[data-review-workspace]:has([data-page-reading]) {
+  flex: none;
+  min-height: 100dvh;
+
+  & [data-artifact-content] {
+    overflow: visible;
+  }
+  & [data-comparison-surface] {
+    contain: size;
+  }
+  & [data-app-header] {
+    position: sticky;
+    top: 0;
+  }
+  & [data-mobile-discussion-bar] {
+    position: sticky;
+    bottom: 0;
+    z-index: 30;
+  }
+}
+
 /* Elevation belongs to detached outer frames. Nested content stays flat. */
 :root {
   --r3-overlay-rim: rgb(255 255 255 / 0.95);

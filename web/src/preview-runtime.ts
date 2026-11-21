@@ -511,9 +511,10 @@ export function installPreviewRuntime(
     send("r3-preview-located", {
       state: result.ancestor ? "ancestor" : result.state,
       nonce,
-      // A full-height Markdown iframe cannot scroll itself. Its verified parent
-      // completes quote alignment in the surrounding file stack.
-      ...(locatedRange ? { rect: locatedRange.getBoundingClientRect().toJSON() } : {}),
+      // Fitted frames need the parent to align the target in its scrollport.
+      rect: (locatedRange ?? (display.pageReading ? destination : null))
+        ?.getBoundingClientRect()
+        .toJSON(),
     });
   };
   const locate = () => {
@@ -739,8 +740,13 @@ export function installPreviewRuntime(
     true,
   );
   window.addEventListener("resize", schedule);
+  const announceDocument = () =>
+    send("r3-preview-document", {
+      route: location.search + location.hash || "#",
+      documentLayout: document.documentElement.dataset.r3Layout === "document",
+    });
   window.addEventListener("hashchange", () => {
-    send("r3-preview-document", { route: location.search + location.hash || "#" });
+    announceDocument();
     if (restoringRoute) {
       restoringRoute = false;
       locate();
@@ -815,7 +821,7 @@ export function installPreviewRuntime(
       characterData: true,
       attributes: true,
     });
-    send("r3-preview-document", { route: location.search + location.hash || "#" });
+    announceDocument();
     locate();
   };
   if (document.readyState === "loading")

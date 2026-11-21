@@ -10,14 +10,15 @@ export function installPreviewLayout(
   managed = document.currentScript?.hasAttribute("data-r3-markdown") ||
     config.presentation === "media",
 ): void {
-  if (!managed) return;
   let enabled = false;
   let lastHeight = 0;
   let frame = 0;
   const measure = () => {
     frame = 0;
     if (!enabled || !document.body) return;
-    const height = Math.ceil(document.body.getBoundingClientRect().height);
+    // The root box includes the article's collapsed first and last margins.
+    const element = managed ? document.body : document.documentElement;
+    const height = Math.ceil(element.getBoundingClientRect().height);
     if (height > 0 && height !== lastHeight) {
       lastHeight = height;
       connection.send({ type: "r3-preview-height", height });
@@ -32,7 +33,8 @@ export function installPreviewLayout(
   };
   const observer = new ResizeObserver(schedule);
   const observe = () => {
-    if (document.body) observer.observe(document.body);
+    if (!managed && document.documentElement.dataset.r3Layout !== "document") return;
+    if (document.body) observer.observe(managed ? document.body : document.documentElement);
     schedule();
   };
   connection.subscribe((message) => {

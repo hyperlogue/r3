@@ -40,6 +40,7 @@ export function MobileReviewChrome({
           is one expand/collapse button — no other controls live here (watcher
           presence shows inside the panel, where Submit is). */}
       <div
+        data-mobile-discussion-bar
         hidden={docked}
         className="shrink-0 border-t-2 border-neutral-300 bg-white pb-[env(safe-area-inset-bottom)] dark:border-neutral-700 dark:bg-black"
       >

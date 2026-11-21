@@ -7,6 +7,14 @@ export function scrollPreviewQuote(iframe: HTMLIFrameElement, value: unknown): v
   const { top, bottom } = value as PreviewViewport;
   if (!Number.isFinite(top) || !Number.isFinite(bottom) || bottom < top) return;
   const header = iframe.closest("[data-file]")?.querySelector("[data-file-header]");
+  if (iframe.closest("[data-page-reading]")) {
+    window.scrollBy({
+      top:
+        iframe.getBoundingClientRect().top + top - Math.max(0, (innerHeight - (bottom - top)) / 2),
+      behavior: "instant",
+    });
+    return;
+  }
   for (let node = iframe.parentElement; node; node = node.parentElement) {
     const style = getComputedStyle(node);
     if (

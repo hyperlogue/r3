@@ -10,8 +10,22 @@ export function installPreviewNavigation(
   let paths = new Set<string>();
   let lastNavigation: number | undefined;
   let frame = 0;
+  let pageReading = false;
+  const alignFragment = () => {
+    if (!pageReading || !location.hash) return;
+    const target = document.querySelector(":target");
+    if (target)
+      connection.send({
+        type: "r3-preview-fragment",
+        rect: target.getBoundingClientRect().toJSON(),
+      });
+  };
+  window.addEventListener("hashchange", alignFragment);
   connection.subscribe((message) => {
     if (message?.type !== "r3-preview-display" || message.contextId !== config.contextId) return;
+    const wasReading = pageReading;
+    pageReading = message.display?.pageReading === true;
+    if (pageReading && !wasReading && !message.display?.jump) alignFragment();
     paths = new Set(message.display?.filePaths ?? []);
     const navigation = message.display?.navigation;
     if (!navigation || navigation.nonce === lastNavigation) return;
@@ -48,6 +62,13 @@ export function installPreviewNavigation(
     } catch {
       return;
     }
+    if (
+      destination.href === location.href &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      (!target.target || target.target === "_self")
+    )
+      alignFragment();
     const root = new URL(config.resourceRoot);
     if (destination.origin !== root.origin || !destination.pathname.startsWith(root.pathname)) {
       // The sandbox blocks popups and top-level navigation, so the app opens

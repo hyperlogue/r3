@@ -45,8 +45,9 @@ export interface PreviewDisplay {
   };
   // r3 appearance for retained Markdown; authored HTML retains its own styling.
   theme?: PreviewTheme;
-  // Markdown and video file previews grow with their natural content height.
+  // Fitted previews grow with their natural content height.
   fitContent?: boolean;
+  pageReading?: boolean;
   // File-stack document links scroll to another published card. HTML artifacts
   // omit these fields and retain their native document navigation.
   filePaths?: string[];

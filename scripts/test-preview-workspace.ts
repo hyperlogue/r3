@@ -129,6 +129,7 @@ const mediaReads: string[] = [];
 const nativeAssetRequests: string[] = [];
 const nativeMediaRequests: string[] = [];
 const app = Bun.serve({
+  idleTimeout: 0,
   hostname: "127.0.0.1",
   port: 0,
   async fetch(request) {
@@ -160,7 +161,7 @@ const app = Bun.serve({
     const asset = assets.get(path.slice(1));
     if (asset) return new Response(asset);
     return new Response(
-      `<!doctype html><html><head>${css ? `<link rel="stylesheet" href="/${css}">` : ""}<style>html,body,#root{height:100%;margin:0}#root{display:flex;flex-direction:column}</style></head><body><div id="root"></div><script type="module" src="/${js}"></script></body></html>`,
+      `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">${css ? `<link rel="stylesheet" href="/${css}">` : ""}<style>html,body,#root{height:100%;margin:0}#root{display:flex;flex-direction:column}</style></head><body><div id="root"></div><script type="module" src="/${js}"></script></body></html>`,
       { headers: { "content-type": "text/html" } },
     );
   },
@@ -583,7 +584,9 @@ try {
           {
             path,
             mediaType: "text/html",
-            base64: Buffer.from(`<!doctype html><h1>${text}</h1>`).toString("base64"),
+            base64: Buffer.from(
+              `<!doctype html><html data-r3-layout="document"><body><h1>${text}</h1><a href="#conclusion">Conclusion</a><article style="height:2400px"></article><p id="conclusion">Report conclusion</p></body></html>`,
+            ).toString("base64"),
           },
         ],
       },
@@ -629,6 +632,105 @@ try {
   );
   await resumed.evaluate(`__r3ArtifactUtility.readAsset("index.html").then((blob)=>blob.size)`);
   assert.equal(await retainedBytes(), 1, "an accepted session retains bytes again");
+  await page.command("Emulation.setDeviceMetricsOverride", {
+    width: 390,
+    height: 844,
+    deviceScaleFactor: 1,
+    mobile: true,
+  });
+  await eventually(
+    () => page.evaluate("document.documentElement.scrollHeight > 2400"),
+    "article expands the mobile review page",
+  );
+  await page.command("Emulation.setTouchEmulationEnabled", { enabled: true });
+  await page.command("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [{ x: 180, y: 620 }],
+  });
+  for (const y of [570, 510, 450, 390, 330, 270, 210]) {
+    await page.command("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [{ x: 180, y }],
+    });
+    await Bun.sleep(30);
+  }
+  await Bun.sleep(120);
+  await page.command("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  const readingOffset = await eventually(
+    () => page.evaluate<number>("scrollY > 200 && scrollY"),
+    "swiping over the iframe moves the review page",
+  );
+  assert.equal(await resumed.evaluate("scrollY"), 0);
+  const bar = "document.querySelector('[data-mobile-discussion-toggle]')";
+  assert.equal(
+    await page.evaluate(
+      `${bar}.getBoundingClientRect().bottom <= innerHeight && ${bar}.getBoundingClientRect().top > 0`,
+    ),
+    true,
+  );
+  await click(bar);
+  await eventually(
+    () => page.evaluate("!document.querySelector('[data-mobile-discussion]').inert"),
+    "discussion opens while reading",
+  );
+  await page.evaluate("document.querySelector('[aria-label=\"Close discussion\"]').click()");
+  assert.equal(await page.evaluate("scrollY"), readingOffset);
+  const articleThread = await storage.conversations.add(artifact.id, {
+    actor,
+    body: "Check the conclusion",
+    target: {
+      kind: "rendered",
+      versionSeq: 4,
+      path: "index.html",
+      locator: { selector: "#conclusion", quote: "Report conclusion" },
+    },
+  });
+  await page.command("Page.reload");
+  await eventually(
+    () =>
+      page.evaluate(
+        `!!document.querySelector('[data-page-reading]') && scrollY === ${readingOffset}`,
+      ),
+    "mobile article restores its reading position",
+  );
+  await page.evaluate("window.scrollTo(0, 0)");
+  assert.equal(
+    await page.evaluate("document.querySelector('iframe').getBoundingClientRect().top >= 0"),
+    true,
+  );
+  await click(bar);
+  await eventually(
+    () =>
+      page.evaluate(
+        "document.querySelector('[data-mobile-discussion]').getBoundingClientRect().bottom <= innerHeight + 1",
+      ),
+    "discussion sheet finishes opening",
+  );
+  const point = await page.evaluate(
+    `(()=>{const r=document.querySelector('[data-artifact-thread="${articleThread.id}"] [data-thread-action="locate"]').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`,
+  );
+  await page.command("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point] });
+  await page.command("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await eventually(
+    () =>
+      page.evaluate("document.querySelector('[data-mobile-discussion]').inert && scrollY > 1500"),
+    "Locate closes discussion and scrolls the page to the conclusion",
+  );
+  await page.evaluate("window.scrollTo(0, 0)");
+  const article = await findContent(entrypoint, "mobile article link");
+  await article.evaluate("document.querySelector('a[href=\"#conclusion\"]').click()");
+  await eventually(
+    () => page.evaluate("scrollY > 1500"),
+    "article fragment scrolls the review page",
+  );
+  await page.command("Emulation.clearDeviceMetricsOverride");
+  await eventually(
+    () =>
+      page.evaluate(
+        "!document.querySelector('[data-page-reading]') && document.documentElement.scrollHeight <= innerHeight",
+      ),
+    "desktop resumes independent preview scrolling",
+  );
   storage.artifacts.delete(artifact.id);
   preview.revokeArtifact(artifact.id);
   api.collaboration.deleted(artifact.id);
