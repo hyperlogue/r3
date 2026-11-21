@@ -76,6 +76,7 @@ export type PreviewLocateState = "anchored" | "ancestor" | "ambiguous" | "unplac
 export interface ArtifactUtility {
   readAsset(path: string): Promise<Blob>;
   bindImage(image: HTMLImageElement, path: string): () => void;
+  bindMedia(media: HTMLMediaElement, path: string): () => void;
   getUserMedia(constraints: MediaStreamConstraints): Promise<MediaStream>;
   getContext(): Promise<PreviewPageContext>;
   getThreads(): Promise<ArtifactThread[]>;

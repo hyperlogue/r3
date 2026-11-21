@@ -1,6 +1,6 @@
 import type { ArtifactUtility } from "../../../shared/preview-protocol.ts";
 
-export type RelayedAssets = Pick<ArtifactUtility, "readAsset" | "bindImage">;
+export type RelayedAssets = Pick<ArtifactUtility, "readAsset" | "bindImage" | "bindMedia">;
 
 // Serialized into the preview document: every dependency stays inside this
 // function. The preview's own requests are never cached by the browser, so
@@ -51,6 +51,8 @@ export function installAssetRelay(
     if (!response?.ok) throw new Error("Asset is not a published file in this version");
     return response.blob();
   };
+  const readMedia = async (path: string, eager: boolean) =>
+    (await relaying()) ? call<Blob | null>("readMedia", { path, eager }) : null;
   const pending = new Map<string, Promise<Blob>>();
   const waiting: (() => void)[] = [];
   let active = 0;
@@ -124,8 +126,42 @@ export function installAssetRelay(
     }
     return release;
   };
-  const installPreparedImages = () => {
-    const selector = "img[data-r3-static-src], img[data-r3-static-srcset]";
+  // Retained media plays from a Blob. Anything else streams from the preview
+  // origin, where playback is the sign that its bytes are worth retaining.
+  const retainPlayed = (path: string) => {
+    if (relays) void readAsset(path).catch(() => {});
+  };
+  const mediaBindings = new WeakMap<HTMLMediaElement, () => void>();
+  const bindMedia = (media: HTMLMediaElement, path: string) => {
+    mediaBindings.get(media)?.();
+    if (media.hasAttribute("src")) throw new Error("Bind an audio or video element without src");
+    const stream = streamURL(path);
+    let url: string | undefined;
+    let released = false;
+    const retain = () => retainPlayed(path);
+    const release = () => {
+      if (released) return;
+      released = true;
+      mediaBindings.delete(media);
+      media.removeEventListener("playing", retain);
+      if (media.getAttribute("src") === (url ?? stream)) {
+        media.removeAttribute("src");
+        media.load();
+      }
+      if (url) URL.revokeObjectURL(url);
+    };
+    mediaBindings.set(media, release);
+    const play = (blob: Blob | null) => {
+      if (released) return;
+      if (blob) url = URL.createObjectURL(blob);
+      else media.addEventListener("playing", retain, { once: true });
+      media.src = url ?? stream;
+    };
+    readMedia(path, media.autoplay || media.preload !== "none").then(play, () => play(null));
+    return release;
+  };
+  const installPreparedSources = () => {
+    const selector = "[data-r3-static-src], [data-r3-static-srcset], [data-r3-static-poster]";
     const urls = new Map<string, Promise<string>>();
     async function cachedURL(value: string, base: string) {
       const file = publishedFile(value, base);
@@ -191,16 +227,95 @@ export function installAssetRelay(
         void loadPrepared(entry.target as HTMLImageElement);
       }
     });
+    function loadMedia(media: HTMLMediaElement) {
+      const poster = media.getAttribute("data-r3-static-poster");
+      const src = media.getAttribute("data-r3-static-src");
+      media.removeAttribute("data-r3-static-poster");
+      media.removeAttribute("data-r3-static-src");
+      if (poster !== null && !media.hasAttribute("poster"))
+        void cachedURL(poster, media.baseURI).then((url) => {
+          if (!media.hasAttribute("poster")) media.setAttribute("poster", url);
+        });
+      if (src === null || media.hasAttribute("src")) return;
+      const file = publishedFile(src, media.baseURI);
+      // A media fragment selects part of a stream, so that address stays native.
+      if (file && !file.fragment) bindMedia(media, file.path);
+      else media.src = src;
+    }
+
+    // Only a retained candidate becomes a Blob: the browser has not chosen
+    // among the sources yet, so nothing is downloaded on its behalf.
+    const retained = new Map<string, Promise<string | null>>();
+    const retainedURL = (path: string) => {
+      let reading = retained.get(path);
+      if (!reading) {
+        reading = readMedia(path, false).then(
+          (blob) => {
+            if (!blob) retained.delete(path);
+            return blob && URL.createObjectURL(blob);
+          },
+          () => {
+            retained.delete(path);
+            return null;
+          },
+        );
+        retained.set(path, reading);
+      }
+      return reading;
+    };
+    const choices = new WeakMap<
+      HTMLMediaElement,
+      { waiting: number; streams: Map<string, string> }
+    >();
+    function loadSource(source: HTMLSourceElement) {
+      const src = source.getAttribute("data-r3-static-src");
+      source.removeAttribute("data-r3-static-src");
+      if (src === null || source.hasAttribute("src")) return;
+      const media = source.parentElement;
+      if (!(media instanceof HTMLMediaElement)) {
+        source.src = src;
+        return;
+      }
+      let choice = choices.get(media);
+      if (!choice) {
+        const streams = new Map<string, string>();
+        choice = { waiting: 0, streams };
+        choices.set(media, choice);
+        media.addEventListener("playing", () => {
+          const path = streams.get(media.currentSrc);
+          if (path === undefined) return;
+          streams.delete(media.currentSrc);
+          retainPlayed(path);
+        });
+      }
+      const pending = choice;
+      const file = publishedFile(src, source.baseURI);
+      const relayed = file && !file.fragment ? file : null;
+      pending.waiting++;
+      void (relayed ? retainedURL(relayed.path) : Promise.resolve(null)).then((url) => {
+        if (!source.hasAttribute("src")) {
+          if (url === null && relayed) pending.streams.set(relayed.href, relayed.path);
+          source.src = url ?? src;
+        }
+        // A source that gains its address after insertion is only considered
+        // again by a new load, issued once for all of this element's sources.
+        if (--pending.waiting === 0) media.load();
+      });
+    }
+
     function visit(node: Node, added: boolean) {
       if (!(node instanceof Element)) return;
-      const track = (image: HTMLImageElement) => {
-        if (!added) lazy.unobserve(image);
-        else if (image.loading === "lazy") lazy.observe(image);
-        else void loadPrepared(image);
+      const track = (element: Element) => {
+        if (element instanceof HTMLImageElement) {
+          if (!added) lazy.unobserve(element);
+          else if (element.loading === "lazy") lazy.observe(element);
+          else void loadPrepared(element);
+        } else if (!added) return;
+        else if (element instanceof HTMLMediaElement) loadMedia(element);
+        else if (element instanceof HTMLSourceElement) loadSource(element);
       };
-      if (node instanceof HTMLImageElement && node.matches(selector)) track(node);
-      else if (node.childElementCount)
-        node.querySelectorAll<HTMLImageElement>(selector).forEach(track);
+      if (node.matches(selector)) track(node);
+      if (node.childElementCount) node.querySelectorAll(selector).forEach(track);
     }
     new MutationObserver((records) => {
       for (const record of records) {
@@ -266,8 +381,8 @@ export function installAssetRelay(
     }) as typeof fetch;
   };
   if (prepared) {
-    installPreparedImages();
+    installPreparedSources();
     installFetch();
   }
-  return { readAsset, bindImage };
+  return { readAsset, bindImage, bindMedia };
 }

@@ -98,30 +98,34 @@ describe("private artifact storage bootstrap", () => {
     expect(await storage.collectBlobs()).toBe(2);
   });
 
-  test("version 21 image templates are regenerated from the published HTML", async () => {
-    const settings = options();
-    storage = await openArtifactStorage(settings);
-    const { id } = storage.artifacts.create({ kind: "files", actor });
-    const upload = publication();
-    const html = '<img src="cover.png" srcset="cover.png 1x, big.png 2x">';
-    upload.content.files = [
-      { path: "old.html", mediaType: "text/html", base64: Buffer.from(html).toString("base64") },
-    ];
-    await storage.artifacts.publish(id, upload);
-    storage.close();
-    storage = null;
-    const old = new Database(settings.databasePath);
-    // Leave a populated template entry: a missing-row-only backfill would skip it.
-    old.exec("UPDATE html_previews SET url_offset = 0; PRAGMA user_version = 21");
-    old.close();
-    storage = await openArtifactStorage(settings);
-    const { beforeUrl, afterUrl } = await storage.artifacts.htmlPreview(id, 1, "old.html");
-    const source = JSON.parse(`${beforeUrl.toString()}example${afterUrl.toString()}`);
-    expect(source).toContain(
-      '<img data-r3-static-src="cover.png" data-r3-static-srcset="cover.png 1x, big.png 2x">',
-    );
-    expect((await storage.artifacts.readFile(id, 1, "old.html")).toString()).toBe(html);
-  });
+  test.each([21, 24])(
+    "version %d templates are regenerated from the published HTML",
+    async (version) => {
+      const settings = options();
+      storage = await openArtifactStorage(settings);
+      const { id } = storage.artifacts.create({ kind: "files", actor });
+      const upload = publication();
+      const html =
+        '<img src="cover.png" srcset="cover.png 1x, big.png 2x"><video src="clip.mp4"></video>';
+      upload.content.files = [
+        { path: "old.html", mediaType: "text/html", base64: Buffer.from(html).toString("base64") },
+      ];
+      await storage.artifacts.publish(id, upload);
+      storage.close();
+      storage = null;
+      const old = new Database(settings.databasePath);
+      // Leave a populated template entry: a missing-row-only backfill would skip it.
+      old.exec(`UPDATE html_previews SET url_offset = 0; PRAGMA user_version = ${version}`);
+      old.close();
+      storage = await openArtifactStorage(settings);
+      const { beforeUrl, afterUrl } = await storage.artifacts.htmlPreview(id, 1, "old.html");
+      const source = JSON.parse(`${beforeUrl.toString()}example${afterUrl.toString()}`);
+      expect(source).toContain(
+        '<img data-r3-static-src="cover.png" data-r3-static-srcset="cover.png 1x, big.png 2x"><video data-r3-static-src="clip.mp4"></video>',
+      );
+      expect((await storage.artifacts.readFile(id, 1, "old.html")).toString()).toBe(html);
+    },
+  );
 
   test("local browser access survives restart alongside existing login sessions", async () => {
     const settings = options();

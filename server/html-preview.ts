@@ -1,3 +1,4 @@
+import { deferStaticSources } from "./asset-relay.ts";
 import type { BlobStore, StoredBlob } from "./blobs.ts";
 
 export const HTML_PREVIEW_SCHEMA = `
@@ -24,31 +25,15 @@ export async function prepareHtmlTemplate(bytes: Buffer, blobs: BlobStore): Prom
   const imports = JSON.stringify({ imports: { "/r3/utility.js": marker } });
   const map = `<script type="importmap">${imports}</script>`;
   let injected = false;
-  const source = await new HTMLRewriter()
-    .on("*", {
+  const source = await deferStaticSources(
+    new HTMLRewriter().on("*", {
       element(element) {
         if (injected || element.tagName === "html") return;
         injected = true;
         element.before(map, { html: true });
       },
-    })
-    .on("img", {
-      element(image) {
-        const src = image.getAttribute("src");
-        const srcset = image.getAttribute("srcset");
-        if (!srcset && (!src || /^(?:[a-z][a-z0-9+.-]*:|\/|#)/i.test(src.trim()))) return;
-        // Hide authored candidates from the preload scanner until the workspace
-        // can supply cached bytes. Preserve attribute entities for the HTML parser.
-        for (const [name, value] of [
-          ["src", src],
-          ["srcset", srcset],
-        ] as const) {
-          if (value === null) continue;
-          image.setAttribute(`data-r3-static-${name}`, value);
-          image.removeAttribute(name);
-        }
-      },
-    })
+    }),
+  )
     .onDocument({
       end(end) {
         if (!injected) end.append(map, { html: true });

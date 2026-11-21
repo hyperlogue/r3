@@ -64,9 +64,9 @@ export async function upgradeArtifactStore(
   if (tables.includes("reviews"))
     throw new Error("Upgrade live-review stores with r3 1.5.0 before opening them here");
   if (
-    ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23].includes(
-      schemaVersion,
-    ) ||
+    ![
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+    ].includes(schemaVersion) ||
     !tables.includes("artifacts")
   )
     throw new Error("Unrecognized store schema; migration did not modify it");
@@ -98,7 +98,8 @@ export async function upgradeArtifactStore(
     // Version 23 named cache locations per file; content digests replaced them.
     if (schemaVersion === 23) db.exec("ALTER TABLE version_files DROP COLUMN resource_seq");
     db.exec(HTML_PREVIEW_SCHEMA);
-    if (schemaVersion === 21) db.exec("DELETE FROM html_previews");
+    // Templates prepared before the current source deferral are rebuilt at startup.
+    db.exec("DELETE FROM html_previews");
     db.exec(ONBOARDING_SCHEMA);
     db.exec(PROJECT_REMOTE_SCHEMA);
     db.exec("DROP TABLE IF EXISTS artifact_id_state");

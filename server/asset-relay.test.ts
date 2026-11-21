@@ -96,3 +96,37 @@ test("a digest reads published bytes only while a retained version publishes the
   storage.artifacts.delete(second.id);
   expect((await request(`/api/blobs/${hash}`)).status).toBe(404);
 });
+
+test("publication defers only the document-relative sources the workspace can relay", async () => {
+  const { id } = storage.artifacts.create({ kind: "html", actor });
+  const html = [
+    '<img src="a.png"><img src="/a.png"><img src="https://example.test/a.png">',
+    '<video src="clips/a.mp4?x=1&amp;y=2" poster="a.png" controls></video>',
+    '<video poster="data:image/png;base64,AA=="><source src="a.webm" type="video/webm"><source src="//example.test/a.mp4"></video>',
+    '<audio src="#t=1"></audio><picture><source src="a.avif"><img src="a.png"></picture>',
+  ].join("");
+  await storage.artifacts.publish(id, {
+    actor,
+    expectedSeq: 0,
+    publicationKey: "first",
+    content: {
+      kind: "html",
+      files: [
+        {
+          path: "index.html",
+          mediaType: "text/html",
+          base64: Buffer.from(html).toString("base64"),
+        },
+      ],
+    },
+  });
+  const { beforeUrl, afterUrl } = await storage.artifacts.htmlPreview(id, 1, "index.html");
+  expect(JSON.parse(`${beforeUrl.toString()}example${afterUrl.toString()}`)).toEndWith(
+    [
+      '<img data-r3-static-src="a.png"><img src="/a.png"><img src="https://example.test/a.png">',
+      '<video controls data-r3-static-src="clips/a.mp4?x=1&amp;y=2" data-r3-static-poster="a.png"></video>',
+      '<video poster="data:image/png;base64,AA=="><source type="video/webm" data-r3-static-src="a.webm"><source src="//example.test/a.mp4"></video>',
+      '<audio src="#t=1"></audio><picture><source src="a.avif"><img data-r3-static-src="a.png"></picture>',
+    ].join(""),
+  );
+});

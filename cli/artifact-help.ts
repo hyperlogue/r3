@@ -366,6 +366,8 @@ Use ordinary \`src\` and \`srcset\` attributes for published images in static HT
 
 For an image created in JavaScript, leave \`src\` and \`srcset\` unset and call \`r3.bindImage(img, path)\`. Call the returned cleanup function when you remove the image. Give images an alt description and, optionally, dimensions to reserve space.
 
+Use ordinary \`src\` on \`<video>\`, \`<audio>\`, and their \`<source>\` children, and \`poster\` on \`<video>\`, in static HTML. Media already in the workspace cache plays from it at once and seeks without network requests. On a first visit, a file up to 8 MiB downloads completely before playback starts; a larger file streams and is cached once it plays. With \`<source>\` children the first visit always streams. For media created in JavaScript, leave \`src\` unset and call \`r3.bindMedia(media, path)\`; call the returned cleanup function when you remove it. A URL with a media fragment such as \`clip.mp4#t=10\` streams on every visit.
+
 Relative image URLs resolve from the document. External URLs and \`<picture>\` source elements use native loading.
 
 \`fetch()\` of a published file reads from the same workspace cache, including \`Range\` requests. The response arrives once the whole file is available, so a first read does not stream. \`XMLHttpRequest\`, \`<script src>\`, stylesheets, and CSS \`url()\` load natively and download again on every visit.
@@ -581,6 +583,7 @@ Use one thread per independent question when you intend to answer each one separ
 | --- | --- |
 | \`readAsset(path)\` | A \`Blob\` of the published file in this version |
 | \`bindImage(img, path)\` | Returns cleanup immediately; loads the image when visible |
+| \`bindMedia(media, path)\` | Returns cleanup immediately; plays cached audio or video, otherwise streams it |
 | \`getContext()\` | \`{artifactId, versionSeq, path, resourceRoot, representation, state}\` |
 | \`getThreads()\` | An array of threads on this artifact |
 | \`createThread({body, locator?})\` | The new thread |

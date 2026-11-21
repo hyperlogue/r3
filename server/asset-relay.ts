@@ -15,3 +15,37 @@ export function installAssetRelay(app: Hono, artifacts: ArtifactStore): void {
     return resourceResponse(c.req.raw, () => artifacts.publishedBlob(hash), { filename: hash });
   });
 }
+
+// Hide authored sources from the preload scanner until the workspace can supply
+// retained bytes. Moving the attribute keeps its entities for the HTML parser.
+// Only document-relative addresses can name a published file.
+export function deferStaticSources(rewriter: HTMLRewriter): HTMLRewriter {
+  const relative = (value: string | null) =>
+    !!value?.trim() && !/^(?:[a-z][a-z0-9+.-]*:|\/|#)/i.test(value.trim());
+  const defer = (element: HTMLRewriterTypes.Element, names: string[]) => {
+    for (const name of names) {
+      const value = element.getAttribute(name);
+      if (value === null) continue;
+      element.setAttribute(`data-r3-static-${name}`, value);
+      element.removeAttribute(name);
+    }
+  };
+  return rewriter
+    .on("img", {
+      element(image) {
+        if (image.getAttribute("srcset") || relative(image.getAttribute("src")))
+          defer(image, ["src", "srcset"]);
+      },
+    })
+    .on("video, audio", {
+      element(media) {
+        for (const name of ["src", "poster"])
+          if (relative(media.getAttribute(name))) defer(media, [name]);
+      },
+    })
+    .on("video > source, audio > source", {
+      element(source) {
+        if (relative(source.getAttribute("src"))) defer(source, ["src"]);
+      },
+    });
+}

@@ -33,7 +33,30 @@ const storage = await openArtifactStorage({ databasePath: join(root, "store.sqli
 const actor = { role: "human" as const, sessionId: null };
 const artifact = storage.artifacts.create({ kind: "html", actor, title: "Published workspace" });
 const source =
-  '<!doctype html><html><head><title>Published fixture</title></head><body><h1 id="heading">Published first version</h1><p id="output">Ready</p><div id="staticImages" style="position:fixed;top:250vh"><img id="plain" loading="lazy" width="32" height="16" src="./assets/test.svg"><img id="responsive" loading="lazy" width="32" height="16" src="./assets/test.svg" sizes="32px" srcset="./assets/test.svg 32w, ./assets/wide,test.svg 64w"></div><button id="send">Request revision</button><a href="other.html">Other document</a><script type="module">import r3 from "/r3/utility.js";send.onclick=async()=>{try{const note=await r3.createThread({body:"Please revise this chart",locator:{selector:"#heading",quote:document.querySelector("h1").textContent}});window.lastThread=note.id;output.textContent="Sent: "+note.id;}catch(error){output.textContent=error.message}};window.r3=r3;</script></body></html>';
+  '<!doctype html><html><head><title>Published fixture</title></head><body><h1 id="heading">Published first version</h1><p id="output">Ready</p><div id="staticImages" style="position:fixed;top:250vh"><img id="plain" loading="lazy" width="32" height="16" src="./assets/test.svg"><img id="responsive" loading="lazy" width="32" height="16" src="./assets/test.svg" sizes="32px" srcset="./assets/test.svg 32w, ./assets/wide,test.svg 64w"></div><div style="position:fixed;top:300vh"><video id="clip" muted src="media/short.wav"></video><video id="long" muted preload="none" src="media/long.wav"></video><video id="multi" muted preload="none"><source src="media/absent.wav" type="audio/wav"><source src="media/short.wav" type="audio/wav"></video></div><button id="send">Request revision</button><a href="other.html">Other document</a><script type="module">import r3 from "/r3/utility.js";send.onclick=async()=>{try{const note=await r3.createThread({body:"Please revise this chart",locator:{selector:"#heading",quote:document.querySelector("h1").textContent}});window.lastThread=note.id;output.textContent="Sent: "+note.id;}catch(error){output.textContent=error.message}};window.r3=r3;</script></body></html>';
+// Silent PCM audio: one clip short enough to download whole before playback,
+// and one above that limit, which streams on its first visit.
+const wav = (seconds: number) => {
+  const samples = 8000 * seconds;
+  const bytes = Buffer.alloc(44 + samples, 128);
+  bytes.write("RIFF", 0);
+  bytes.writeUInt32LE(36 + samples, 4);
+  bytes.write("WAVEfmt ", 8);
+  bytes.writeUInt32LE(16, 16);
+  bytes.writeUInt16LE(1, 20);
+  bytes.writeUInt16LE(1, 22);
+  bytes.writeUInt32LE(8000, 24);
+  bytes.writeUInt32LE(8000, 28);
+  bytes.writeUInt16LE(1, 32);
+  bytes.writeUInt16LE(8, 34);
+  bytes.write("data", 36);
+  bytes.writeUInt32LE(samples, 40);
+  return bytes.toString("base64");
+};
+const media = [
+  { path: "media/short.wav", mediaType: "audio/wav", base64: wav(1) },
+  { path: "media/long.wav", mediaType: "audio/wav", base64: wav(1200) },
+];
 for (const seq of [1, 2])
   await storage.artifacts.publish(artifact.id, {
     actor,
@@ -42,6 +65,7 @@ for (const seq of [1, 2])
     content: {
       kind: "html",
       files: [
+        ...media,
         {
           path: "models/test.bin",
           mediaType: "application/octet-stream",
@@ -101,7 +125,9 @@ const api = createArtifactApi(
   { previews: preview },
 );
 const reads: { path: string; status: number }[] = [];
+const mediaReads: string[] = [];
 const nativeAssetRequests: string[] = [];
+const nativeMediaRequests: string[] = [];
 const app = Bun.serve({
   hostname: "127.0.0.1",
   port: 0,
@@ -117,15 +143,18 @@ const app = Bun.serve({
     if (path.startsWith(PREVIEW_PREFIX)) {
       if (path.includes("/assets/") || path.endsWith("/models/test.bin"))
         nativeAssetRequests.push(path);
+      if (/\/media\/(short|long)\.wav$/.test(path))
+        nativeMediaRequests.push(path.split("/").at(-1)!);
       return preview.fetch(request);
     }
     if (path.startsWith("/api/")) {
       const response = await api.app.fetch(request);
-      if (path.startsWith("/api/blobs/"))
-        reads.push({
-          path: publishedPaths.get(path.slice("/api/blobs/".length))!,
-          status: response.status,
-        });
+      if (path.startsWith("/api/blobs/")) {
+        // Versions published later in this run are not tracked by path.
+        const published = publishedPaths.get(path.slice("/api/blobs/".length)) ?? "";
+        if (published.startsWith("media/")) mediaReads.push(published);
+        else reads.push({ path: published, status: response.status });
+      }
       return response;
     }
     const asset = assets.get(path.slice(1));
@@ -142,6 +171,10 @@ try {
   const { targetId } = await browser.send("Target.createTarget", { url: "about:blank" });
   const page = await browser.attach(targetId);
   const initialHistory = await page.evaluate<number>("history.length");
+  const retainedBytes = () =>
+    page.evaluate<number>(
+      `caches.open("r3-published-bytes-1:/").then((cache)=>cache.keys()).then((keys)=>keys.filter((key)=>!key.url.endsWith("/index")).length)`,
+    );
   await page.command("Page.navigate", { url: `http://localhost:${app.port}/?version=1` });
   const attached = new Map<string, Awaited<ReturnType<typeof browser.attach>>>();
   const findContent = (expression: string, description: string) =>
@@ -233,6 +266,39 @@ try {
     [200, "model/example", true, [0, 255, 1], 206, "bytes 1-2/3", [255, 1], 416, 404, "AbortError"],
   );
   assert.equal(reads.length, 1, "fetch() of retained published bytes needs no download");
+  await eventually(
+    () => content.evaluate(`clip.currentSrc.startsWith("blob:") && clip.duration === 1`),
+    "a short clip plays from bytes the workspace downloaded whole",
+  );
+  assert.equal(
+    await content.evaluate(`long.currentSrc.endsWith("/files/media/long.wav")`),
+    true,
+    "a long clip streams from the preview on its first visit",
+  );
+  assert.deepEqual(mediaReads, ["media/short.wav"]);
+  assert.equal(nativeMediaRequests.includes("long.wav"), false, "preload=none still defers");
+  await content.evaluate("long.play().then(() => true)");
+  await eventually(
+    async () => mediaReads.includes("media/long.wav"),
+    "playback retains the streamed clip for the next visit",
+  );
+  await content.evaluate("long.pause()");
+  assert.equal(nativeMediaRequests.includes("long.wav"), true);
+  await eventually(
+    async () => (await retainedBytes()) === 3,
+    "the streamed clip is retained once its download is verified",
+  );
+  assert.deepEqual(
+    await content.evaluate(`(async () => {
+      const dynamic = document.createElement("audio");
+      const release = r3.bindMedia(dynamic, "media/long.wav");
+      await new Promise((resolve) => dynamic.addEventListener("loadedmetadata", resolve, { once: true }));
+      const retained = dynamic.src.startsWith("blob:") && dynamic.duration === 1200;
+      release();
+      return [retained, dynamic.hasAttribute("src")];
+    })()`),
+    [true, false],
+  );
   await content.evaluate(`(() => {
     const img=window.boundImage=new Image(32,16);
     img.style.cssText="position:fixed;top:200vh";
@@ -255,6 +321,24 @@ try {
   );
   assert.deepEqual(await content.evaluate(modelBytes), ["application/octet-stream", [0, 255, 1]]);
   assert.equal(reads.length, 2, "a retained model needs no request after reload");
+  const streamed = nativeMediaRequests.length;
+  await eventually(
+    () => content.evaluate(`multi.lastElementChild.src.startsWith("blob:")`),
+    "a retained source candidate is offered as a Blob",
+  );
+  await content.evaluate("multi.play().then(() => true)");
+  assert.equal(
+    await content.evaluate(
+      `clip.currentSrc.startsWith("blob:") && long.currentSrc.startsWith("blob:") && multi.currentSrc.startsWith("blob:") && multi.duration === 1`,
+    ),
+    true,
+    "retained media and the chosen source candidate play from Blobs after reload",
+  );
+  assert.deepEqual(
+    [mediaReads.length, nativeMediaRequests.length],
+    [2, streamed],
+    "retained media needs no request after reload",
+  );
   assert.deepEqual(
     await content.evaluate(`(async () => {
     const img = new Image();
@@ -389,11 +473,8 @@ try {
     ["assets/test.svg", "models/test.bin"],
     "a new version downloads only the bytes it changed",
   );
-  const retainedBytes = () =>
-    page.evaluate<number>(
-      `caches.open("r3-published-bytes-1:/").then((cache)=>cache.keys()).then((keys)=>keys.filter((key)=>!key.url.endsWith("/index")).length)`,
-    );
-  assert.equal(await retainedBytes(), 5, "each distinct published file is retained once");
+  assert.equal(await retainedBytes(), 7, "each distinct published file is retained once");
+  assert.equal(mediaReads.length, 2, "another version reuses retained media");
   assert.deepEqual(nativeAssetRequests, []);
   await next.evaluate("window.beforeReload = true");
   await page.command("Page.reload");
@@ -561,7 +642,7 @@ try {
     await Bun.write(screenshot, Buffer.from(image.data, "base64"));
   }
   console.log(
-    "Preview workspace acceptance: isolated render, cached assets, dynamic images, human utility, shared thread, version switching, native Locate, document navigation, and context recovery passed",
+    "Preview workspace acceptance: isolated render, cached assets, fetch, media, dynamic images, human utility, shared thread, version switching, native Locate, document navigation, and context recovery passed",
   );
 } finally {
   await browser?.close();
