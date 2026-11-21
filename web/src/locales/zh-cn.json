@@ -740,11 +740,8 @@
     "couldNotCopy": "无法复制"
   },
   "file": {
-    "couldNotDownload": "无法下载 {{filename}}",
     "downloadFile": "下载文件",
     "download": "下载 {{filename}}",
-    "downloading": "正在下载 {{filename}}…",
-    "downloading2": "正在下载…",
     "loadingPublishedSource": "正在加载已发布源码…",
     "thisFileContainsBinaryContent": "此文件包含二进制内容。",
     "thisFileIsTooLargeForSource": "此文件过大，无法进行源码高亮。"

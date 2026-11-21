@@ -17,6 +17,7 @@ export type ArtifactPageData = Pick<
   | "viewed"
   | "watchers"
   | "download"
+  | "downloadUrl"
   | "videoUrl"
   | "attachment"
 > &

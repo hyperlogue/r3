@@ -472,6 +472,10 @@ export const artifactApi: typeof productionApi = {
       { headers: { "content-type": file.mediaType, "content-disposition": "attachment" } },
     );
   },
+  downloadUrl: (id, seq, path) => {
+    const resource = demo.publication(id, seq).resources[path];
+    return `data:application/octet-stream;base64,${resource}`;
+  },
   // Demo publications live in memory; the viewer releases this local URL.
   videoUrl: async (id, seq, path) =>
     URL.createObjectURL(await (await artifactApi.download(id, seq, path)).blob()),

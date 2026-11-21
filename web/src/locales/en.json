@@ -740,11 +740,8 @@
     "couldNotCopy": "Could not copy"
   },
   "file": {
-    "couldNotDownload": "Could not download {{filename}}",
     "downloadFile": "Download file",
     "download": "Download {{filename}}",
-    "downloading": "Downloading {{filename}}…",
-    "downloading2": "Downloading…",
     "loadingPublishedSource": "Loading published source…",
     "thisFileContainsBinaryContent": "This file contains binary content.",
     "thisFileIsTooLargeForSource": "This file is too large for source highlighting."

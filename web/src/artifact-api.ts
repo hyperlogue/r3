@@ -70,6 +70,9 @@ const query = (values: Record<string, string | number | undefined>) => {
   return `?${params}`;
 };
 
+const resourcePath = (id: string, seq: number, path: string) =>
+  `${versionPath(id, seq)}/resource${query({ path })}`;
+
 // Replaced as a whole by the static demo backend at build time. Presentation
 // components use exactly these artifact/version/native-target shapes.
 export const artifactApi = {
@@ -196,16 +199,10 @@ export const artifactApi = {
   setViewed: (id: string, key: string, viewed: boolean) =>
     client().json("PUT", `${artifactApiPath(id)}/viewed`, { key, viewed }),
   download: (id: string, seq: number, path: string, signal?: AbortSignal) =>
-    client().request(
-      "GET",
-      `${versionPath(id, seq)}/resource${query({ path })}`,
-      undefined,
-      signal,
-    ),
-  // Native video requests carry the browser session cookie and can seek with
-  // Range. Never put API credentials or preview capabilities in this URL.
+    client().request("GET", resourcePath(id, seq, path), undefined, signal),
+  downloadUrl: (id: string, seq: number, path: string) => hrefFor(resourcePath(id, seq, path)),
   videoUrl: async (id: string, seq: number, path: string): Promise<string> =>
-    hrefFor(`${versionPath(id, seq)}/resource${query({ path })}`),
+    hrefFor(resourcePath(id, seq, path)),
   createPreview: (
     id: string,
     seq: number,

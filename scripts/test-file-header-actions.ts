@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { createApplicationResponse, loadApplicationAssets } from "../server/application-assets.ts";
 import { createArtifactApi } from "../server/artifact-api.ts";
 import { openArtifactStorage } from "../server/artifact-storage.ts";
+import { COOKIE_NAME } from "../server/auth.ts";
 import { fileViewedKey } from "../web/src/viewed.ts";
 import { eventually, openTestBrowser } from "./browser.ts";
 
@@ -16,6 +17,7 @@ const root = await mkdtemp(join(tmpdir(), "r3-file-actions-"));
 const downloads = join(root, "downloads");
 await mkdir(downloads);
 const storage = await openArtifactStorage({ databasePath: join(root, "store.sqlite") });
+storage.onboarding.update({ status: "skipped" });
 const actor = { role: "human", sessionId: null } as const;
 const files = storage.artifacts.create({ kind: "files", actor, title: "File actions" });
 const samples = [
@@ -92,15 +94,11 @@ await storage.artifacts.publish(diff.id, {
 });
 const api = createArtifactApi(storage, {
   token: randomBytes(32).toString("base64url"),
-  requireLogin: false,
+  requireLogin: true,
   version: "file-actions-acceptance",
   allowedHost: (host) => host === "localhost",
 });
 const application = createApplicationResponse(assets, api.bootstrap);
-const resourceReads: string[] = [];
-let failNextDownload = false;
-let holdNextDownload: Promise<void> | null = null;
-let releaseDownload: (() => void) | undefined;
 const app = Bun.serve({
   hostname: "127.0.0.1",
   port: 0,
@@ -108,20 +106,7 @@ const app = Bun.serve({
   async fetch(request) {
     const url = new URL(request.url);
     if (!url.pathname.startsWith("/api/")) return application(request);
-    const response = await api.app.fetch(request);
-    if (url.pathname.endsWith("/resource") && response.ok) {
-      resourceReads.push(`${url.pathname}?${url.searchParams}`);
-      if (holdNextDownload) {
-        const wait = holdNextDownload;
-        holdNextDownload = null;
-        await wait;
-      }
-      if (failNextDownload) {
-        failNextDownload = false;
-        return Response.json({ error: "Download temporarily unavailable" }, { status: 503 });
-      }
-    }
-    return response;
+    return api.app.fetch(request);
   },
 });
 const origin = `http://localhost:${app.port}`;
@@ -139,7 +124,7 @@ try {
     origin,
     permissions: ["clipboardReadWrite", "clipboardSanitizedWrite"],
   });
-  const started: { guid: string; suggestedFilename: string }[] = [];
+  const started: { guid: string; url: string; suggestedFilename: string }[] = [];
   const completed = new Set<string>();
   const errors: unknown[] = [];
   browser.listen((event) => {
@@ -150,6 +135,14 @@ try {
   });
   const { targetId } = await browser.send("Target.createTarget", { url: "about:blank" });
   const page = await browser.attach(targetId);
+  await page.command("Network.enable");
+  await page.command("Network.setCookie", {
+    name: COOKIE_NAME,
+    value: storage.authentication.mintLocalSession().cookieValue,
+    url: origin,
+    httpOnly: true,
+    sameSite: "Strict",
+  });
   await page.command("Emulation.setDeviceMetricsOverride", {
     width: 1280,
     height: 900,
@@ -192,6 +185,10 @@ try {
   const saved = async (index: number, sample: (typeof samples)[number]) => {
     const item = await eventually(async () => started[index], "browser download starts");
     await eventually(async () => completed.has(item.guid), "browser saves original bytes");
+    const url = new URL(item.url);
+    assert.equal(url.origin, origin);
+    assert.equal(url.pathname, `/api/artifacts/${files.id}/versions/1/resource`);
+    assert.equal(url.searchParams.get("path"), sample.path);
     assert.equal(item.suggestedFilename, sample.path.split("/").at(-1));
     assert.deepEqual(await readFile(join(downloads, item.guid)), sample.bytes);
   };
@@ -277,27 +274,11 @@ try {
     "navigator.clipboard.writeText = window.originalWrite; document.execCommand = window.originalExec;",
   );
 
-  holdNextDownload = new Promise<void>((resolve) => {
-    releaseDownload = resolve;
-  });
-  await click(download(source));
-  await eventually(
-    () => page.evaluate(`document.querySelector(${JSON.stringify(download(source))}).disabled`),
-    "download pending state",
-  );
-  await page.evaluate(`document.querySelector(${JSON.stringify(download(source))}).click()`);
-  await eventually(async () => resourceReads.length === 1, "one download request while pending");
-  releaseDownload!();
-  await saved(0, samples[0]);
-  for (const sample of samples.slice(1)) {
+  for (const sample of samples) {
     const index = started.length;
     await click(download(sample.path));
     await saved(index, sample);
   }
-  assert(
-    resourceReads.every((url) => url.includes("/versions/1/resource")),
-    "Downloads retain the selected version even when a newer one exists",
-  );
   assert.deepEqual(
     storage.artifacts.viewed(files.id),
     viewedBefore,
@@ -305,23 +286,12 @@ try {
   );
 
   const binary = samples.at(-1)!;
-  // The successful immutable resource is cached; force this attempt to reach
-  // the fixture's failing endpoint rather than reusing its previous bytes.
-  await page.command("Network.clearBrowserCache");
-  failNextDownload = true;
-  await click(download(binary.path));
-  const failure = '.r3-notification[data-notification-tone="error"]';
-  await eventually(() => exists(failure), "download failure visible outside a folded body");
-  assert(
-    await page.evaluate(
-      `document.querySelector(${JSON.stringify(failure)}).getBoundingClientRect().height > 0`,
-    ),
-  );
-  assert(await exists(`${header(binary.path)} [title=Expand]`), "Failure does not unfold the file");
-  const retry = started.length;
-  await click(download(binary.path));
-  await saved(retry, binary);
-  await eventually(async () => !(await exists(failure)), "retry clears download error");
+  await click(`${header(binary.path)} [title=Expand]`);
+  const bodyDownload = `[data-file=${JSON.stringify(binary.path)}] a[download]:not([aria-label])`;
+  await eventually(() => exists(bodyDownload), "binary file body download");
+  const index = started.length;
+  await click(bodyDownload);
+  await saved(index, binary);
 
   await page.evaluate(
     `document.querySelector(${JSON.stringify(copy(source, "Player.tsx"))}).focus()`,
@@ -398,10 +368,9 @@ try {
   );
   assert.deepEqual(errors, [], "No uncaught browser errors");
   console.log(
-    "File header acceptance passed: original versioned bytes and filenames for every file type, pending/retry behavior, suffix copying, confirmation timing/races, and keyboard/touch layouts.",
+    "File header acceptance passed: original versioned bytes and filenames for every file type, native resource links in the header and body, suffix copying, confirmation timing/races, and keyboard/touch layouts.",
   );
 } finally {
-  releaseDownload?.();
   await browser?.close();
   app.stop(true);
   storage.close();
