@@ -48,6 +48,11 @@ for (const seq of [1, 2])
           base64: Buffer.from([0, 255, seq]).toString("base64"),
         },
         {
+          path: "models/test.copy",
+          mediaType: "model/example",
+          base64: Buffer.from([0, 255, 1]).toString("base64"),
+        },
+        {
           path: "assets/test.svg",
           mediaType: "image/svg+xml",
           base64: btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="${seq * 32}" height="16"/>`),
@@ -74,6 +79,11 @@ for (const seq of [1, 2])
       ],
     },
   });
+// A digest read is reported under the first published path with those bytes.
+const publishedPaths = new Map<string, string>();
+for (const seq of [1, 2])
+  for (const file of storage.artifacts.files(artifact.id, seq))
+    if (!publishedPaths.has(file.hash)) publishedPaths.set(file.hash, file.path);
 let previewTime = Date.now();
 const preview = new PreviewHost(storage.artifacts, previewSupport, () => previewTime);
 let previewCreations = 0;
@@ -111,9 +121,9 @@ const app = Bun.serve({
     }
     if (path.startsWith("/api/")) {
       const response = await api.app.fetch(request);
-      if (path.endsWith("/resource"))
+      if (path.startsWith("/api/blobs/"))
         reads.push({
-          path: new URL(request.url).searchParams.get("path")!,
+          path: publishedPaths.get(path.slice("/api/blobs/".length))!,
           status: response.status,
         });
       return response;
@@ -202,6 +212,9 @@ try {
     );
   }
   assert.deepEqual(reads, [{ path: "models/test.bin", status: 200 }]);
+  const copyBytes = `r3.readAsset("models/test.copy").then(async (copy)=>[copy.type,[...new Uint8Array(await copy.arrayBuffer())]])`;
+  assert.deepEqual(await content.evaluate(copyBytes), ["model/example", [0, 255, 1]]);
+  assert.equal(reads.length, 1, "identical bytes at another path need no second download");
   await content.evaluate(`(() => {
     const img=window.boundImage=new Image(32,16);
     img.style.cssText="position:fixed;top:200vh";
@@ -223,11 +236,7 @@ try {
     "fresh preview after reload",
   );
   assert.deepEqual(await content.evaluate(modelBytes), ["application/octet-stream", [0, 255, 1]]);
-  assert.deepEqual(
-    reads.at(-1),
-    { path: "models/test.bin", status: 304 },
-    "warm model read transfers no body",
-  );
+  assert.equal(reads.length, 2, "a retained model needs no request after reload");
   assert.deepEqual(
     await content.evaluate(`(async () => {
     const img = new Image();
@@ -249,11 +258,14 @@ try {
   })()`),
     [32, 0, false],
   );
-  assert.deepEqual(reads.slice(1), [
-    { path: "assets/test.svg", status: 200 },
-    { path: "models/test.bin", status: 304 },
-    { path: "assets/test.svg", status: 304 },
-  ]);
+  assert.deepEqual(
+    reads,
+    [
+      { path: "models/test.bin", status: 200 },
+      { path: "assets/test.svg", status: 200 },
+    ],
+    "rebinding a retained image needs no request",
+  );
   assert.deepEqual(
     nativeAssetRequests,
     [],
@@ -275,7 +287,11 @@ try {
   await page.command("Page.reload");
   content = await findContent("!!window.r3 && !window.beforeStaticReload", "static image reload");
   await showStaticImages();
-  assert(reads.some((read) => read.path === "assets/wide,test.svg" && read.status === 304));
+  assert.deepEqual(
+    reads.filter((read) => read.path === "assets/wide,test.svg"),
+    [{ path: "assets/wide,test.svg", status: 200 }],
+    "retained static images need no request after reload",
+  );
   assert.deepEqual(nativeAssetRequests, [], "static images avoid scoped native requests");
   // Trusted pointer input activates the real embedded control and its parent.
   const click = async (expression: string) => {
@@ -343,16 +359,23 @@ try {
     "second immutable version",
   );
   assert.equal(await next.evaluate("r3.getContext().then(c=>c.versionSeq)"), 2);
+  const beforeVersion = reads.length;
   assert.deepEqual(await next.evaluate(modelBytes), ["application/octet-stream", [0, 255, 2]]);
-  const beforeImages = reads.length;
+  assert.deepEqual(await next.evaluate(copyBytes), ["model/example", [0, 255, 1]]);
   await showStaticImages(next, 64);
-  assert(
+  assert.deepEqual(
     reads
-      .slice(beforeImages)
-      .filter((read) => read.path === "assets/wide,test.svg")
-      .every((read) => read.status === 304),
-    "unchanged images transfer no new body bytes after switching versions",
+      .slice(beforeVersion)
+      .map((read) => read.path)
+      .sort(),
+    ["assets/test.svg", "models/test.bin"],
+    "a new version downloads only the bytes it changed",
   );
+  const retainedBytes = () =>
+    page.evaluate<number>(
+      `caches.open("r3-published-bytes-1:/").then((cache)=>cache.keys()).then((keys)=>keys.filter((key)=>!key.url.endsWith("/index")).length)`,
+    );
+  assert.equal(await retainedBytes(), 5, "each distinct published file is retained once");
   assert.deepEqual(nativeAssetRequests, []);
   await next.evaluate("window.beforeReload = true");
   await page.command("Page.reload");
@@ -495,6 +518,25 @@ try {
     );
   }
   await eventually(visiblePreview, "manual recovery after renewal failure");
+  assert.equal(await retainedBytes(), 0, "a denied session removes retained bytes");
+  const entrypoint = `document.querySelector('h1')?.textContent === "HTML entrypoint"`;
+  await (await findContent(entrypoint, "preview before reload")).evaluate(
+    "window.beforePurge = true",
+  );
+  await page.command("Page.reload");
+  const resumed = await findContent(
+    `${entrypoint} && !window.beforePurge && !!globalThis.__r3ArtifactUtility`,
+    "preview after an accepted reload",
+  );
+  await resumed.evaluate(`__r3ArtifactUtility.readAsset("index.html").then((blob)=>blob.size)`);
+  assert.equal(await retainedBytes(), 1, "an accepted session retains bytes again");
+  storage.artifacts.delete(artifact.id);
+  preview.revokeArtifact(artifact.id);
+  api.collaboration.deleted(artifact.id);
+  await eventually(
+    async () => (await retainedBytes()) === 0,
+    "deleting the artifact removes its retained bytes",
+  );
   const screenshot = process.env.R3_TEST_SCREENSHOT;
   if (screenshot) {
     const image = await page.command("Page.captureScreenshot", { format: "png" });

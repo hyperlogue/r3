@@ -1,5 +1,5 @@
 import type { ArtifactUtility, PreviewBootstrap } from "../../shared/preview-protocol.ts";
-import type { createPreviewAssets } from "./preview-assets.ts";
+import type { installAssetRelay } from "./asset-relay/preview.ts";
 import type { PreviewConnection } from "./preview-channel.ts";
 
 // Serialized into the isolated origin as an ES module. Keep runtime dependencies
@@ -7,7 +7,7 @@ import type { PreviewConnection } from "./preview-channel.ts";
 export function createArtifactUtility(
   config: PreviewBootstrap,
   connection: PreviewConnection,
-  assets: typeof createPreviewAssets,
+  assets: (call: Parameters<typeof installAssetRelay>[1]) => ReturnType<typeof installAssetRelay>,
   getUserMedia: ArtifactUtility["getUserMedia"] = () =>
     Promise.reject(new Error("Device capture is unavailable")),
 ): ArtifactUtility {
@@ -82,7 +82,7 @@ export function createArtifactUtility(
     pending.clear();
   });
   const utility = {
-    ...assets((path) => call<Blob>("readAsset", path, 180_000)),
+    ...assets((method, input) => call(method, input, 180_000)),
     getUserMedia,
     getContext: () => call("getContext"),
     getThreads: () => call("getThreads"),

@@ -17,6 +17,7 @@ import type {
 } from "../../../shared/preview-protocol.ts";
 import { artifactApi } from "../artifact-api.ts";
 import { artifactLocalStorage } from "../artifact-local-storage.ts";
+import { relayedAssetCall } from "../asset-relay/workspace.ts";
 import { useDarkTheme } from "../hooks.ts";
 import { t, useLocale } from "../i18n.ts";
 import { keysSuspended } from "../keys.ts";
@@ -60,24 +61,6 @@ function forgetDeniedMarkdown(error: unknown, artifactId?: string) {
 
 function openLink(href: string) {
   window.open(href, "_blank", "noopener,noreferrer");
-}
-
-async function readPreviewAsset(
-  path: unknown,
-  files: ArtifactFile[],
-  id: string,
-  seq: number,
-  signal: AbortSignal,
-): Promise<Blob> {
-  const file = files.find((member) => member.path === path);
-  if (!file) throw new Error("Asset is not a published file in this version");
-  const response = await artifactApi.download(
-    id,
-    file.resourceSeq ?? seq,
-    file.path,
-    AbortSignal.any([signal, AbortSignal.timeout(180_000)]),
-  );
-  return response.blob();
 }
 
 export function ArtifactPreview(props: ArtifactRenderedPaneProps) {
@@ -844,24 +827,23 @@ function PreviewSession(
           if (seen.size > 512) seen.delete(seen.values().next().value!);
           pending++;
           const props = current.current;
-          const operation =
-            message.method === "readAsset"
-              ? readPreviewAsset(message.input, props.files, id, seq, reads.signal)
-              : previewBridgeCall(
-                  message.method,
-                  message.input,
-                  {
-                    artifactId: id,
-                    versionSeq: seq,
-                    path: message.path,
-                    resourceRoot: context.resourceRoot,
-                    representation: context.presentation === "media" ? "source" : "rendered",
-                    state: props.detail.state,
-                  },
-                  props.detail,
-                  artifactApi,
-                  props.active !== false && navigator.userActivation?.isActive === true,
-                );
+          const operation: Promise<unknown> =
+            relayedAssetCall(message.method, message.input, id, props.files, reads.signal) ??
+            previewBridgeCall(
+              message.method,
+              message.input,
+              {
+                artifactId: id,
+                versionSeq: seq,
+                path: message.path,
+                resourceRoot: context.resourceRoot,
+                representation: context.presentation === "media" ? "source" : "rendered",
+                state: props.detail.state,
+              },
+              props.detail,
+              artifactApi,
+              props.active !== false && navigator.userActivation?.isActive === true,
+            );
           void operation
             .then((value) => {
               if (!closed && connection.current === port)

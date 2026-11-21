@@ -347,9 +347,9 @@ r3 publish <id> --dir ./prototype --version-label 'Revised prototype'
 
 Build dependencies before capture. Publish every referenced local asset on every version. An index-only \`--file\` filter omits companion assets.
 
-Keep large assets in standalone files and reuse the same path wherever a file repeats. Use the exact publication-root path (for example, \`models/example.gz\`) with the r3 asset helpers, even from a nested HTML page. A missing file rejects the read; check \`r3 files <id> --version <seq>\` if a published page is missing an asset.
+Keep large assets in standalone files so their bytes are reused when the page around them changes. Use the exact publication-root path (for example, \`models/example.gz\`) with the r3 asset helpers, even from a nested HTML page. A missing file rejects the read; check \`r3 files <id> --version <seq>\` if a published page is missing an asset.
 
-For models, JSON, or other whole-file reads, prefer \`r3.readAsset(path)\`. It returns a \`Blob\` with the published media type. The workspace revalidates the file with the server and the browser can reuse its cached bytes after refresh and across consecutive versions that keep the same path, bytes, and media type. Read a model when the user selects it:
+For models, JSON, or other whole-file reads, prefer \`r3.readAsset(path)\`. It returns a \`Blob\` with the published media type. The workspace keeps the file in the browser by content, so identical bytes download once across refreshes, versions, paths, and artifacts. Read a model when the user selects it:
 
 \`\`\`js
 import r3 from "/r3/utility.js";

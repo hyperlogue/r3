@@ -4,6 +4,7 @@ import type { Artifact, ArtifactDetail } from "../../shared/artifacts.ts";
 import { artifactApi, artifactEventStream } from "./artifact-api.ts";
 import { artifactLocalStorage } from "./artifact-local-storage.ts";
 import { cacheArtifactSummary } from "./artifact-sync.ts";
+import { reconcileRelayedAssets } from "./asset-relay/workspace.ts";
 import { draftImages } from "./attachment-drafts.ts";
 import { markdownCache } from "./markdown-cache.ts";
 import { previewSessions } from "./preview-sessions.ts";
@@ -42,14 +43,15 @@ export function useArtifactEvents(): boolean {
             if (event.type === "ready") {
               // Share the library read with its mounted query and cache cleanup.
               await queryClient.invalidateQueries({ queryKey: ["artifacts"], refetchType: "none" });
-              void markdownCache.reconcile(async () =>
+              const listArtifacts = async () =>
                 (
                   await queryClient.fetchQuery<Artifact[]>({
                     queryKey: ["artifacts"],
                     queryFn: () => artifactApi.list(),
                   })
-                ).map((artifact) => artifact.id),
-              );
+                ).map((artifact) => artifact.id);
+              void markdownCache.reconcile(listArtifacts);
+              void reconcileRelayedAssets(listArtifacts);
               if (ready) {
                 await queryClient.cancelQueries({ queryKey: ["artifact"] });
                 queryClient.setQueriesData<ArtifactDetail>({ queryKey: ["artifact"] }, (detail) =>

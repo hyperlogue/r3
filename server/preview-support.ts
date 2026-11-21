@@ -1,5 +1,5 @@
 import { normalizeRenderedText } from "../shared/rendered-text.ts";
-import { createPreviewAssets } from "../web/src/preview-assets.ts";
+import { installAssetRelay } from "../web/src/asset-relay/preview.ts";
 import { previewIceComplete } from "../web/src/preview-capture.ts";
 import { connectPreview } from "../web/src/preview-channel.ts";
 import { installPreviewLayout } from "../web/src/preview-layout.ts";
@@ -9,7 +9,6 @@ import { createPreviewMedia } from "../web/src/preview-media.ts";
 import { installPreviewNavigation } from "../web/src/preview-navigation.ts";
 import { installPreviewRuntime } from "../web/src/preview-runtime.ts";
 import { installPreviewScroll } from "../web/src/preview-scroll.ts";
-import { installStaticImages } from "../web/src/preview-static-images.ts";
 import { bootstrapPreviewDocument, installPreviewStorage } from "../web/src/preview-storage.ts";
 import { createArtifactUtility } from "../web/src/preview-utility.ts";
 import { restoreReadingPosition } from "../web/src/restore-reading-position.ts";
@@ -41,9 +40,8 @@ const install = () => {
 (${installPreviewLayout.toString()})(config, connection, markdown || config.presentation === "media");
 (${installPreviewNavigation.toString()})(config, connection);
 const getUserMedia = (${createPreviewMedia.toString()})(config, connection, ${previewIceComplete.toString()});
-const utility = (${createArtifactUtility.toString()})(config, connection, (${createPreviewAssets.toString()}), getUserMedia);
+const utility = (${createArtifactUtility.toString()})(config, connection, (call) => (${installAssetRelay.toString()})(config.resourceRoot, call, htmlShell), getUserMedia);
 Object.defineProperty(globalThis, "__r3ArtifactUtility", {value: utility});
-if (htmlShell) (${installStaticImages.toString()})(config.resourceRoot, utility.readAsset);
 (${installPreviewRuntime.toString()})(config, ${normalizeRenderedText.toString()}, connection, ${observeTextSelection.toString()}, ${composerKeyAction.toString()}); };
 if (shell) (${installMarkdownDocument.toString()})(config, connection, install); else install(); };
 if (htmlShell) (${bootstrapPreviewDocument.toString()})(config, start, ${installPreviewStorage.toString()}); else start();`;
