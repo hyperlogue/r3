@@ -215,6 +215,24 @@ try {
   const copyBytes = `r3.readAsset("models/test.copy").then(async (copy)=>[copy.type,[...new Uint8Array(await copy.arrayBuffer())]])`;
   assert.deepEqual(await content.evaluate(copyBytes), ["model/example", [0, 255, 1]]);
   assert.equal(reads.length, 1, "identical bytes at another path need no second download");
+  assert.deepEqual(
+    await content.evaluate(`(async () => {
+      const whole = await fetch("models/test.copy?cache=1");
+      const part = await fetch(new Request("./models/test.bin", { headers: { range: "bytes=1-" } }));
+      const aborted = new AbortController();
+      aborted.abort();
+      return [
+        whole.status, whole.headers.get("content-type"), new URL(whole.url).pathname.endsWith("/files/models/test.copy"),
+        [...new Uint8Array(await whole.arrayBuffer())],
+        part.status, part.headers.get("content-range"), [...new Uint8Array(await part.arrayBuffer())],
+        (await fetch("models/test.copy", { headers: { range: "bytes=9-" } })).status,
+        (await fetch("missing.bin")).status,
+        await fetch("models/test.bin", { signal: aborted.signal }).then(() => "read", (error) => error.name),
+      ];
+    })()`),
+    [200, "model/example", true, [0, 255, 1], 206, "bytes 1-2/3", [255, 1], 416, 404, "AbortError"],
+  );
+  assert.equal(reads.length, 1, "fetch() of retained published bytes needs no download");
   await content.evaluate(`(() => {
     const img=window.boundImage=new Image(32,16);
     img.style.cssText="position:fixed;top:200vh";

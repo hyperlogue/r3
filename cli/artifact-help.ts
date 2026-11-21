@@ -360,13 +360,15 @@ const bytes = await model.arrayBuffer(); // original compressed bytes
 
 Bundle startup JavaScript into an inline \`<script type="module">\` in \`index.html\` so the browser can reuse it with the cached HTML on refresh. Keep \`/r3/utility.js\` external when bundling.
 
-If your artifact uses a WebAssembly module, include the \`.wasm\` file in the directory you publish. Read it with \`r3.readAsset(path)\` and pass the bytes to your loader.
+If your artifact uses a WebAssembly module, include the \`.wasm\` file in the directory you publish. \`WebAssembly.instantiateStreaming(fetch(path), imports)\` and loaders that fetch the module reuse the cached bytes without changes.
 
 Use ordinary \`src\` and \`srcset\` attributes for published images in static HTML. r3 prepares these attributes at publication and supplies the image bytes from the workspace cache when the page opens. With \`loading="lazy"\`, loading starts when the image becomes visible. For \`srcset\`, r3 reads the listed local candidates and the browser selects one using the original descriptors and \`sizes\`.
 
 For an image created in JavaScript, leave \`src\` and \`srcset\` unset and call \`r3.bindImage(img, path)\`. Call the returned cleanup function when you remove the image. Give images an alt description and, optionally, dimensions to reserve space.
 
-Relative image URLs resolve from the document. External URLs and \`<picture>\` source elements use native loading. Use native \`fetch()\` for streaming or range requests.
+Relative image URLs resolve from the document. External URLs and \`<picture>\` source elements use native loading.
+
+\`fetch()\` of a published file reads from the same workspace cache, including \`Range\` requests. The response arrives once the whole file is available, so a first read does not stream. \`XMLHttpRequest\`, \`<script src>\`, stylesheets, and CSS \`url()\` load natively and download again on every visit.
 
 For canvas pixel reads or export from a native image URL, set \`image.crossOrigin = "anonymous"\` before assigning \`image.src\` (or use \`<img crossorigin="anonymous" src="…">\`). Even published images otherwise taint the canvas in the isolated preview, causing \`SecurityError\`; r3 already supplies the required CORS headers.
 

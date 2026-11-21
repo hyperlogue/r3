@@ -11,6 +11,18 @@ export function installAssetRelay(
   call: <T>(method: string, input: unknown) => Promise<T>,
   prepared: boolean,
 ): RelayedAssets {
+  const rootPath = new URL(root).pathname;
+  // A URL inside this version's published files; null for every other address.
+  const publishedFile = (value: string, base: string) => {
+    try {
+      const url = new URL(value, base);
+      if (!value.trim() || !url.href.startsWith(root)) return null;
+      const path = decodeURIComponent(url.pathname.slice(rootPath.length));
+      return { path, fragment: url.hash, href: url.href };
+    } catch {
+      return null;
+    }
+  };
   const pending = new Map<string, Promise<Blob>>();
   const waiting: (() => void)[] = [];
   let active = 0;
@@ -87,23 +99,21 @@ export function installAssetRelay(
   const installPreparedImages = () => {
     const selector = "img[data-r3-static-src], img[data-r3-static-srcset]";
     const urls = new Map<string, Promise<string>>();
-    const rootPath = new URL(root).pathname;
     async function cachedURL(value: string, base: string) {
+      const file = publishedFile(value, base);
+      if (!file) return value;
       try {
-        const url = new URL(value, base);
-        if (!value.trim() || !url.href.startsWith(root)) return value;
-        const path = decodeURIComponent(url.pathname.slice(rootPath.length));
-        let reading = urls.get(path);
+        let reading = urls.get(file.path);
         if (!reading) {
-          reading = readAsset(path)
+          reading = readAsset(file.path)
             .then((blob) => URL.createObjectURL(blob))
             .catch((error) => {
-              urls.delete(path);
+              urls.delete(file.path);
               throw error;
             });
-          urls.set(path, reading);
+          urls.set(file.path, reading);
         }
-        return (await reading) + url.hash;
+        return (await reading) + file.fragment;
       } catch {
         return value;
       }
@@ -171,6 +181,62 @@ export function installAssetRelay(
       }
     }).observe(document, { childList: true, subtree: true });
   };
-  if (prepared) installPreparedImages();
+  // Publisher code keeps calling fetch(); GET requests for published files are
+  // answered from relayed bytes. Anything the relay cannot answer exactly, such
+  // as a missing file or an unsatisfiable range, goes to the server unchanged.
+  const installFetch = () => {
+    const native = globalThis.fetch;
+    const respond = (blob: Blob, range: string | null, href: string) => {
+      const headers = new Headers({
+        "content-type": blob.type || "application/octet-stream",
+        "accept-ranges": "bytes",
+      });
+      let body = blob;
+      if (range !== null) {
+        const match = /^bytes=(\d*)-(\d*)$/.exec(range.trim());
+        if (!match || (!match[1] && !match[2])) return null;
+        const start = match[1] ? Number(match[1]) : Math.max(0, blob.size - Number(match[2]));
+        const end =
+          match[1] && match[2] ? Math.min(Number(match[2]), blob.size - 1) : blob.size - 1;
+        if (!(start <= end) || (!match[1] && Number(match[2]) === 0)) return null;
+        body = blob.slice(start, end + 1, blob.type);
+        headers.set("content-range", `bytes ${start}-${end}/${blob.size}`);
+      }
+      headers.set("content-length", String(body.size));
+      const response = new Response(body, { status: range === null ? 200 : 206, headers });
+      Object.defineProperty(response, "url", { value: href });
+      return response;
+    };
+    globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+      const direct = () => native.call(globalThis, input, init);
+      let file: ReturnType<typeof publishedFile>;
+      let range: string | null;
+      let signal: AbortSignal | null | undefined;
+      try {
+        const request = input instanceof Request ? input : null;
+        if ((init?.method ?? request?.method ?? "GET").toUpperCase() !== "GET") return direct();
+        file = publishedFile(request ? request.url : String(input), document.baseURI);
+        range = new Headers(init?.headers ?? request?.headers).get("range");
+        signal = init?.signal ?? request?.signal;
+      } catch {
+        return direct();
+      }
+      if (!file) return direct();
+      if (signal?.aborted) return Promise.reject(signal.reason);
+      const { path, href } = file;
+      return new Promise<Response>((resolve, reject) => {
+        const abort = () => reject(signal?.reason);
+        signal?.addEventListener("abort", abort, { once: true });
+        readAsset(path)
+          .then((blob) => respond(blob, range, href) ?? direct(), direct)
+          .then(resolve, reject)
+          .finally(() => signal?.removeEventListener("abort", abort));
+      });
+    }) as typeof fetch;
+  };
+  if (prepared) {
+    installPreparedImages();
+    installFetch();
+  }
   return { readAsset, bindImage };
 }
