@@ -41,6 +41,35 @@ const publication = () => ({
   },
 });
 describe("private artifact storage bootstrap", () => {
+  test("resource URLs inherit through unchanged publications after a schema upgrade", async () => {
+    const settings = options();
+    storage = await openArtifactStorage(settings);
+    const { id } = storage.artifacts.create({ kind: "files", actor });
+    const upload = publication();
+    await storage.artifacts.publish(id, upload);
+    storage.close();
+    storage = null;
+    const old = new Database(settings.databasePath);
+    old.exec("ALTER TABLE version_files DROP COLUMN resource_seq; PRAGMA user_version = 22");
+    old.close();
+    storage = await openArtifactStorage(settings);
+    expect(storage.artifacts.file(id, 1, "index.md").resourceSeq).toBe(1);
+    for (const [expectedSeq, mediaType, resourceSeq] of [
+      [1, "text/markdown", 1],
+      [2, "text/markdown", 1],
+      [3, "text/plain", 4],
+      [4, "text/plain", 4],
+    ] as const) {
+      upload.content.files[0]!.mediaType = mediaType;
+      await storage.artifacts.publish(id, {
+        ...upload,
+        expectedSeq,
+        publicationKey: String(expectedSeq),
+      });
+      expect(storage.artifacts.files(id, expectedSeq + 1)[0]!.resourceSeq).toBe(resourceSeq);
+    }
+  });
+
   test("upgrade prepares historical HTML and retains its template until artifact deletion", async () => {
     const settings = options();
     storage = await openArtifactStorage(settings);

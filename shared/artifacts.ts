@@ -119,6 +119,7 @@ export type ArtifactPublicationResponse = ArtifactVersion & {
   listener?: WorkerSubscription;
 };
 export interface ArtifactFile {
+  resourceSeq?: number;
   path: string;
   mediaType: string;
   hash: string;

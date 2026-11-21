@@ -50,7 +50,7 @@ for (const seq of [1, 2])
         {
           path: "assets/test.svg",
           mediaType: "image/svg+xml",
-          base64: btoa('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="16"/>'),
+          base64: btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="${seq * 32}" height="16"/>`),
         },
         {
           path: "assets/wide,test.svg",
@@ -259,11 +259,11 @@ try {
     [],
     "bound images and model reads avoid a second request from the preview",
   );
-  const showStaticImages = async () => {
-    await content.evaluate('document.getElementById("staticImages").style.top = "0"');
+  const showStaticImages = async (frame = content, width = 32) => {
+    await frame.evaluate('document.getElementById("staticImages").style.top = "0"');
     await eventually(
       () =>
-        content.evaluate(`plain.currentSrc.startsWith("blob:") && plain.naturalWidth === 32 &&
+        frame.evaluate(`plain.currentSrc.startsWith("blob:") && plain.naturalWidth === ${width} &&
       responsive.currentSrc.startsWith("blob:") && responsive.naturalWidth > 0 &&
       /^blob:[^ ]+ 32w, blob:[^ ]+ 64w$/.test(responsive.srcset)`),
       "cached static src and responsive srcset",
@@ -344,6 +344,16 @@ try {
   );
   assert.equal(await next.evaluate("r3.getContext().then(c=>c.versionSeq)"), 2);
   assert.deepEqual(await next.evaluate(modelBytes), ["application/octet-stream", [0, 255, 2]]);
+  const beforeImages = reads.length;
+  await showStaticImages(next, 64);
+  assert(
+    reads
+      .slice(beforeImages)
+      .filter((read) => read.path === "assets/wide,test.svg")
+      .every((read) => read.status === 304),
+    "unchanged images transfer no new body bytes after switching versions",
+  );
+  assert.deepEqual(nativeAssetRequests, []);
   await next.evaluate("window.beforeReload = true");
   await page.command("Page.reload");
   await findContent(

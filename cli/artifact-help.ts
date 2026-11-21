@@ -349,7 +349,7 @@ Build dependencies before capture. Publish every referenced local asset on every
 
 Keep large assets in standalone files and reuse the same path wherever a file repeats. Use the exact publication-root path (for example, \`models/example.gz\`) with the r3 asset helpers, even from a nested HTML page. A missing file rejects the read; check \`r3 files <id> --version <seq>\` if a published page is missing an asset.
 
-For models, JSON, or other whole-file reads, prefer \`r3.readAsset(path)\`. It returns a \`Blob\` with the published media type. The workspace revalidates the file with the server and the browser can reuse its cached bytes after refresh. Read a model when the user selects it:
+For models, JSON, or other whole-file reads, prefer \`r3.readAsset(path)\`. It returns a \`Blob\` with the published media type. The workspace revalidates the file with the server and the browser can reuse its cached bytes after refresh and across consecutive versions that keep the same path, bytes, and media type. Read a model when the user selects it:
 
 \`\`\`js
 import r3 from "/r3/utility.js";

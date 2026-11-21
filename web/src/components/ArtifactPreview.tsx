@@ -64,17 +64,17 @@ function openLink(href: string) {
 
 async function readPreviewAsset(
   path: unknown,
-  members: string[],
+  files: ArtifactFile[],
   id: string,
   seq: number,
   signal: AbortSignal,
 ): Promise<Blob> {
-  if (typeof path !== "string" || !members.includes(path))
-    throw new Error("Asset is not a published file in this version");
+  const file = files.find((member) => member.path === path);
+  if (!file) throw new Error("Asset is not a published file in this version");
   const response = await artifactApi.download(
     id,
-    seq,
-    path,
+    file.resourceSeq ?? seq,
+    file.path,
     AbortSignal.any([signal, AbortSignal.timeout(180_000)]),
   );
   return response.blob();
@@ -231,7 +231,7 @@ function VersionPreview(props: ArtifactRenderedPaneProps) {
               }
             : undefined
         }
-        paths={files.data?.map((file) => file.path) ?? []}
+        files={files.data ?? []}
         documentPaths={
           files.data
             ?.filter((file) => file.renderedHash || file.mediaType.split(";")[0] === "text/html")
@@ -255,7 +255,7 @@ function VersionPreview(props: ArtifactRenderedPaneProps) {
 
 function PreviewSession(
   props: ArtifactRenderedPaneProps & {
-    paths: string[];
+    files: ArtifactFile[];
     documentPaths: string[];
     fittedPaths: string[];
     markdownFiles: ArtifactFile[];
@@ -540,7 +540,7 @@ function PreviewSession(
       if (
         !admitted.current ||
         typeof message.path !== "string" ||
-        !current.current.paths.includes(message.path)
+        !current.current.files.some((file) => file.path === message.path)
       )
         return;
       if (message.type === "r3-preview-storage-connect") {
@@ -846,7 +846,7 @@ function PreviewSession(
           const props = current.current;
           const operation =
             message.method === "readAsset"
-              ? readPreviewAsset(message.input, props.paths, id, seq, reads.signal)
+              ? readPreviewAsset(message.input, props.files, id, seq, reads.signal)
               : previewBridgeCall(
                   message.method,
                   message.input,
@@ -982,7 +982,7 @@ function PreviewSession(
   // Entry-point setup can overlap the manifest. Publisher bytes always wait
   // for membership; an acknowledged preview waits without loading a gate.
   const frameSrc =
-    context && src === context.documentUrl && !props.paths.includes(initialPath)
+    context && src === context.documentUrl && !props.files.some((file) => file.path === initialPath)
       ? network === "compatible"
         ? ""
         : context.gateUrl
