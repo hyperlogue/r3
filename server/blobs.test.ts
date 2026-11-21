@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
-import { mkdtemp, readdir, rm, symlink, unlink, writeFile } from "node:fs/promises";
+import { mkdtemp, open, readdir, rm, symlink, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BlobStore, hashBytes } from "./blobs.ts";
@@ -58,6 +58,44 @@ describe("immutable byte storage", () => {
     await expect(store.put("original")).rejects.toThrow();
     await expect(store.read("../unrelated")).rejects.toThrow("Invalid blob hash");
     expect(hashBytes("original")).toBe(blob.hash);
+  });
+
+  test("range streams verify the blocks they serve, including after a seek or mutation", async () => {
+    const bytes = Buffer.alloc(2 * 1024 * 1024, 0x5a);
+    const blob = await store.put(bytes);
+    const path = join(root, blob.hash.slice(0, 2), blob.hash.slice(2));
+    const range = (start: number, end: number) =>
+      store.readRange(blob.hash, bytes.length, start, end);
+
+    const reader = (await range(123, bytes.length - 1)).getReader();
+    const first = (await reader.read()).value!;
+    expect(first.length).toBeLessThan(bytes.length / 2);
+    expect(Buffer.from(first)).toEqual(bytes.subarray(123, 123 + first.length));
+    await reader.cancel();
+
+    // A warm seek touches only the relevant blocks. Alter an unrelated block
+    // and then request each region to check both locality and authentication.
+    const writer = await open(path, "r+");
+    try {
+      await writer.write(Buffer.from([0]), 0, 1, 0);
+    } finally {
+      await writer.close();
+    }
+    expect(await new Response(await range(bytes.length - 5, bytes.length - 1)).text()).toBe(
+      "ZZZZZ",
+    );
+    await expect(new Response(await range(0, 7)).arrayBuffer()).rejects.toThrow("digest");
+    const cold = new BlobStore(root);
+    await expect(cold.readRange(blob.hash, bytes.length, 0, 7)).rejects.toThrow("digest");
+    await writeFile(path, bytes);
+    expect(await new Response(await cold.readRange(blob.hash, bytes.length, 0, 7)).text()).toBe(
+      "ZZZZZZZZ",
+    );
+    await unlink(path);
+    const outside = join(root, "outside");
+    await writeFile(outside, bytes);
+    await symlink(outside, path);
+    await expect(range(0, 7)).rejects.toThrow();
   });
 
   test("collection removes only unreferenced bytes and abandoned upload files", async () => {

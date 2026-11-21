@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { constants } from "node:fs";
-import { link, mkdir, open, readdir, unlink } from "node:fs/promises";
+import { type FileHandle, link, mkdir, open, readdir, unlink } from "node:fs/promises";
 import { join } from "node:path";
 
 export interface StoredBlob {
@@ -16,12 +16,40 @@ function isFsError(error: unknown, code: string): boolean {
   return error instanceof Error && "code" in error && error.code === code;
 }
 
+const RANGE_BLOCK_BYTES = 256 * 1024;
+
+async function readBlock(handle: FileHandle, position: number, length: number) {
+  const block = Buffer.allocUnsafe(length);
+  let offset = 0;
+  while (offset < length) {
+    const { bytesRead } = await handle.read(block, offset, length - offset, position + offset);
+    if (!bytesRead) throw new Error("Stored blob is truncated");
+    offset += bytesRead;
+  }
+  return block;
+}
+
+// Authenticate the block digests against the published whole-file digest before
+// trusting them. The index can be rebuilt from pre-existing blobs after restart.
+async function indexBlocks(handle: FileHandle, size: number, hash: string) {
+  const digest = createHash("sha256");
+  const blocks: string[] = [];
+  for (let pos = 0; pos < size; pos += RANGE_BLOCK_BYTES) {
+    const block = await readBlock(handle, pos, Math.min(RANGE_BLOCK_BYTES, size - pos));
+    digest.update(block);
+    blocks.push(hashBytes(block));
+  }
+  if (digest.digest("hex") !== hash) throw new Error("Stored blob does not match its digest");
+  return blocks;
+}
+
 // Bytes become visible before their SQL reference commits. Installation is
 // create-only and durable; an interrupted publication can leave an unreferenced
 // blob, but can never replace bytes already referenced by a published version.
 // The caller owns the private directory and coordinates any garbage collection
 // with publications. There is deliberately no per-version deletion operation.
 export class BlobStore {
+  private readonly rangeIndexes = new Map<string, Promise<string[]>>();
   private publications = 0;
   private cleaning: Promise<void> | null = null;
   private drained: (() => void) | null = null;
@@ -135,6 +163,63 @@ export class BlobStore {
     } finally {
       await output.close();
       await unlink(temporary);
+    }
+  }
+
+  async readRange(hash: string, size: number, start: number, end: number) {
+    if (
+      !Number.isSafeInteger(start) ||
+      !Number.isSafeInteger(end) ||
+      start < 0 ||
+      start > end ||
+      end >= size
+    )
+      throw new Error("Invalid blob range");
+    const { file } = this.location(hash);
+    const handle = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW);
+    try {
+      const stat = await handle.stat();
+      if (!stat.isFile() || stat.size !== size)
+        throw new Error("Stored blob has unexpected size or type");
+      let index = this.rangeIndexes.get(hash);
+      this.rangeIndexes.delete(hash);
+      if (!index) {
+        index = indexBlocks(handle, size, hash);
+        if (this.rangeIndexes.size >= 64)
+          this.rangeIndexes.delete(this.rangeIndexes.keys().next().value!);
+      }
+      this.rangeIndexes.set(hash, index);
+      let blocks: string[];
+      try {
+        blocks = await index;
+      } catch (error) {
+        if (this.rangeIndexes.get(hash) === index) this.rangeIndexes.delete(hash);
+        throw error;
+      }
+      let position = start;
+      return new ReadableStream<Uint8Array>({
+        async pull(controller) {
+          try {
+            const i = Math.floor(position / RANGE_BLOCK_BYTES);
+            const base = i * RANGE_BLOCK_BYTES;
+            const block = await readBlock(handle, base, Math.min(RANGE_BLOCK_BYTES, size - base));
+            if (hashBytes(block) !== blocks[i])
+              throw new Error("Stored blob does not match its digest");
+            const next = Math.min(base + block.length, end + 1);
+            if (next > end) await handle.close();
+            controller.enqueue(block.subarray(position - base, next - base));
+            position = next;
+            if (position > end) controller.close();
+          } catch (error) {
+            await handle.close();
+            controller.error(error);
+          }
+        },
+        cancel: () => handle.close(),
+      });
+    } catch (error) {
+      await handle.close();
+      throw error;
     }
   }
 

@@ -708,6 +708,8 @@ export class ArtifactStore {
       byteLength: length.byte_length,
       mediaType: rendered ? "text/html; charset=utf-8" : file.mediaType,
       read: () => this.blobs.read(hash),
+      readRange: (start: number, end: number) =>
+        this.blobs.readRange(hash, length.byte_length, start, end),
     };
   }
 

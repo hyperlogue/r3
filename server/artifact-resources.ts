@@ -74,12 +74,8 @@ export async function artifactResourceResponse(
       `bytes ${selection.start}-${selection.end}/${resource.byteLength}`,
     );
   if (request.method === "HEAD") return new Response(null, { status: 200, headers });
-  const bytes = await resource.read();
-  return new Response(
-    new Uint8Array(selection ? bytes.subarray(selection.start, selection.end + 1) : bytes),
-    {
-      status: selection ? 206 : 200,
-      headers,
-    },
-  );
+  const body = selection
+    ? await resource.readRange(selection.start, selection.end)
+    : await resource.read();
+  return new Response(body, { status: selection ? 206 : 200, headers });
 }
