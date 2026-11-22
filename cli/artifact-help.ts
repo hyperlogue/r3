@@ -85,6 +85,7 @@ HTML assets: publish companion files with the page. See r3 guide html for cached
   listen <id>                                # establish an explicit subscription
   unlisten <id>                              # end your subscriptions
   archive <id> [-m <archive-comment>] [--key K] | restore <id> [--key K]
+                                             # archive tells the listener the latest version
   project list | project create [--title T] [--remote URL] | project delete <id>
   project edit <id> [--title T] [--remote URL]
 
@@ -232,7 +233,7 @@ r3 comment thread_c -m 'Corrected the example.'
 
 The backend keeps subscriptions across a temporary disconnect and displays delivery errors in the browser. The persistent worker reconnects without changing selection or submitting comments. A fresh \`r3 listen\` from the same or another agent replaces the explicit subscription. If \`listen\` exits **5**, its harness notification adapter is unavailable; use \`r3 watch "$artifact_id"\`, which waits without that adapter. Exit **10** already includes fetched, acknowledged comments on stdout: process it directly.
 
-An archive message must reach the selected notification destination before the artifact is archived. Failed delivery returns an error and leaves the artifact active with its claims and subscriptions; retry with the same --key and message. Committed retries do not notify again. Blank messages or no push destination need no notification.
+Archive notifies the selected push listener of the latest published version and includes any archive message before committing. If delivery fails, an archive with a message leaves the artifact active for retry with the same --key and message. An archive without a message still completes. Committed retries do not notify again. Without a push listener, archive commits immediately.
 
 Archived artifacts remain readable. Content changes, comments, and subscriptions return a conflict until you restore the artifact. A comment still in preparation when archive commits is rejected; keep its text and restore before retrying.
 
@@ -286,7 +287,7 @@ Optional \`--version-label\` names the published version; \`--summary\` describe
 
 Upgrades discard legacy server-local notification subscriptions and destinations. Run \`r3 listen <id>\` to subscribe again. Current worker subscriptions remain intact.
 
-Claude Code, Codex, and Antigravity publications establish the publisher fallback through a persistent local worker and the selected backend. A newer publication replaces that fallback; unsupported publishers or \`--no-listen\` clear it. Publication stays successful if subscription setup fails, with a warning. Subscription setup and restart do not send pending comments.
+Claude Code, Codex, and Antigravity publications establish the publisher fallback through a persistent local worker and the selected backend. A newer publisher replaces that fallback when it registers a listener. An unsupported publisher or \`--no-listen\` keeps the existing fallback. Publication stays successful if subscription setup fails, with a warning. Subscription setup and restart do not send pending comments.
 
 The worker inherits the permissions of the CLI that starts it. On new worker startup, recognized sandbox environment markers produce a warning on stderr: notifications may fail even when the command succeeds. Detection is best effort; reusing a running worker stays quiet. If the worker was started inside a sandbox, run \`r3 worker restart\` from a terminal outside it. Stop/restart uses authenticated IPC across PID namespaces and recovers stale locks or unresponsive workers after checking local process identity.
 

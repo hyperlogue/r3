@@ -322,7 +322,6 @@ export class WorkerConnections {
     return next;
   }
   published(id: string, actor: ArtifactActor, enabled: boolean): WorkerSubscription | undefined {
-    this.collaboration.clearFallback(id);
     const target = actor.role === "agent" ? this.targets.get(actor.sessionId) : undefined;
     if (!enabled || !target || target.connection.closed) return;
     const subscription: WorkerSubscription = {

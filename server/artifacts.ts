@@ -35,7 +35,6 @@ import {
   type ValidatedPublication,
   validatePublication,
 } from "./publication.ts";
-import type { WorkerRecords } from "./worker-records.ts";
 
 // Alphanumeric suffixes keep IDs selectable as one word; 22 characters retain
 // at least the default Nano ID entropy (126 bits).
@@ -137,7 +136,6 @@ export class ArtifactStore {
     private readonly clock: () => string = nowIso,
     private readonly isWatching: (id: string) => boolean = () => false,
     projectGrouping: ProjectGroupingOptions = {},
-    private readonly workerRecords?: WorkerRecords,
     private readonly generateArtifactId: () => string = () => `artifact_${artifactNanoid()}`,
   ) {
     this.attachments = new ArtifactAttachments(db, blobs, clock);
@@ -657,7 +655,6 @@ export class ArtifactStore {
         this.db
           .query("UPDATE artifact_versions SET published_at = ? WHERE artifact_id = ? AND seq = ?")
           .run(time, id, seq);
-        this.workerRecords?.retire(id, "fallback");
         committed = true;
         return this.version(id, seq);
       })

@@ -115,7 +115,6 @@ export async function openArtifactStorage(
       clock,
       options.isWatching,
       options.projectGrouping,
-      workerRecords,
       options.generateArtifactId,
     );
     const conversations = new ArtifactConversations(db, artifacts, clock);

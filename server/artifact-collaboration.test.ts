@@ -118,7 +118,7 @@ describe("artifact collaboration ordering", () => {
     storage.conversations.acknowledge(id, storage.conversations.snapshot(id).acknowledgment);
     expect(storage.conversations.pendingComments(id)).toHaveLength(0);
   });
-  test("archive with no message commits history and unregisters without a push", async () => {
+  test("archive with no message commits history and notifies the listener before unregistering", async () => {
     const pushes: ArtifactNudge[] = [];
     const closes: string[] = [];
     const events: ArtifactStreamEvent[] = [];
@@ -132,8 +132,8 @@ describe("artifact collaboration ordering", () => {
     );
     collaboration.subscribe((event) => events.push(event));
     const result = await collaboration.transition(id, archive("quiet"));
-    expect(result.notification).toEqual({ state: "none" });
-    expect(pushes).toEqual([]);
+    expect(result.notification).toEqual({ state: "sent" });
+    expect(pushes).toMatchObject([{ event: "archived", comment: null }]);
     expect(closes).toEqual(["archived"]);
     expect(collaboration.watchers(id)).toEqual([]);
     expect(storage.artifacts.get(id).state).toBe("archived");

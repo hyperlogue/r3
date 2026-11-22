@@ -172,12 +172,6 @@ export class ArtifactCollaboration {
     this.broadcast({ type: "presence-changed", artifactId: id });
   }
 
-  clearFallback(id: string): void {
-    const held = this.fallbacks.get(id);
-    this.fallbacks.delete(id);
-    if (held) this.close(held, "superseded");
-  }
-
   registration(id: string, mode: "fallback" | "explicit"): ArtifactWatcher | undefined {
     return (mode === "fallback" ? this.fallbacks : this.registrations).get(id)?.info;
   }
@@ -286,14 +280,16 @@ export class ArtifactCollaboration {
       let notification: ArtifactNotification = { state: "none" };
       if (prepared.notification && held?.push) {
         const { comment, lifecycleEventId } = prepared.notification;
+        const artifact = this.artifacts.get(id);
         try {
           const state = await held.push({
             id: randomUUID(),
             artifactId: id,
-            title: this.artifacts.get(id).title,
+            title: artifact.title,
+            versionSeq: artifact.latestVersion?.seq,
             event: "archived",
             lifecycleEventId,
-            comment: {
+            comment: comment && {
               ...comment,
               body: comment.body.slice(0, 8000),
               truncated: comment.body.length > 8000,
@@ -302,18 +298,25 @@ export class ArtifactCollaboration {
           notification = { state: state ?? "sent" };
         } catch (error) {
           const reason = error instanceof Error ? error.message : "Agent delivery failed";
-          throw new ArtifactError(
-            `Artifact was not archived because the agent notification failed. ${reason}`,
-            502,
-          );
+          if (comment)
+            throw new ArtifactError(
+              `Artifact was not archived because the agent notification failed. ${reason}`,
+              502,
+            );
+          notification = { state: "failed", error: reason };
         }
+        if (this.artifacts.get(id).latestVersion?.seq !== artifact.latestVersion?.seq)
+          throw new ArtifactError(
+            "A new version was published during delivery. Retry the archive.",
+            409,
+          );
         if (this.recipient(id) !== held)
           throw new ArtifactError(
-            "The agent subscription changed during delivery. The comment was sent, but the artifact was not archived. Try again with the current subscription.",
+            "The agent subscription changed during delivery. Retry the archive with the current subscription.",
             409,
           );
       }
-      // No await between committing and ending subscriptions. Failed delivery
+      // No await between committing and ending subscriptions. Failed comment delivery
       // leaves state, history, claims and the selected subscription intact.
       const result = prepared.commit();
       if (result.replayed) return { ...result, notification: { state: "not_repeated" } };

@@ -148,6 +148,8 @@ export function artifactNudgeText(nudge: ArtifactNudge): string {
   const lines = [
     `[r3] ${nudge.artifactId} — ${nudge.event === "archived" ? "archived" : "comments submitted"}`,
   ];
+  if (nudge.event === "archived" && nudge.versionSeq !== undefined)
+    lines[0] += ` at v${nudge.versionSeq}`;
   if (nudge.title) lines.push(`Artifact: ${nudge.title.slice(0, 500)}`);
   if (nudge.event === "submitted") lines.push(`Run: r3 comment fetch ${nudge.artifactId}`);
   else {

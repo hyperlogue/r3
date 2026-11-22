@@ -4,6 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ArtifactClient } from "../shared/artifact-client.ts";
+import { artifactNudgeText } from "../shared/artifact-prompt.ts";
 import type { ArtifactActor } from "../shared/artifacts.ts";
 import { readEventStream } from "../shared/event-stream.ts";
 import {
@@ -263,11 +264,25 @@ test("unlisten and archive retire subscriptions so lost retirement events cannot
     listening = await listen(connection, helper, explicit);
   await client.json("DELETE", `/api/artifacts/${id}/listen`, { actor: helper });
   expect(storage.workerRecords.get(listening.id)?.state).toBe("retired");
-  await client.json("POST", `/api/artifacts/${id}/lifecycle`, {
+  const otherPublisher = { role: "agent", sessionId: "other-publisher" } as const;
+  storage.artifacts.registerSession({ id: otherPublisher.sessionId });
+  await publish(otherPublisher, 1);
+  expect(api.collaboration.watchers(id)[0]?.id).toBe(fallback.id);
+  expect(storage.workerRecords.get(fallback.id)?.state).toBe("active");
+  const archiving = client.json("POST", `/api/artifacts/${id}/lifecycle`, {
     actor: { role: "human", sessionId: null },
     event: "archived",
     operationKey: randomUUID(),
   });
+  const notice = (await event(connection, "nudge")) as Extract<WorkerEvent, { type: "nudge" }>;
+  expect(notice.listenerId).toBe(fallback.listenerId);
+  expect(artifactNudgeText(notice.nudge)).toContain("archived at v2");
+  await client.json("POST", `/api/workers/${connection.connectionId}/acknowledgments`, {
+    nudgeId: notice.nudge.id,
+    ok: true,
+    state: "queued",
+  });
+  await archiving;
   expect(storage.workerRecords.get(fallback.id)?.state).toBe("retired");
   await client.json("POST", `/api/artifacts/${id}/lifecycle`, {
     actor: { role: "human", sessionId: null },

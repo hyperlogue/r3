@@ -307,7 +307,10 @@ export function createArtifactApi(
       {
         ...version,
         url: `${policy.publicUrl ?? new URL(c.req.url).origin}/${encodeURIComponent(version.artifactId)}`,
-        listenerRegistered: !!collaboration.registration(version.artifactId, "fallback"),
+        listenerRegistered:
+          version.publishedBy.role === "agent" &&
+          collaboration.registration(version.artifactId, "fallback")?.actor.sessionId ===
+            version.publishedBy.sessionId,
         ...(listener ? { listener } : {}),
       },
       201,

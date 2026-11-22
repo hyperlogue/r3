@@ -120,8 +120,11 @@ export class ArtifactLifecycle {
     const eventId = previous?.id ?? `event_${randomUUID().replaceAll("-", "")}`;
     return {
       notification:
-        !previous && message
-          ? { lifecycleEventId: eventId, comment: { id: `comment_${eventId}`, body: message } }
+        !previous && event === "archived"
+          ? {
+              lifecycleEventId: eventId,
+              comment: message ? { id: `comment_${eventId}`, body: message } : null,
+            }
           : null,
       commit: () =>
         this.db

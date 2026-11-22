@@ -508,6 +508,7 @@ export interface ArtifactNudge {
   artifactId: string;
   title: string | null;
   event: "submitted" | "archived";
+  versionSeq?: number;
   lifecycleEventId: string | null;
   comment: (Pick<ArtifactComment, "id" | "body"> & { truncated?: boolean }) | null;
 }
@@ -524,7 +525,7 @@ export type ArtifactNotification =
 export interface ArtifactLifecycleResponse {
   event: ArtifactLifecycleEvent;
   replayed: boolean;
-  notification: Exclude<ArtifactNotification, { state: "failed" }>;
+  notification: ArtifactNotification;
 }
 export type ArtifactWatchResult =
   | {

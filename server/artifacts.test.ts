@@ -58,7 +58,7 @@ describe("artifact identity", () => {
   const pattern = /^artifact_[A-Za-z0-9]{22}$/;
   const generated = "artifact_Az09_-Az09_-Az09_-Az0";
   const withIds = (generate: () => string) =>
-    new ArtifactStore(db, blobs, renderer, clock, undefined, undefined, undefined, generate);
+    new ArtifactStore(db, blobs, renderer, clock, undefined, undefined, generate);
 
   test("Nano IDs remain distinct across stalled clocks, rollback and database connections", () => {
     let milliseconds = Date.parse(clock());
