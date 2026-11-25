@@ -26,8 +26,8 @@ Run r3 for a quick start. Agents: start with r3 guide.
   list [--state active|archived] [--kind K] [--project ID] [--meta k=v] [--mine]
   search <query> [--state active|archived] [--kind K] [--project ID]
         [--attention] [--history latest|all] [--type all|content|conversation]
-        [--limit 1..100] [--offset N] [--json]
-  show <id> [--json]
+        [--limit 1..100] [--offset N]
+  show <id>
   versions <id>
   files <id> --version <seq>
   source <id> --version <seq> --file <path>
@@ -35,133 +35,52 @@ Run r3 for a quick start. Agents: start with r3 guide.
   patch <id> --version <seq>                  # original unified diff
   edit <id> [--title T] [--meta k=v]
   delete <id>                                # whole artifact and history
-  stat [--weekly] [--json]                    # current totals and activity
-  gc [--dry-run] [--ttl 30d] [--json]          # permanently remove expired archives
-
-Statistics: daily activity for the last 14 calendar days; --weekly selects the last
-            4 Monday-start weeks. Uses the displayed server timezone and includes
-            the current partial period. Activity counts survive artifact deletion;
-            pre-upgrade history covers surviving records only.
-Cleanup: manual only. Default TTL is 30 elapsed days since the latest archive.
-         --dry-run previews without deleting. gc deletes without prompting, keeps
-         shared content still in use, and reports failures (exit 1; success 0).
-         --ttl accepts 1d..36500d and overrides the server default for one run.
-         r3 config set archiveTtlDays 30 persists that default; restart to apply.
-         This edits the local config, even when R3_URL selects a remote backend.
-         Restore cancels eligibility; archiving again starts a new countdown.
-         Content size excludes database/filesystem overhead.
+  stat [--weekly]                            # current totals and activity
+  gc [--dry-run] [--ttl 30d]                 # permanently remove expired archives
 
 Capture: --dir <prepared-directory> [--file <relative-path>]...
          --ref <git-ref> --file <relative-path>...
          --stdin-diff | --working | --staged | --commit <sha> | --diff <base>..<head>
-Diff text requires UTF-8. Git capture always includes changed submodule pointers.
-Publication summaries belong to versions. Artifacts have no overview field.
-Search: quote multiword queries; all words match as prefixes (up to 16 words / 256 characters).
-        Latest content by default; conversations retain their recorded version context.
-        HTML searches static entrypoint text without scripts. Text files over 4 MiB,
-        binary files, and invalid UTF-8 are excluded and counted. No delivery acknowledgment.
 Publication: --version-label L --summary S --key K --no-listen
-             --label remains a publication-only alias; do not supply both spellings.
+             (--label is an alias of --version-label; do not supply both)
 Create: --kind is required; --project ID --meta k=v (repeatable).
-        New IDs use artifact_<22 alphanumeric characters> with no timestamp or ordering.
-        Existing IDs remain valid; treat IDs as opaque and order by createdAt.
-HTML assets: publish companion files with the page. See r3 guide html for cached reads and images.
+Search: quote multiword queries; words match as prefixes (up to 16 words / 256 characters).
 
   thread add <id> [-m <message>] [--attach <image>]... [--key K] [target flags]
   thread edit <thread-id> [-m <message>] [--status open|resolved --human]
         [--attach <image>]... | [--clear-attachments]
   thread delete <thread-id>
   comment <thread-id> [-m <message>] [--attach <image>]... [--key K]
-        [target flags] [--frame <snapshot.png>]
+        [target flags] [--frame <snapshot.png>] [--expected N --expected-anchor R]
   comment fetch <artifact-id> [--all] [--threads <id,id>] [--attachments-dir <directory>]
-  comment show <comment-id> [--json]          # opening, follow-up, or archive Comment
+  comment show <comment-id>                  # opening, follow-up, or archive Comment
   comment edit <comment-id> [-m <message>] [--attach <image>]... | [--clear-attachments]
-  claim <thread-id>... | release <thread-id>...
   comment image <id> --image <image-id> [--output <file>] # bytes to stdout otherwise
-  thread source <thread-id> [--json]      # full captured ORIGINAL source/diff range
+  claim <thread-id>... | release <thread-id>...
+  thread source <thread-id>               # full captured ORIGINAL source/diff range
   thread reanchor <thread-id> [destination flags] [--expected-anchor N] [--key K]
   thread reanchor --artifact <id> --version N --input <json-file|-> [--key K]
   watch <id> [--timeout <seconds>]
-  listen <id>                                # establish an explicit subscription
-  unlisten <id>                              # end your subscriptions
+  listen <id> | unlisten <id>
   archive <id> [-m <archive-comment>] [--key K] | restore <id> [--key K]
-                                             # archive tells the listener the latest version
   project list | project create [--title T] [--remote URL] | project delete <id>
   project edit <id> [--title T] [--remote URL]
 
 Targets: --target <JSON> or --file <path> --version <seq> --view source|rendered|diff
          [--line <start-end> --quote <text>] [--side old|new]
-         source/diff quotes may be exact excerpts within the complete line range.
          rendered: --selector <CSS> [--quote <text>] [--route <query/hash>]
-         Shadow DOM: use --target JSON with locator.shadowHosts (see r3 guide html).
-         Media: --target JSON with kind media, versionSeq, path, locator {time, box},
-         plus --frame <snapshot.png|jpg>. time is seconds (null for images); box is
-         normalized {x,y,width,height}, default full frame. Snapshots stay immutable.
-         HTML fix links: set locator.label in --target JSON (see r3 guide html).
-         no target flags means general artifact threads.
-         Version descriptions are read-only metadata, not thread targets.
-Identity: Detected run IDs use codex:<id>, claude:<id>, or antigravity:<id>.
-          R3_AGENT_SESSION supplies an explicit complete identity override.
-          R3_AGENT_PID selects a live owning process for notification cleanup;
-          normally r3 detects the long-lived harness ancestor automatically.
-          Hidden or unrecognized owners remain untracked; sandbox helper exit
-          does not end the notification destination.
-          --session <name> sets a readable display name; it never changes identity.
-          --human acts as the human owner. watch needs no supplied identity.
-Comment fetch writes pending comments and thread status changes to stdout,
-acknowledges that snapshot only after output succeeds, then establishes an explicit
-subscription for the calling agent when supported.
-Subscription setup failure only warns on stderr. A failed acknowledgment can repeat
-output on retry; concurrent edits remain pending. --human skips subscription setup.
-Use ! r3 comment fetch <id> in your harness to load comments into its context.
---all reads history without acknowledgment or subscription setup.
+         media, shadow DOM and fix labels need --target JSON (r3 guide files, r3 guide html).
+         Re-anchor destinations omit --quote. No target flags means a general thread.
 Images: static PNG/JPEG, at most four per message, 5 MiB and 20 megapixels each.
-A message needs text or an image. Editing with --attach replaces all images;
-omitting it preserves them. --clear-attachments removes them (text must remain).
-Use the same --key to retry an unchanged add/comment after an uncertain response.
-Image references are numbered [image1], [image2], etc. within each message in
-fetch output. --attachments-dir downloads and
-verifies the snapshot's images before output and acknowledgment; failures leave
-comments pending. Existing matching files are reused; different files are not overwritten.
-Re-anchor destinations use target flags without --quote (or JSON without quote,
-prefix, suffix or frame). Original thread evidence is immutable. Source/diff
-matching evidence comes from retained destination bytes. Media needs --frame.
-Only the latest publication is writable; source/rendered/media/diff stay native.
-Bulk JSON is an array of {threadId, expectedAnchorRevision, target, mediaSnapshot?};
-1–100 distinct threads in one artifact commit together. Revision 0 means no move.
-The ordinary CLI reads the revision; --expected-anchor guards an earlier read.
-Latest-version comment --target requires a backend supporting thread anchors; an
-older backend is rejected before the reply is posted. It saves the Fix and
-re-anchors atomically; historical
-fixes stay pinned without moving the thread. --expected N --expected-anchor R pin
-targeted-comment retry guards. An uncertain write prints the original key/guards:
-retry unchanged content with those exact values, not freshly inferred ones.
-Text flags accept - to read stdin. Writes and versions/files/project print short lines;
---json prints the complete result as compact JSON.
+        A message needs text or an image. --attach replaces all images; omitting it
+        keeps them; --clear-attachments removes them.
+Identity: detected from the harness (codex:, claude:, antigravity:); R3_AGENT_SESSION
+          overrides it. --session <name> sets a display name. --human acts as the owner.
+Output: text flags accept - to read stdin. Writes and versions/files/project print short
+        lines; --json prints the complete result as compact JSON.
+Retries: reuse the same --key (and any printed guards) for an unchanged write after an
+         uncertain response.
 Backend: R3_URL > nearest project .r3.json backendUrl > user backendUrl > local.
-Use r3 login for remote browser approval, or pipe an API key to r3 login --api-key-stdin.
-The worker retries temporary connection/refresh failures, including rate limits.
-Rejected credentials require r3 login again.
-Create/publish return stable artifact URLs in text and --json output.
-A loopback-only server needs no login by default; requireLogin=true opts in.
-Protected local r3 open prints a one-use sign-in link valid for five minutes.
-Link tickets stay in memory and expire automatically. Opening one reuses a valid
-browser login; only a signed-out browser gets a new persisted login token and session.
-Normal inactivity and session expiry apply. No-login and selected backends use ordinary URLs.
-Browser links work in the current tab; local r3 open needs no saved CLI credentials.
-An external bind, publicUrl, allowedHosts, or trusted proxies always require login;
-requireLogin=false is refused.
-Without login the server refuses proxied requests and creates no login tokens or API
-keys. Remote backends always need r3 login. Host/origin and preview guards always apply. Automatic CLI setup uses a private Unix socket.
-Credentials are saved privately per backend; R3_TOKEN is not a client override.
-Upgrades discard legacy server-local notification subscriptions and destinations.
-Run r3 listen <id> to subscribe again; current worker subscriptions are preserved.
-Incompatible backend protocols fail before the operation, with the server URL,
-both versions, and recovery guidance. Compatible release mismatches warn on stderr.
-CLI newer: ask the user to confirm a local restart with the newer CLI, or an upgrade
-and restart on the remote server's machine. Server newer: upgrade or switch the CLI;
-do not restart the server using an older CLI. Agents must wait for explicit user
-confirmation before restarting. Server start/status also report mismatches.
 
   login [--api-key-stdin]
   auth create-key [--label L] [--expires-days N] | list-clients | revoke-client <id> | audit
@@ -171,48 +90,19 @@ confirmation before restarting. Server start/status also report mismatches.
   server start|stop|status|restart            # local storage and browser server
   worker start|stop|status|restart            # local notification delivery
   start | stop | status | restart            # deprecated aliases; use server <command>
-  guide [html|files|diff|page-utility]        # workflow and optional preparation guides
+  guide [html|files|diff|page-utility|operations]
 
-The top-level start/stop/status/restart aliases warn on stderr and will be removed
-in a future release. Use r3 server <command> to manage the local server.
-Server startup failures report the underlying error when available, local address,
-and discovery path. Missing XDG_RUNTIME_DIR uses the private Linux user runtime
-directory when available; legacy state-directory discovery remains supported.
-
-Worker startup warns on stderr when sandbox environment markers are detected.
-For reliable notifications, run r3 worker restart from a terminal outside the sandbox.
-Worker stop/restart recovers stale locks and unresponsive local workers. Reachable
-workers shut down through authenticated IPC, including across PID namespaces.
-
-Rendered previews automatically use the browser's r3 address (HTTPS or localhost).
-Configuration names:
-backendUrl, bind, port, publicUrl, allowedHosts, requireLogin, authTokenIdleDays,
-disableLoginNotice (true hides the browser's one-time no-login notice; default false),
-trustedProxies (comma-separated immediate proxy IP addresses),
-archiveTtlDays (1..36500; default 30),
-projectGrouping (remote|manual), projectMappings (JSON remote-URL to project-ID map).
-Login tokens expire after authTokenIdleDays of inactivity (default 14, positive
-integer). Successful login or cookie authentication refreshes last use; unused
-tokens age from creation. Inactivity is calculated when authenticating; startup
-removes inactive or revoked rows.
-Cookie-use timestamps are saved once per minute and at graceful shutdown.
-Environment overrides: R3_AUTH_TOKEN_IDLE_DAYS, R3_PROJECT_GROUPING, R3_DISABLE_LOGIN_NOTICE.
-Project settings take effect on the server after restart. An explicit project wins
-over remote inference; project mappings can group aliases under an existing ID.
-The CLI detects origin's fetch URL (then upstream or the sole remote), removes
-credentials, and sends it for project grouping. Ambiguous remotes stay ungrouped.
-Later versions retain their artifact's project; --project overrides creation.
+Server, worker, sign-in, configuration, version mismatch and cleanup details:
+r3 guide operations.
 `;
 
 export const ARTIFACT_GUIDE = `# r3 — publish artifacts and respond to threads
 
-r3 lets agents publish immutable versions of artifacts for humans to review and discuss. Each artifact has one discussion containing resolvable threads and authored comments. A reply is a comment in a thread; an archive comment belongs directly to the discussion. Run \`r3\` as a subprocess from your harness.
+r3 lets agents publish immutable versions of artifacts for humans to review and discuss. Each artifact has one discussion containing resolvable threads and authored comments. A reply is a comment in a thread; an archive comment belongs directly to the discussion. Run \`r3\` as a subprocess from your harness. Read this guide once per session.
 
 ## A typical review
 
 Prepare \`./prepared/plan.md\`. Use the returned artifact ID and the thread IDs from the human's submission; the IDs below are examples.
-
-New artifact IDs use \`artifact_<22 alphanumeric characters>\` generated by Nano ID, with no timestamp or ordering guarantee. Existing IDs remain valid; treat IDs as opaque and use \`createdAt\` for chronological ordering.
 
 \`\`\`sh
 r3 create --kind files --dir ./prepared --title 'Design review'
@@ -232,27 +122,11 @@ r3 comment thread_b -m 'Added the missing case.'
 r3 comment thread_c -m 'Corrected the example.'
 \`\`\`
 
-The backend keeps subscriptions across a temporary disconnect and displays delivery errors in the browser. The persistent worker reconnects without changing selection or submitting comments. A fresh \`r3 listen\` from the same or another agent replaces the explicit subscription. If \`listen\` exits **5**, its harness notification adapter is unavailable; use \`r3 watch "$artifact_id"\`, which waits without that adapter. Exit **10** already includes fetched, acknowledged comments on stdout: process it directly.
+Treat IDs as opaque. New artifact IDs are \`artifact_<22 alphanumeric characters>\` with no ordering; order by \`createdAt\`.
 
-Archive notifies the selected push listener of the latest published version and includes any archive message before committing. If delivery fails, an archive with a message leaves the artifact active for retry with the same --key and message. An archive without a message still completes. Committed retries do not notify again. Without a push listener, archive commits immediately.
+## Artifact kinds
 
-Archived artifacts remain readable. Content changes, comments, and subscriptions return a conflict until you restore the artifact. A comment still in preparation when archive commits is rejected; keep its text and restore before retrying.
-
-## Usage and cleanup
-
-Use \`r3 stat\` for current library totals and daily activity over 14 days, or
-\`r3 stat --weekly\` for four weeks. Both support \`--json\` and use the server timezone.
-Activity counts remain after deletion; pre-upgrade history is partial.
-\`r3 gc --dry-run\` previews archived artifacts past the TTL. \`r3 gc\` permanently removes
-them and their conversations without prompting. The default is 30 days since archive;
-\`--ttl 7d\` overrides one run. \`r3 config set archiveTtlDays 30\` changes the local
-server default after restart. Cleanup is manual; restore cancels eligibility.
-
-## Session and artifact kind
-
-r3 infers identity from the harness environment. Generic writing agents and subagents can supply a distinct, stable \`R3_AGENT_SESSION\`. Use \`--session <name>\` for a readable display name; names do not change identity. A generic \`watch\` needs no supplied ID.
-
-Read this guide once per session. Specify \`--kind html|files|diff\` at creation; load each needed preparation guide once per session, when that kind is first needed:
+Specify \`--kind html|files|diff\` at creation; the kind stays fixed. Read each preparation guide once per session, when that kind is first needed:
 
 | Kind | Review surface | Guide |
 | --- | --- | --- |
@@ -260,75 +134,47 @@ Read this guide once per session. Specify \`--kind html|files|diff\` at creation
 | \`files\` | A directory with a file browser | \`r3 guide files\` |
 | \`diff\` | An independent captured patch | \`r3 guide diff\` |
 
-For an HTML page where the human chooses from options and submits them back to you, also read \`r3 guide page-utility\`.
-
-## Server versions
-
-Local startup failures include the underlying error when available, local address, and discovery path. Check those diagnostics before retrying. A missing \`XDG_RUNTIME_DIR\` uses Linux's private user runtime directory when available; an explicit runtime override still selects a separate directory.
-
-Version mismatch warnings appear on stderr and do not by themselves mean the command failed. Use the command's exit code; do not repeat a successful publication because of a warning.
-
-If the CLI is newer, prompt the user to confirm restarting with the newer CLI when the server is running locally, or upgrading and restarting r3 on the server's machine when it is running on a remote host. Wait for explicit user confirmation before restarting. A configured backend URL is managed separately; a local \`r3 server restart\` does not restart a remote host.
-
-If the server is newer, prompt the user to upgrade or switch the CLI. Do not restart the newer server using an older CLI. After switching CLI versions, read its guide again. Unknown development versions do not establish an upgrade direction; inspect and align the builds. An incompatible or missing protocol stops the operation with exit 1 before writes; align the builds before retrying.
+For an HTML page where the human chooses from options and submits them back to you, also read \`r3 guide page-utility\`. Read \`r3 guide operations\` only when the server, worker, sign-in, notifications, versions or cleanup need attention.
 
 ## Publish
 
-\`r3 create --kind <kind> <capture flags> [--title T]\` publishes version 1. The preparation guide supplies capture flags. \`--kind\` is required; the kind stays fixed. Share the returned URL.
+\`r3 create --kind <kind> <capture flags> [--title T]\` publishes version 1 and prints its stable URL. Share that URL; the human may read your reply later. The preparation guide supplies capture flags.
 
-Share the stable URL returned by create/publish. A loopback-only local server opens it without sign-in by default; servers with login enabled need a signed-in browser. For immediate local sign-in, the human can run \`r3 open <id>\`: its one-use link lasts five minutes and preserves an existing browser login. Only a signed-out browser gets a new persisted login token and session, under the normal expiry policy. The link ticket stays in memory and expires automatically. Agents should share the stable publication URL, since the human may read their reply later.
+\`r3 publish <id> <capture flags> [--expected <seq>] [--key K]\` adds a version containing the complete file set or independent patch. Build before capture. \`--expected\` checks the latest published sequence, not which version you revised; if omitted, r3 reads it. On conflict, inspect the newer publication. For a lost-response retry, preserve captured bytes, expected sequence, key, and metadata.
 
-\`r3 publish <id> <capture flags> [--expected <seq>] [--key K]\` adds a version containing the complete file set or independent patch. Prepare builds before capture. \`--expected\` checks the latest published sequence, not which version you revised; if omitted, r3 reads the latest sequence. On conflict, inspect the newer publication. For a lost-response retry, preserve captured bytes, expected sequence, key, and metadata.
+\`--version-label\` names a version and \`--summary\` describes it; artifacts have no overview field. \`--project\` overrides the project inferred from the Git remote.
 
-Search retained work with \`r3 search "keyboard focus" --history all --json\`. Matches carry explicit publication, document/line or rendered-text evidence, and thread/comment identity. Use \`--type conversation\` for messages or \`--attention\` for active artifacts awaiting human review. Search never acknowledges comments or claims work.
-
-Optional \`--version-label\` names the published version; \`--summary\` describes it. The CLI detects the Git remote for server-configured project grouping. Explicit \`--project\` overrides inference; details and artifact metadata flags are in \`r3 --help\`.
+Warnings on stderr, such as a version mismatch, do not mean the command failed. Use the exit code, and never repeat a successful publication because of a warning. An incompatible protocol exits 1 before any write. Never restart a server without the user's explicit confirmation; \`r3 guide operations\` explains what to ask.
 
 ## Receive comments
 
-Upgrades discard legacy server-local notification subscriptions and destinations. Run \`r3 listen <id>\` to subscribe again. Current worker subscriptions remain intact.
+Publishing from Claude Code, Codex, or Antigravity subscribes your session through a local worker. If setup fails, publication still succeeds with a warning; run \`r3 listen <id>\`. \`listen\` replaces any earlier subscription; \`r3 unlisten <id>\` ends yours. While subscribed, a pending review never blocks you: do not poll, watch, or announce that you are waiting. Continue other work or end your turn; a notification arrives in your session and tells you to fetch.
 
-Claude Code, Codex, and Antigravity publications establish the publisher fallback through a persistent local worker and the selected backend. A newer publisher replaces that fallback when it registers a listener. An unsupported publisher or \`--no-listen\` keeps the existing fallback. Publication stays successful if subscription setup fails, with a warning. Subscription setup and restart do not send pending comments.
+\`r3 comment fetch <id>\` prints pending comments and status changes with their context, then acknowledges that snapshot and subscribes the calling agent when its harness supports it. Failed reads or output leave comments pending. If acknowledgment fails, the command fails: fetch again, and expect repeated output. \`--all\` reads history without acknowledgment or subscription; \`--threads <id,id>\` selects threads, including resolved ones. \`r3 show <id>\` prints the whole discussion.
 
-The worker inherits the permissions of the CLI that starts it. On new worker startup, recognized sandbox environment markers produce a warning on stderr: notifications may fail even when the command succeeds. Detection is best effort; reusing a running worker stays quiet. If the worker was started inside a sandbox, run \`r3 worker restart\` from a terminal outside it. Stop/restart uses authenticated IPC across PID namespaces and recovers stale locks or unresponsive workers after checking local process identity.
+If \`listen\` exits 5, the harness has no notification adapter: use \`r3 watch <id> [--timeout <seconds>]\`. Exit 10 means comments were printed and acknowledged; process them. 0 means archived, 2 timeout, and 4 superseded or changed before acknowledgment (fetch again). Handle these exits explicitly, including under \`set -e\`.
 
-\`r3 listen <id>\` explicitly takes priority over the fallback. \`r3 unlisten <id>\` ends your subscriptions; a later publication can establish a new fallback. The backend persists subscriptions; the worker saves local destinations and opens no TCP port. Exit 0 confirms subscription setup, not session liveness; unsupported adapters require watch or polling. Delivery failures retain the selected subscription and remain visible to the human. There is no automatic resend to the fallback. Codex success means queued. A notification tells you to fetch comments. While subscribed, a pending review never blocks you: do not poll, watch, or announce that you are waiting. Continue other work or end your turn; the notification arrives in your session.
+When no agent is listening, the human may copy \`! r3 comment fetch <id>\` from the workspace into your harness. Process output already returned by watch or such a command instead of fetching again.
 
-Each backend/session destination has its own private file under \`$XDG_STATE_HOME/r3/worker-targets/\` (default \`~/.local/state/r3/worker-targets/\`). The worker records the owning harness PID and process identity. Automatic discovery checks both process and command names for all supported harnesses, skipping temporary sandbox helpers. If isolation hides the real agent, the destination remains untracked and usable after the tool call exits. Set \`R3_AGENT_PID\` to a live same-user agent process when a custom launcher hides the harness ancestry. Startup and normal worker operations clean up exited agents, with sweeps throttled to once a minute and an immediate check before delivery; there is no cleanup timer. This removes local notification credentials, including tracked Codex destinations. Resume with a fresh \`r3 listen <id>\`. Unknown/inaccessible processes and older records without a PID are preserved. Backend session attribution and conversations remain intact.
+Archive notifies the listener of the latest version and any archive message, then ends all subscriptions. If delivery fails, an archive with a message stays active for retry with the same \`--key\` and message. Archived artifacts stay readable; content changes, comments and subscriptions conflict until \`r3 restore <id>\`, after which you need a fresh \`r3 listen\`.
 
-Antigravity uses \`agy agentapi send-message\` through its running local backend. Run r3 from Antigravity's agent command environment so it can capture the conversation ID, loopback address, messaging token, and source attribution. These details stay in the private local worker. Success means queued, not that the model has processed the message. Keep the Antigravity session running; after restarting it, run \`r3 listen <id>\` again. A missing connection or unsupported executable makes explicit listen exit 5; use watch or polling instead.
-
-Local and remote modes share the same backend contract. The CLI reads and writes directly to the selected backend; the worker receives notifications through an outgoing connection and delivers them locally. Disconnect retains backend subscriptions and marks the selected subscription unavailable. The same worker and authorizing credential reconnect without changing selection; a newer explicit subscription is never displaced. Failed notifications are not queued for automatic resend. Replacement, unlisten, archive, and deletion end subscriptions permanently; restore requires a fresh subscription. \`r3 listen --foreground\` remains accepted for compatibility; listening uses the persistent worker.
-
-\`r3 watch <id> [--timeout <seconds>]\` works with any harness that can run the CLI, without supplying a session ID. It takes priority over a fallback until its request ends. Exit 10 confirms comments were written to stdout and its snapshot acknowledged; 0 means archived, 2 means timeout, and 4 means another subscription superseded the request or the comment snapshot changed before acknowledgment. On a snapshot conflict, fetch again. Handle expected nonzero exits explicitly, including under \`set -e\`. Treat other failures as errors. An artifact can retain fallback and explicit subscriptions with one selected subscription.
-
-\`r3 comment fetch <id> [--all] [--threads <id,id>]\` reads pending comments and thread status changes with their conversation context, writes them to stdout, then explicitly acknowledges that snapshot. Failed reads or output leave comments pending. If acknowledgment fails or concurrent edits conflict, the command fails: fetch again, allowing repeated output. A successful acknowledgment records comment delivery, not proof that a model processed the output.
-
-After acknowledgment, fetch establishes an explicit subscription for the calling agent when its harness supports listening, using the local worker and a direct backend request. Subscription setup failure only warns on stderr; the fetched data stays on stdout and the command succeeds. Unsupported agents can fetch without an identity. \`--human\` skips subscription setup. \`--all\` reads open history without acknowledgment or subscription setup; add \`--threads <id,id>\` to read specific threads, including resolved ones. \`r3 show <id>\` includes all open/resolved history.
-
-When no agent is listening, the web UI's **Use in agent** button shows a copyable fetch command. Run \`! r3 comment fetch <id>\` in your harness to feed its output into context. Copying the command leaves comments pending until it runs. Use the existing payload when comments were returned by watch or a harness command.
+\`r3 search "keyboard focus" --history all --json\` finds retained content and conversations, with publication, line or rendered-text evidence and thread/comment IDs. Use \`--type conversation\` for messages or \`--attention\` for active artifacts awaiting review. HTML search covers static entrypoint text; binary, invalid UTF-8 and text files over 4 MiB are excluded and counted. Search never acknowledges or claims.
 
 ## Handle threads
 
-\`r3 claim <thread-id>...\` accepts multiple IDs, as shown above. Claims are renewable 60-minute leases; another live holder conflicts. Use \`r3 release <thread-id>...\` when abandoning work. A resolved-status notification needs no action.
+\`r3 claim <thread-id>...\` takes renewable 60-minute leases; another live holder conflicts. \`r3 release <thread-id>...\` abandons work. A resolved-status notification needs no action.
 
-Comments may include images. Labels such as \`[image1]\` refer to the numbered attachment in that same note or comment. Download them with the supplied \`r3 comment image\` command and open them with your harness's image-viewing tool before responding. A text reference does not load pixels into the model. Alternatively, \`r3 comment fetch <id> --attachments-dir ./comment-images\` downloads and verifies all images in the snapshot before acknowledging it. Capture context describes observed pixels; it does not establish a selector or source line. Use repeatable \`--attach <image>\` on threads and comments to provide visual evidence.
+Each thread heading in fetch output names the original version, view, path, and line range or media time. \`Locator:\` adds the selector, quote or region; \`Moved to\` shows the current anchor. Inspect targets in their recorded version and view. Rendered selectors, quotes and routes describe the published page, not source lines. Reuse local source when revising your own publication. Source and diff quotes may be excerpts; \`r3 thread source <thread-id>\` prints every captured line (\`--json\` adds range metadata). Version summaries are not thread targets.
 
-Inspect original targets in their recorded version and representation. Rendered selectors, quotes, routes, and viewports describe the published page, not source lines. Reuse matching local source when revising your own publication; retrieve published content only when needed, such as an older version or another agent's work. Inspection/download commands are in \`r3 --help\`.
+Labels such as \`[image1]\` refer to that message's numbered attachments. Download them with the \`r3 comment image\` command shown at the end of the fetch output, or pass \`--attachments-dir <dir>\` to fetch, which verifies every image before acknowledging and never overwrites a different file. Open images with your harness's image tool; the text alone does not load pixels. Capture details describe observed pixels, not a selector or source line. Use repeatable \`--attach <image>\` to supply visual evidence.
 
-Source/diff quotes may be shortened excerpts; the recorded start/end lines retain the full selection. \`r3 thread source <thread-id>\` retrieves every captured line in that original version, file, and diff side, with line numbers. Add \`--json\` for range metadata and text. This read does not acknowledge comments, claim a thread, or establish a subscription. Rendered, general, and whole-file targets have no captured line range and return an error.
+Publish changed content, then reply to each thread separately with \`r3 comment <thread-id> -m <message>\`. Add \`--target\` whenever you can verify the published fix location, and never guess one. The JSON has \`kind\`, \`versionSeq\`, \`path\` and \`locator\`: source uses \`start\`, \`end\` and an exact \`quote\`; diff adds \`side\`; rendered uses a verified \`selector\` with optional \`quote\`, \`route\` and \`label\`; a null locator means the whole file. Media targets are in \`r3 guide files\`; shadow DOM and fix labels are in \`r3 guide html\`. Without \`--target\`, a reply refers to the thread's target. A latest-version fix target also moves the thread's anchor atomically; an older-version target records only that reply's Fix. If another publication or anchor update races, neither the comment nor the move commits.
 
-Publish changed content, then \`r3 comment <thread-id> -m <message>\`. Comment separately to each thread. References use the comment's own target when present, otherwise the thread's original target. General threads without a version stay unbound. Include \`--target\` whenever a published fix location can be verified. Supply JSON with \`kind\`, \`versionSeq\`, \`path\`, and \`locator\`, as above. Source locators use \`start\`, \`end\`, and exact \`quote\`; diff adds \`side\`; rendered uses a verified \`selector\` with optional quote/route. These targets use a null locator for the whole file. Media targets always retain a frame and one bounding box, defaulting to the full frame; see \`r3 guide files\` for \`--frame\` and timestamp details. The fix target also supplies the version/view for inline references. Omit it when no published location applies; never guess one. Original targets and quotes remain immutable. A latest-version fix target also updates the thread’s current anchor atomically; an older-version target records only that reply’s Fix. If another publication or anchor update races the intended move, neither the comment nor the move commits.
+After each publication, re-anchor every open thread whose location you can verify in the latest version; leave uncertain ones unchanged. Either reply with a fix target, or move without replying: \`r3 thread reanchor <thread-id> --version N --file <path> --view source --line <start-end>\`. Destinations take coordinates, never a quote; rendered uses \`--selector\` and media uses \`--target\` plus \`--frame\`. Matching evidence comes from the retained published bytes, and original evidence never changes. Only the latest publication accepts moves; resolved threads can move, archived artifacts must be restored first.
 
-For a fix inside shadow DOM, retain or update \`locator.shadowHosts\` as well as the inner \`selector\`; verify them against the new published version. Run \`r3 guide html\` for a complete fix-comment example and optional parent fallback evidence. Context shown by Locate, whether the element or a parent, is not proof that the original quote or fix was found.
+For bulk moves, \`r3 thread reanchor --artifact <id> --version N --input ./anchors.json\` commits an array of 1–100 \`{threadId, expectedAnchorRevision, target, mediaSnapshot?}\` entries atomically. Revision 0 means never moved. Single-thread commands read the revision; \`--expected-anchor\` guards an earlier read. After an uncertain write, retry with the exact printed key and guards; a replay does not move the thread again.
 
-After each publication, check all open threads and re-anchor every thread with a verified location in the latest published version. Keep uncertain locations unchanged; never guess a match. Use a targeted reply when explaining a fix, or \`r3 thread reanchor <thread-id> --version N --file <path> --view source --line <start-end>\` to move without replying. This command accepts coordinates, never a replacement quote; rendered destinations use \`--selector\`, and media uses \`--target\` plus \`--frame\`. Resolved threads can be moved explicitly; archived artifacts must first be restored.
-
-For bulk maintenance, use \`r3 thread reanchor --artifact <id> --version N --input ./anchors.json\`. The JSON array contains \`{threadId, expectedAnchorRevision, target, mediaSnapshot?}\` entries from the latest read. The batch is atomic. Single-thread commands obtain the revision automatically; \`--expected-anchor\` can protect an earlier read. On an uncertain write, retain its exact request, key and printed guards for retry. A successful replay does not move the thread again.
-
-The primary thread link has no version label. Clicking it tries the saved anchor in the latest publication without writing a move. If there is no unique match, it returns to the saved location. The original-position button and individual Fix links stay pinned. Explicit re-anchoring keeps navigation useful when content or paths have changed beyond exact matching.
-
-Successful comments release only your own claims. Publishing and commenting never resolve threads; the human controls status. Complete the requested work, comment, and keep listening when requested. Archive ends the waiting loop and all subscriptions; restore requires a fresh subscription.`;
+Successful comments release only your own claims. Publishing and commenting never resolve threads; the human controls status. Complete the requested work, comment, and keep listening when requested.`;
 
 const HTML_GUIDE = `# HTML artifacts
 
@@ -664,10 +510,68 @@ The plain \`c\` key toggles comment mode from inside the page unless focus is in
 
 Tell the human that the page sends their choices to you when they press its button. Then follow the main guide: the notification arrives in your session, \`r3 comment fetch <id>\` returns each choice as a thread with its target, and you reply to those threads after acting on them.`;
 
+const OPERATIONS_GUIDE = `# Operations
+
+Read this when the server, worker, sign-in, notifications, versions, or cleanup need attention; the main \`r3 guide\` covers publishing and threads.
+
+## Server versions
+
+Incompatible backend protocols fail with exit 1 before the operation, with the server URL, both versions, and recovery guidance. Compatible release mismatches warn on stderr; \`r3 server start\` and \`status\` report them too. Wait for the user's explicit confirmation before restarting anything.
+
+If the CLI is newer, ask the user to confirm restarting with the newer CLI when the server runs locally, or upgrading and restarting r3 on the server's machine when it is remote. A configured backend URL is managed separately; a local \`r3 server restart\` does not restart a remote host. If the server is newer, ask the user to upgrade or switch the CLI, and never restart the newer server with an older CLI. After switching CLI versions, read its guide again. Unknown development versions do not establish an upgrade direction; inspect and align the builds.
+
+A latest-version \`comment --target\` needs a backend that supports thread anchors; an older backend is rejected before the reply is posted.
+
+## Local server
+
+\`r3 server start|stop|status|restart\` manages the local storage and browser server. The top-level \`start\`, \`stop\`, \`status\` and \`restart\` aliases warn on stderr and will be removed. Startup failures report the underlying error when available, the local address, and the discovery path; check them before retrying. A missing \`XDG_RUNTIME_DIR\` uses Linux's private user runtime directory when available; legacy state-directory discovery remains supported. Automatic CLI setup uses a private Unix socket. Rendered previews use the browser's r3 address (HTTPS or localhost).
+
+## Identity
+
+r3 infers identity from the harness: \`codex:<id>\`, \`claude:<id>\`, or \`antigravity:<id>\`. Generic writing agents and subagents can supply a distinct, stable \`R3_AGENT_SESSION\`, which overrides detection completely. \`--session <name>\` sets a readable display name and never changes identity. \`--human\` acts as the human owner. \`watch\` needs no supplied identity.
+
+## Notification delivery
+
+A persistent local worker receives notifications from the selected backend through an outgoing connection and delivers them to your harness; it opens no TCP port. Local and remote modes share the same backend contract. Each artifact can keep a publisher fallback and explicit subscriptions with one selected subscription. A newer publisher replaces the fallback when it registers; an unsupported publisher or \`--no-listen\` keeps the existing one. \`listen\` and \`watch\` take priority over the fallback, and a fresh \`listen\` from any agent replaces the explicit subscription. Subscription setup and restart never send pending comments. \`r3 listen --foreground\` remains accepted for compatibility.
+
+Exit 0 from \`listen\` confirms setup, not session liveness. Codex and Antigravity success means queued, not processed. Delivery failures keep the selected subscription and are visible to the human in the browser; failed notifications are not resent automatically. Disconnects keep backend subscriptions and mark the selected one unavailable; the same worker and credential reconnect without changing selection, and a newer explicit subscription is never displaced. Replacement, unlisten, archive and deletion end subscriptions permanently. Upgrades discard legacy server-local subscriptions and destinations; run \`r3 listen <id>\` again. Current worker subscriptions are preserved.
+
+The worker inherits the permissions of the CLI that starts it. New worker startup warns on stderr when it detects sandbox environment markers, since notifications may then fail even when commands succeed. Detection is best effort; reusing a running worker stays quiet. If the worker started inside a sandbox, run \`r3 worker restart\` from a terminal outside it. Stop and restart use authenticated IPC across PID namespaces and recover stale locks or unresponsive workers after checking local process identity.
+
+Each backend/session destination has a private file under \`$XDG_STATE_HOME/r3/worker-targets/\` (default \`~/.local/state/r3/worker-targets/\`). The worker records the owning harness process, detecting the long-lived harness ancestor by process and command name and skipping temporary sandbox helpers. Set \`R3_AGENT_PID\` to a live same-user agent process when a custom launcher hides the harness. Hidden or unrecognized owners stay untracked and usable after the tool call exits. Startup and normal worker operations remove destinations of exited agents, throttled to once a minute plus a check before delivery; there is no cleanup timer. This removes local notification credentials; resume with a fresh \`r3 listen <id>\`. Unknown or inaccessible processes and older records without a PID are preserved. Backend session attribution and conversations remain intact.
+
+Antigravity delivery uses \`agy agentapi send-message\` through its running local backend. Run r3 from Antigravity's agent command environment so it can capture the conversation ID, loopback address, messaging token, and source attribution; these stay in the private local worker. Keep the Antigravity session running; after restarting it, run \`r3 listen <id>\` again. A missing connection or unsupported executable makes \`listen\` exit 5.
+
+## Sign-in and credentials
+
+Backend selection: \`R3_URL\` > nearest project \`.r3.json\` \`backendUrl\` > user \`backendUrl\` > local. Remote backends always need \`r3 login\` (browser approval), or an API key piped to \`r3 login --api-key-stdin\`. Credentials are saved privately per backend; \`R3_TOKEN\` is not a client override. The worker retries temporary connection and refresh failures, including rate limits; rejected credentials require \`r3 login\` again.
+
+A loopback-only local server needs no login by default; \`requireLogin=true\` opts in. An external bind, \`publicUrl\`, \`allowedHosts\`, or trusted proxies always require login, and \`requireLogin=false\` is refused. Without login the server refuses proxied requests and creates no login tokens or API keys. Host/origin and preview guards always apply.
+
+On a protected local server, \`r3 open <id>\` prints a one-use sign-in link valid for five minutes; it needs no saved CLI credentials. Link tickets stay in memory. Opening one reuses a valid browser login; only a signed-out browser gets a new persisted login token and session, under normal expiry. No-login and selected backends use ordinary URLs. Agents should share the stable publication URL instead.
+
+Login tokens expire after \`authTokenIdleDays\` of inactivity (default 14). Successful login or cookie authentication refreshes last use; unused tokens age from creation. Inactivity is checked when authenticating, startup removes inactive or revoked rows, and cookie-use timestamps are saved once per minute and at graceful shutdown. \`r3 auth\` manages API keys, clients, login tokens and the audit log.
+
+## Configuration
+
+\`r3 config show|get|set|unset\` edits the local config, even when \`R3_URL\` selects a remote backend. Settings take effect after a server restart. Names: \`backendUrl\`, \`bind\`, \`port\`, \`publicUrl\`, \`allowedHosts\`, \`requireLogin\`, \`authTokenIdleDays\` (positive integer), \`disableLoginNotice\` (true hides the browser's one-time no-login notice), \`trustedProxies\` (comma-separated immediate proxy IP addresses), \`archiveTtlDays\` (1..36500; default 30), \`projectGrouping\` (\`remote\`|\`manual\`), and \`projectMappings\` (JSON remote-URL to project-ID map). Environment overrides: \`R3_AUTH_TOKEN_IDLE_DAYS\`, \`R3_PROJECT_GROUPING\`, \`R3_DISABLE_LOGIN_NOTICE\`.
+
+The CLI detects origin's fetch URL (then upstream or the sole remote), removes credentials, and sends it for project grouping; ambiguous remotes stay ungrouped. An explicit project wins over remote inference, mappings can group aliases under an existing ID, and later versions keep their artifact's project.
+
+## Usage and cleanup
+
+\`r3 stat\` shows current library totals and daily activity for the last 14 calendar days; \`--weekly\` shows the last four Monday-start weeks. Both use the server timezone and include the current partial period. Activity counts survive artifact deletion; pre-upgrade history covers surviving records only. Content size excludes database and filesystem overhead.
+
+Cleanup is manual. \`r3 gc --dry-run\` previews archived artifacts past the TTL; \`r3 gc\` permanently removes them and their conversations without prompting, keeps shared content still in use, and reports failures with exit 1. The default TTL is 30 elapsed days since the latest archive; \`--ttl 1d..36500d\` overrides one run and \`r3 config set archiveTtlDays\` the default. Restore cancels eligibility; archiving again starts a new countdown. \`stat\` and \`gc\` support \`--json\`.
+
+## Workspace links
+
+A thread's primary link has no version label: it tries the saved anchor in the latest publication without writing a move, and returns to the saved location when there is no unique match. The original-position button and individual Fix links stay pinned. Explicit re-anchoring keeps navigation useful when content or paths change beyond exact matching.`;
+
 export function artifactGuide(args: string[]): string {
   if (args.length > 1)
     throw new ArtifactCommandError(
-      "guide expects at most one topic: html, files, diff, or page-utility",
+      "guide expects at most one topic: html, files, diff, page-utility, or operations",
     );
   switch (args[0]) {
     case undefined:
@@ -680,9 +584,11 @@ export function artifactGuide(args: string[]): string {
       return DIFF_GUIDE;
     case "page-utility":
       return PAGE_UTILITY_GUIDE;
+    case "operations":
+      return OPERATIONS_GUIDE;
     default:
       throw new ArtifactCommandError(
-        "Unknown guide topic. Choose html, files, diff, or page-utility, or run r3 guide for the workflow.",
+        "Unknown guide topic. Choose html, files, diff, page-utility, or operations, or run r3 guide for the workflow.",
       );
   }
 }

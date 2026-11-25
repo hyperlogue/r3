@@ -99,6 +99,7 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
       [["files"], "# Files artifacts"],
       [["diff"], "# Diff artifacts"],
       [["page-utility"], "# Page utility"],
+      [["operations"], "# Operations"],
     ] as const) {
       const guide = await run("guide", ...args);
       expect(guide.code).toBe(0);
