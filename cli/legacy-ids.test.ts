@@ -141,7 +141,9 @@ test("migrated legacy IDs support the same HTTP and CLI operations as new IDs", 
             const shown = JSON.parse((await command("comment", ["show", id, "--json"])).toString());
             expect(shown).toMatchObject({ id, threadId });
             const edited = JSON.parse(
-              (await command("comment", ["edit", id, "--human", "-m", `Edited ${id}`])).toString(),
+              (
+                await command("comment", ["edit", id, "--human", "--json", "-m", `Edited ${id}`])
+              ).toString(),
             );
             expect(edited).toMatchObject({ id, threadId, body: `Edited ${id}` });
           }
@@ -157,7 +159,7 @@ test("migrated legacy IDs support the same HTTP and CLI operations as new IDs", 
           await command("claim", [threadId]);
           expect(storage.conversations.get(threadId).claim?.threadId).toBe(threadId);
           const added = JSON.parse(
-            (await command("comment", [threadId, "-m", "Agent follow-up"])).toString(),
+            (await command("comment", [threadId, "--json", "-m", "Agent follow-up"])).toString(),
           );
           expect(added.threadId).toBe(threadId);
           expect(added.id).toMatch(/^comment_[a-f0-9]{32}$/);
@@ -173,7 +175,9 @@ test("migrated legacy IDs support the same HTTP and CLI operations as new IDs", 
           new Set(legacy.map(([id]) => id)),
         );
         const current = JSON.parse(
-          (await command("thread", ["add", artifactId, "-m", "New topic", "--human"])).toString(),
+          (
+            await command("thread", ["add", artifactId, "-m", "New topic", "--human", "--json"])
+          ).toString(),
         );
         expect(current.id).toMatch(/^thread_[a-f0-9]{32}$/);
         expect(current.comments[0].id).toBe(`comment_${current.id}`);

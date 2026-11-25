@@ -11,8 +11,12 @@ import type { ArtifactSearchResponse } from "../shared/artifact-search.ts";
 import type {
   Artifact,
   ArtifactActor,
+  ArtifactClaim,
   ArtifactComment,
   ArtifactDetail,
+  ArtifactFile,
+  ArtifactLifecycleResponse,
+  ArtifactProject,
   ArtifactSource,
   ArtifactSourceRange,
   ArtifactTarget,
@@ -214,7 +218,12 @@ export async function runArtifactCommand(
     );
   const { client } = ctx;
   const print = (value: unknown) =>
-    ctx.write(`${typeof value === "string" ? value : JSON.stringify(value, null, 2)}\n`);
+    ctx.write(`${typeof value === "string" ? value : JSON.stringify(value)}\n`);
+  // Writes confirm with one line; --json returns the complete server object.
+  const report = async <T>(value: T, line: (value: T) => string) => {
+    await print(args.has("json") ? value : line(value));
+    return value;
+  };
   let stdinRead = false;
   const text = async (name: string) => {
     const value = args.value(name);
@@ -373,15 +382,36 @@ export async function runArtifactCommand(
       return 0;
     }
     case "versions":
-      await print(await client.json("GET", `${artifactApiPath(args.id())}/versions`));
+      await report(
+        await client.json<ArtifactVersion[]>("GET", `${artifactApiPath(args.id())}/versions`),
+        (versions) =>
+          versions
+            .map(
+              (version) =>
+                `v${version.seq}${version.label ? ` · ${version.label}` : ""} · ${version.publishedAt}${version.summary ? `\n  ${version.summary}` : ""}`,
+            )
+            .join("\n"),
+      );
       return 0;
     case "files":
-      await print(
-        await client.json("GET", `${artifactApiPath(args.id())}/versions/${args.sequence()}/files`),
+      await report(
+        await client.json<ArtifactFile[]>(
+          "GET",
+          `${artifactApiPath(args.id())}/versions/${args.sequence()}/files`,
+        ),
+        (files) =>
+          files.map((file) => `${file.path}\t${file.mediaType}\t${file.byteLength}`).join("\n"),
       );
       return 0;
     case "thread reanchor": {
-      await print(await reanchorCommand(args, ctx, await actor()));
+      await report(await reanchorCommand(args, ctx, await actor()), (result) =>
+        result.results
+          .map(
+            (item) =>
+              `${item.threadId} anchor revision ${item.revision}${item.changed ? "" : " (unchanged)"}`,
+          )
+          .join("\n"),
+      );
       return 0;
     }
     case "thread source": {
@@ -427,24 +457,28 @@ export async function runArtifactCommand(
       return 0;
     }
     case "edit": {
-      await print(
-        await client.json("PATCH", artifactApiPath(args.id()), {
+      await report(
+        await client.json<Artifact>("PATCH", artifactApiPath(args.id()), {
           title: await text("title"),
           meta: args.has("meta") ? args.metadata() : undefined,
         }),
+        (artifact) => `Updated ${artifact.id} · ${artifact.title ?? "Untitled"}`,
       );
       return 0;
     }
     case "delete":
-      await print(await client.json("DELETE", artifactApiPath(args.id())));
+      await report(
+        await client.json("DELETE", artifactApiPath(args.id())),
+        () => `Deleted ${args.id()}`,
+      );
       return 0;
     case "thread": {
       const [operation, id] = args.positional;
       if (!id) throw new ArtifactCommandError("thread add|edit|delete <id>");
       const author = await actor();
       if (operation === "add")
-        await print(
-          await client.json("POST", `${artifactApiPath(id)}/threads`, {
+        await report(
+          await client.json<ArtifactThread>("POST", `${artifactApiPath(id)}/threads`, {
             actor: author,
             body: await message(),
             target: commandTarget(args),
@@ -454,10 +488,11 @@ export async function runArtifactCommand(
               : {}),
             operationKey: args.value("key"),
           }),
+          (thread) => `${thread.id} · ${artifactThreadTargetLabel(thread)}`,
         );
       else if (operation === "edit")
-        await print(
-          await client.json("PATCH", threadApiPath(id), {
+        await report(
+          await client.json<ArtifactThread>("PATCH", threadApiPath(id), {
             actor: author,
             body: await text("message"),
             status: args.value("status"),
@@ -467,9 +502,13 @@ export async function runArtifactCommand(
                 ? { attachments: await readAttachmentFiles(args.values("attach"), ctx.cwd) }
                 : {}),
           }),
+          (thread) => `Updated ${thread.id} [${thread.status}]`,
         );
       else if (operation === "delete")
-        await print(await client.json("DELETE", threadApiPath(id), { actor: author }));
+        await report(
+          await client.json("DELETE", threadApiPath(id), { actor: author }),
+          () => `Deleted ${id}`,
+        );
       else throw new ArtifactCommandError("thread add|edit|delete <id>");
       return 0;
     }
@@ -482,16 +521,21 @@ export async function runArtifactCommand(
       return 0;
     }
     case "comment edit": {
-      await print(
-        await client.json("PATCH", `/api/comments/${encodeURIComponent(args.id())}`, {
-          actor: await actor(),
-          body: await text("message"),
-          attachments: args.has("clear-attachments")
-            ? []
-            : args.has("attach")
-              ? await readAttachmentFiles(args.values("attach"), ctx.cwd)
-              : undefined,
-        }),
+      await report(
+        await client.json<ArtifactComment>(
+          "PATCH",
+          `/api/comments/${encodeURIComponent(args.id())}`,
+          {
+            actor: await actor(),
+            body: await text("message"),
+            attachments: args.has("clear-attachments")
+              ? []
+              : args.has("attach")
+                ? await readAttachmentFiles(args.values("attach"), ctx.cwd)
+                : undefined,
+          },
+        ),
+        (comment) => `Updated ${comment.id}`,
       );
       return 0;
     }
@@ -535,7 +579,11 @@ export async function runArtifactCommand(
       } else if (args.has("expected") || args.has("expected-anchor"))
         throw new ArtifactCommandError("Re-anchor guards require a document fix target");
       try {
-        await print(await client.json("POST", `${threadApiPath(args.id())}/comments`, input));
+        await report(
+          await client.json<ArtifactComment>("POST", `${threadApiPath(args.id())}/comments`, input),
+          (comment) =>
+            `${comment.id} on ${comment.threadId}${input.reanchor ? " · thread re-anchored" : ""}`,
+        );
       } catch (error) {
         if (
           input.reanchor &&
@@ -559,11 +607,16 @@ export async function runArtifactCommand(
       if (author.role !== "agent")
         throw new ArtifactCommandError("Claims require an agent session");
       args.id();
-      await print(
-        await client.json(command === "claim" ? "POST" : "DELETE", "/api/claims", {
-          sessionId: author.sessionId,
-          threadIds: args.positional,
-        }),
+      await report(
+        await client.json<ArtifactClaim[] | { ok: true }>(
+          command === "claim" ? "POST" : "DELETE",
+          "/api/claims",
+          { sessionId: author.sessionId, threadIds: args.positional },
+        ),
+        (result) =>
+          Array.isArray(result)
+            ? `Claimed ${result.map((claim) => claim.threadId).join(", ")} until ${result[0]?.expiresAt}`
+            : `Released ${args.positional.join(", ")}`,
       );
       return 0;
     }
@@ -658,22 +711,31 @@ export async function runArtifactCommand(
       return ctx.listen(args.id(), await actor(), args.has("foreground"));
     }
     case "unlisten": {
-      await print(
+      await report(
         await client.json("DELETE", `${artifactApiPath(args.id())}/listen`, {
           actor: await actor(),
         }),
+        () => `Stopped listening to ${args.id()}`,
       );
       return 0;
     }
     case "archive":
     case "restore": {
-      const result = await client.json("POST", `${artifactApiPath(args.id())}/lifecycle`, {
-        actor: await actor(),
-        event: command === "archive" ? "archived" : "restored",
-        operationKey: args.value("key") ?? randomUUID(),
-        comment: { body: await text("message") },
-      });
-      await print(result);
+      const result = await client.json<ArtifactLifecycleResponse>(
+        "POST",
+        `${artifactApiPath(args.id())}/lifecycle`,
+        {
+          actor: await actor(),
+          event: command === "archive" ? "archived" : "restored",
+          operationKey: args.value("key") ?? randomUUID(),
+          comment: { body: await text("message") },
+        },
+      );
+      await report(
+        result,
+        ({ event, replayed, notification }) =>
+          `${event.event === "archived" ? "Archived" : "Restored"} ${event.artifactId}${replayed ? " (already committed)" : ""} · notification ${notification.state}${event.comment ? ` · comment ${event.comment.id}` : ""}`,
+      );
       return 0;
     }
     case "project": {
@@ -682,23 +744,37 @@ export async function runArtifactCommand(
       const remote = inputRemote === undefined ? undefined : normalizeGitRemote(inputRemote);
       if (inputRemote !== undefined && !remote)
         throw new ArtifactCommandError("Project remote must be a network Git URL");
-      if (operation === "list") await print(await client.json("GET", "/api/projects"));
+      const line = (project: ArtifactProject) =>
+        `${project.id} · ${project.name ?? "Untitled"}${project.remoteUrl ? ` · ${project.remoteUrl}` : ""}`;
+      if (operation === "list")
+        await report(await client.json<ArtifactProject[]>("GET", "/api/projects"), (projects) =>
+          projects.map(line).join("\n"),
+        );
       else if (operation === "create")
-        await print(
-          await client.json("POST", "/api/projects", {
+        await report(
+          await client.json<ArtifactProject>("POST", "/api/projects", {
             name: await text("title"),
             remoteUrl: remote?.url,
           }),
+          line,
         );
       else if (operation === "edit")
-        await print(
-          await client.json("PATCH", `/api/projects/${encodeURIComponent(args.id(1))}`, {
-            ...(args.has("title") ? { name: await text("title") } : {}),
-            ...(remote ? { remoteUrl: remote.url } : {}),
-          }),
+        await report(
+          await client.json<ArtifactProject>(
+            "PATCH",
+            `/api/projects/${encodeURIComponent(args.id(1))}`,
+            {
+              ...(args.has("title") ? { name: await text("title") } : {}),
+              ...(remote ? { remoteUrl: remote.url } : {}),
+            },
+          ),
+          line,
         );
       else if (operation === "delete")
-        await print(await client.json("DELETE", `/api/projects/${encodeURIComponent(args.id(1))}`));
+        await report(
+          await client.json("DELETE", `/api/projects/${encodeURIComponent(args.id(1))}`),
+          () => `Deleted ${args.id(1)}`,
+        );
       else throw new ArtifactCommandError("project list|create|edit|delete <id>");
       return 0;
     }

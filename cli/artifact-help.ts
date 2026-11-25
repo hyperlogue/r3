@@ -136,7 +136,8 @@ re-anchors atomically; historical
 fixes stay pinned without moving the thread. --expected N --expected-anchor R pin
 targeted-comment retry guards. An uncertain write prints the original key/guards:
 retry unchanged content with those exact values, not freshly inferred ones.
-Text flags accept - to read stdin. --json prints structured results.
+Text flags accept - to read stdin. Writes and versions/files/project print short lines;
+--json prints the complete result as compact JSON.
 Backend: R3_URL > nearest project .r3.json backendUrl > user backendUrl > local.
 Use r3 login for remote browser approval, or pipe an API key to r3 login --api-key-stdin.
 The worker retries temporary connection/refresh failures, including rate limits.

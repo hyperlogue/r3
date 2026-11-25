@@ -100,6 +100,7 @@ test("re-anchor commands and targeted replies preserve evidence and expose exact
     "#changed",
     "--key",
     "move",
+    "--json",
   ]);
   expect(JSON.parse(single.text).results[0].revision).toBe(1);
   expect(storage.conversations.get(thread.id).target).toEqual(thread.target);
@@ -133,6 +134,7 @@ test("re-anchor commands and targeted replies preserve evidence and expose exact
         JSON.stringify(fix),
         "--key",
         "fix",
+        "--json",
       ])
     ).text,
   );
@@ -176,6 +178,7 @@ test("re-anchor commands and targeted replies preserve evidence and expose exact
         "2",
         "--expected-anchor",
         "1",
+        "--json",
       ])
     ).text,
   );
@@ -262,6 +265,7 @@ describe("artifact CLI over the HTTP contract", () => {
       JSON.stringify({ kind: "media", versionSeq: 1, path: "image.png", locator: { time: null } }),
       "--frame",
       "frame.png",
+      "--json",
     ]);
     expect(result.code).toBe(0);
     const comment = JSON.parse(result.text);
@@ -383,7 +387,7 @@ describe("artifact CLI over the HTTP contract", () => {
       "base64",
     );
     await writeFile(join(ctx.cwd, "screen.png"), bytes);
-    const args = ["add", id, "--human", "--attach", "screen.png", "--key", "image-note"];
+    const args = ["add", id, "--human", "--attach", "screen.png", "--key", "image-note", "--json"];
     const note = JSON.parse((await command("thread", args)).text);
     expect(JSON.parse((await command("thread", args)).text).id).toBe(note.id);
     const image = note.comments[0].attachments[0];
@@ -719,6 +723,7 @@ describe("artifact CLI over the HTTP contract", () => {
           "add",
           id,
           "--human",
+          "--json",
           "-m",
           "Change this heading",
           "--version",
@@ -763,6 +768,7 @@ describe("artifact CLI over the HTTP contract", () => {
       (
         await command("comment", [
           threads.id,
+          "--json",
           "-m",
           "Working on the heading",
           "--target",
@@ -797,7 +803,7 @@ describe("artifact CLI over the HTTP contract", () => {
         if (++pushes === 1) throw new Error("Agent unavailable");
       },
     );
-    const args = [id, "--human", "-m", "Next steps", "--key", "archive-retry"];
+    const args = [id, "--human", "-m", "Next steps", "--key", "archive-retry", "--json"];
     await expect(command("archive", args)).rejects.toMatchObject({ status: 502 });
     expect(output).toEqual([]);
     expect(storage.artifacts.get(id).state).toBe("active");
@@ -811,7 +817,7 @@ describe("artifact CLI over the HTTP contract", () => {
   test("history reads and watch exits preserve owner handoff and archive terminal precedence", async () => {
     const id = await create();
     const threads = JSON.parse(
-      (await command("thread", ["add", id, "--human", "-m", "Human note"])).text,
+      (await command("thread", ["add", id, "--human", "-m", "Human note", "--json"])).text,
     );
     expect((await command("comment", ["fetch", id, "--all"])).text).toContain("Human note");
     expect(storage.conversations.get(threads.id).comments[0]!.sentAt).toBeNull();
@@ -832,10 +838,10 @@ describe("artifact CLI over the HTTP contract", () => {
   test("comment fetch preserves selective delivery and resolved history semantics", async () => {
     const id = await create();
     const first = JSON.parse(
-      (await command("thread", ["add", id, "--human", "-m", "First note"])).text,
+      (await command("thread", ["add", id, "--human", "-m", "First note", "--json"])).text,
     );
     const second = JSON.parse(
-      (await command("thread", ["add", id, "--human", "-m", "Second note"])).text,
+      (await command("thread", ["add", id, "--human", "-m", "Second note", "--json"])).text,
     );
     expect((await command("comment", ["fetch", id, "--all"])).text).toContain("First note");
     expect(storage.conversations.unsent(id)).toHaveLength(2);
@@ -860,7 +866,7 @@ describe("artifact CLI over the HTTP contract", () => {
   test("comment fetch drains new notes and comments and registers the calling harness quietly", async () => {
     const id = await create();
     const first = JSON.parse(
-      (await command("thread", ["add", id, "--human", "-m", "First note"])).text,
+      (await command("thread", ["add", id, "--human", "-m", "First note", "--json"])).text,
     );
     await command("comment", ["fetch", id]);
     await command("comment", [first.id, "--human", "-m", "New comment"]);
@@ -990,6 +996,7 @@ describe("artifact CLI over the HTTP contract", () => {
         await command("thread", [
           "add",
           result.artifact.id,
+          "--json",
           "-m",
           "Inspect the removed text",
           "--version",

@@ -250,6 +250,7 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
       "add",
       id,
       "--human",
+      "--json",
       "-m",
       "Please explain the change",
       "--file",
@@ -295,6 +296,7 @@ await Bun.write(process.env.R3_TEST_QUEUE_FILE, JSON.stringify({
       "--human",
       "--key",
       "archive-once",
+      "--json",
       "-m",
       "Keep this history",
     );
