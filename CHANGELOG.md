@@ -4,6 +4,26 @@ All notable changes to r3 are documented here. The format is adapted from
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [2.11.0] - 2026-11-24
+
+### New
+
+- **Improved caching in HTML artifacts.** The workspace keeps published bytes by content, so identical files download once across refreshes, versions, paths and artifacts. Audio, video and a page's own `fetch()` of published files (including `Range` requests) now use this cache too; for media created in JavaScript, call `r3.bindMedia(media, path)`. On a first visit, media up to 8 MiB downloads completely before playback, and larger files stream.
+- **Mobile HTML pages.** On phones, long HTML pages scroll as ordinary pages, with a back-to-top button.
+- **Shorter agent instructions.** `r3 guide` and `r3 --help` are about half their previous length. Server, worker, sign-in, configuration and cleanup details moved to the new `r3 guide operations`.
+- **Leaner comment fetch output.** Each thread shows its target once, followed only by the selector, quote or region needed to find it. Image lines are shorter, and download and full-range commands appear once at the end.
+
+### Fixed
+
+- **Archive notifications.** Archiving now tells the listening agent the latest published version even without an archive message.
+- **Listener handoff.** Publishing from an unsupported harness or with `--no-listen` keeps the existing listener instead of clearing it, and a publication reports a listener only when it belongs to the publishing session.
+- **File downloads.** Downloading an artifact file uses the browser's native download.
+- **Previews hosted outside the workspace.** Asset reads no longer wait up to three minutes when no workspace answers them.
+
+### Removed
+
+- **JSON output by default from write commands (breaking).** `comment`, `thread add/edit/delete`, `claim`, `release`, `thread reanchor`, `archive`, `restore`, `unlisten`, `edit`, `delete`, `versions`, `files` and `project` print a one-line summary. Add `--json` for the full result, now printed as compact JSON. Update scripts that parse their output.
+
 ## [2.10.0] - 2026-11-18
 
 ### New
@@ -888,6 +908,7 @@ and files reviews, anchored discussions with quote-first re-anchoring, comments,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 
+[2.11.0]: https://github.com/hyperlogue/r3/compare/v2.10.0...v2.11.0
 [2.10.0]: https://github.com/hyperlogue/r3/compare/v2.9.1...v2.10.0
 [2.9.1]: https://github.com/hyperlogue/r3/compare/v2.8.0...v2.9.1
 [2.8.0]: https://github.com/hyperlogue/r3/compare/v2.7.0...v2.8.0
