@@ -7,11 +7,23 @@ import type {
 } from "./artifacts.ts";
 import { type ArtifactAttachment, imagePlaceholder } from "./attachments.ts";
 import { mediaTime, wholeMediaBox } from "./media-target.ts";
+
+function captureText(image: ArtifactAttachment): string {
+  const capture = image.capture;
+  if (!capture) return "";
+  const { viewport, crop } = capture;
+  const full =
+    crop.x === 0 &&
+    crop.y === 0 &&
+    crop.width === viewport.width &&
+    crop.height === viewport.height;
+  return ` · captured v${capture.versionSeq} ${capture.path}${capture.route ?? ""} at ${viewport.width}×${viewport.height}${full ? "" : ` crop ${crop.x},${crop.y} ${crop.width}×${crop.height}`}`;
+}
 export function attachmentPrompt(images: ArtifactAttachment[] = [], placeholders = true): string {
   return images
     .map(
       (image, index) =>
-        `${placeholders ? `${imagePlaceholder(index + 1)} ` : ""}Image ${image.id} (${image.mediaType}, ${image.width}×${image.height}, ${image.byteLength} bytes)${image.capture ? `\nCapture context: ${JSON.stringify(image.capture)}` : ""}\nDownload: r3 comment image ${image.artifactId} --image ${image.id} --output ${image.id}.${image.mediaType === "image/png" ? "png" : "jpg"}`,
+        `${placeholders ? `${imagePlaceholder(index + 1)} ` : ""}image ${image.id} · ${image.mediaType.slice(6)} ${image.width}×${image.height}${captureText(image)}`,
     )
     .join("\n");
 }
@@ -64,32 +76,56 @@ export function artifactThreadTargetLabel(thread: ArtifactThread): string {
     ? "Historical target unavailable"
     : artifactTargetLabel(thread.target);
 }
+// The label already carries kind, version, path, line range, side and media
+// time; only matching evidence the label cannot show remains.
+function locatorText(target: ArtifactTarget): string {
+  if (!("locator" in target) || !target.locator) return "";
+  const evidence: Record<string, unknown> = {};
+  if (target.kind === "media") {
+    if (!wholeMediaBox(target.locator.box)) evidence.box = target.locator.box;
+  } else if (target.kind === "rendered") {
+    const { selector, shadowHosts, label, quote, route } = target.locator;
+    Object.assign(evidence, { selector, shadowHosts, label, quote, route });
+  } else if ("quote" in target.locator) evidence.quote = target.locator.quote;
+  const json = JSON.stringify(evidence);
+  return json === "{}" ? "" : ` ${json}`;
+}
+function targetText(target: ArtifactTarget): string {
+  return `${artifactTargetLabel(target)}${locatorText(target)}`;
+}
+function sameContext(thread: ArtifactThread, comment: ArtifactComment): boolean {
+  const target = thread.anchor?.target ?? thread.target;
+  return (
+    "versionSeq" in target &&
+    comment.context.versionSeq === target.versionSeq &&
+    comment.context.representation === target.kind
+  );
+}
 function block(thread: ArtifactThread, unsent: boolean): string {
   const fresh = thread.comments[0]!.author.role === "human" && thread.comments[0]!.sentAt === null;
   const followup = unsent && !fresh;
-  const label = artifactThreadTargetLabel(thread);
   const author =
     thread.comments[0]!.author.role === "agent"
       ? ` [agent-authored: ${thread.comments[0]!.author.sessionId}]`
       : "";
   const lines = [
-    `### ${thread.id} — ${label} [${thread.status}]${author}${followup ? " (follow-up)" : ""}`,
+    `### ${thread.id} — ${artifactThreadTargetLabel(thread)} [${thread.status}]${author}${followup ? " (follow-up)" : ""}`,
   ];
   if (historicalTarget(thread)) {
     const evidence = thread.comments[0]!.legacy!.source as Record<string, unknown>;
     lines.push(
       `Legacy anchor evidence: ${JSON.stringify({ file: evidence.file, side: evidence.side, lineStart: evidence.line_start, lineEnd: evidence.line_end, quote: evidence.quote, patchSeq: evidence.patch_seq })}`,
     );
-  } else lines.push(`Original target: ${JSON.stringify(thread.target)}`);
-  lines.push(`Anchor revision: ${thread.anchor?.revision ?? 0}`);
-  if (thread.anchor) lines.push(`Current thread target: ${JSON.stringify(thread.anchor.target)}`);
-  if ((thread.target.kind === "source" || thread.target.kind === "diff") && thread.target.locator)
-    lines.push(`Full captured range: r3 thread source ${thread.id}`);
-  if (thread.target.kind === "media" && thread.target.locator.frame)
+  } else {
+    const locator = locatorText(thread.target).trim();
+    if (locator) lines.push(`Locator: ${locator}`);
+  }
+  if (thread.anchor)
     lines.push(
-      "Saved full frame (authoritative; video seeking is approximate):",
-      attachmentPrompt([thread.target.locator.frame], false),
+      `Moved to (anchor revision ${thread.anchor.revision}): ${targetText(thread.anchor.target)}`,
     );
+  if (thread.target.kind === "media" && thread.target.locator.frame)
+    lines.push(`Frame (authoritative): ${attachmentPrompt([thread.target.locator.frame], false)}`);
   if (thread.claim) lines.push(`Working agent: ${thread.claim.sessionId}`);
   if (!followup) {
     lines.push("", thread.comments[0]!.body);
@@ -105,11 +141,13 @@ function block(thread: ArtifactThread, unsent: boolean): string {
     const author = comment.author.role === "agent" ? `agent: ${comment.author.sessionId}` : "human";
     lines.push("", `[${author}] ${comment.body}`);
     if (comment.attachments?.length) lines.push(attachmentPrompt(comment.attachments));
-    if (comment.context.versionSeq !== null)
-      lines.push(`Reference context: ${JSON.stringify(comment.context)}`);
+    if (!comment.target && comment.context.versionSeq !== null && !sameContext(thread, comment))
+      lines.push(
+        `Viewing: Version ${comment.context.versionSeq} · ${comment.context.representation}`,
+      );
+    if (comment.target) lines.push(`Fix: ${targetText(comment.target)}`);
     if (comment.target?.kind === "media" && comment.target.locator.frame)
-      lines.push("Saved fix frame:", attachmentPrompt([comment.target.locator.frame], false));
-    if (comment.target) lines.push(`Fix target: ${JSON.stringify(comment.target)}`);
+      lines.push(`Fix frame: ${attachmentPrompt([comment.target.locator.frame], false)}`);
   }
   if (thread.statusUnsent)
     lines.push(
@@ -118,7 +156,6 @@ function block(thread: ArtifactThread, unsent: boolean): string {
         ? "The human marked this resolved; no further action is requested."
         : "The human reopened this thread.",
     );
-  if (followup) lines.push("", `Earlier thread: r3 show ${thread.artifactId}`);
   return lines.join("\n");
 }
 // The caller selects a read-only set or the exact snapshot returned by deliver().
@@ -131,9 +168,7 @@ export function buildArtifactPrompt(
 ): string {
   const latest = detail.versions.at(-1)?.seq;
   const lines = [
-    `Artifact ${detail.id}${detail.title ? ` — ${detail.title}` : ""}`,
-    `Kind: ${detail.kind}. State: ${detail.state}. Latest published version: ${latest ?? "none"}.`,
-    `${threads.length} thread${threads.length === 1 ? "" : "s"}.`,
+    `Artifact ${detail.id}${detail.title ? ` — ${detail.title}` : ""} (${detail.kind}, ${detail.state}, latest ${latest === undefined ? "none" : `v${latest}`}) · ${threads.length} thread${threads.length === 1 ? "" : "s"}`,
     "",
   ];
   if (!threads.length) lines.push(unsent ? "No undelivered threads." : "No selected threads.");
@@ -142,6 +177,26 @@ export function buildArtifactPrompt(
     lines.push("", "## Artifact comments");
     for (const comment of comments) lines.push("", `### ${comment.id}`, comment.body);
   }
+  const notes = [];
+  if (
+    threads.some(
+      (item) =>
+        (item.target.kind === "source" || item.target.kind === "diff") && item.target.locator,
+    )
+  )
+    notes.push("Quotes may be excerpts. Full captured lines: r3 thread source <thread-id>");
+  if (
+    unsent &&
+    threads.some(
+      (item) => !(item.comments[0]!.author.role === "human" && item.comments[0]!.sentAt === null),
+    )
+  )
+    notes.push(`Earlier messages: r3 show ${detail.id}`);
+  if (commentAttachments(threads, unsent).length)
+    notes.push(
+      `Download an image: r3 comment image ${detail.id} --image <image-id> --output <file>`,
+    );
+  if (notes.length) lines.push("", "---", ...notes);
   return `${lines.join("\n")}\n`;
 }
 export function artifactNudgeText(nudge: ArtifactNudge): string {

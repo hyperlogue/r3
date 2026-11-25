@@ -726,7 +726,7 @@ describe("artifact HTTP collaboration contract", () => {
     ).toBe(200);
     const preview = await (await request(`/api/artifacts/${id}/comments/pending`)).json();
     expect(preview.itemCount).toBe(1);
-    expect(preview.text).toContain('"versionSeq":1');
+    expect(preview.text).toContain("Version 1 · source");
     expect(
       (await (await request(`/api/threads/${threads.id}`)).json()).comments[0].sentAt,
     ).toBeNull();

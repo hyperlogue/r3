@@ -193,8 +193,9 @@ test("re-anchor commands and targeted replies preserve evidence and expose exact
   ]);
   expect(storage.conversations.get(thread.id).anchor?.revision).toBe(3);
   const fetched = await command("comment", ["fetch", id, "--all"]);
-  expect(fetched.text).toContain("Anchor revision: 3");
-  expect(fetched.text).toContain("Current thread target:");
+  expect(fetched.text).toContain(
+    'Moved to (anchor revision 3): Version 2 · rendered · index.html {"selector":"#changed"}',
+  );
 });
 test("latest targeted replies refuse old backends before posting a Fix-only message", async () => {
   const id = await create();
@@ -278,7 +279,7 @@ describe("artifact CLI over the HTTP contract", () => {
       "evidence",
     ]);
     expect(fetched.code).toBe(0);
-    expect(fetched.text).toContain("Saved fix frame");
+    expect(fetched.text).toContain("Fix frame: image ");
     expect(
       Buffer.from(
         await Bun.file(
@@ -369,7 +370,7 @@ describe("artifact CLI over the HTTP contract", () => {
       expect(storage.conversations.snapshot(artifact.id)).toEqual(snapshot);
       expect(storage.conversations.get(note.id).claim).toBeNull();
       expect((await command("comment", ["fetch", artifact.id, "--all"])).text).toContain(
-        `r3 thread source ${note.id}`,
+        `### ${note.id} — Version 1 · ${kind === "diff" ? "diff" : "source"}`,
       );
       const general = await storage.conversations.add(artifact.id, {
         actor: human,
@@ -783,7 +784,9 @@ describe("artifact CLI over the HTTP contract", () => {
     expect(comment.context).toEqual({ versionSeq: 1, representation: "rendered" });
     expect(comment.target).toEqual(fix);
     expect(storage.conversations.get(threads.id).comments.slice(1).at(-1)?.target).toEqual(fix);
-    expect((await command("comment", ["fetch", id, "--all"])).text).toContain(JSON.stringify(fix));
+    expect((await command("comment", ["fetch", id, "--all"])).text).toContain(
+      'Fix: Version 1 · rendered · index.html {"selector":"h1","shadowHosts":["#phone","#dialog"],"label":"Page heading"}',
+    );
     expect(storage.conversations.get(threads.id).claim).toBeNull();
     expect(storage.conversations.get(threads.id).status).toBe("open");
     await expect(

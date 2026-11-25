@@ -105,9 +105,10 @@ describe("artifact prompt formatting", () => {
       },
     ];
     const prompt = buildArtifactPrompt(detail, [threads]);
-    expect(prompt).toContain("[image1] Image first");
-    expect(prompt).toContain("[image2] Image second");
-    expect(prompt).toContain("[image1] Image comment_image");
+    expect(prompt).toContain("[image1] image first · png 10×10");
+    expect(prompt).toContain("[image2] image second");
+    expect(prompt).toContain("[image1] image comment_image");
+    expect(prompt.match(/r3 comment image/g)).toHaveLength(1);
     expect(prompt).not.toContain("[image3]");
   });
   test("preserves native version, representation and rendered evidence without changing delivery state", () => {
@@ -159,8 +160,10 @@ describe("artifact prompt formatting", () => {
     expect(prompt).toContain("New owner response");
     expect(prompt).not.toContain("Already delivered answer");
     expect(prompt).toContain("The human marked this resolved");
-    expect(prompt).toContain('Reference context: {"versionSeq":2,"representation":"rendered"}');
-    expect(prompt).toContain(`Earlier thread: r3 show ${detail.id}`);
+    expect(prompt).not.toContain("Viewing:");
+    threads.comments[2]!.context = { versionSeq: 1, representation: "source" };
+    expect(buildArtifactPrompt(detail, [threads], true)).toContain("Viewing: Version 1 · source");
+    expect(prompt).toContain(`Earlier messages: r3 show ${detail.id}`);
     expect(buildArtifactPrompt(detail, [threads])).toContain("Already delivered answer");
   });
   test("submission nudges use the preferred comment fetch command", () => {

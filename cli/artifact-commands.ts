@@ -6,7 +6,7 @@ import {
   artifactApiPath,
   threadApiPath,
 } from "../shared/artifact-client.ts";
-import { artifactThreadTargetLabel, attachmentPrompt } from "../shared/artifact-prompt.ts";
+import { artifactThreadTargetLabel, buildArtifactPrompt } from "../shared/artifact-prompt.ts";
 import type { ArtifactSearchResponse } from "../shared/artifact-search.ts";
 import type {
   Artifact,
@@ -351,29 +351,12 @@ export async function runArtifactCommand(
       const artifact = await detail(args.id());
       if (args.has("json")) await print(artifact);
       else {
-        await print(
-          `${artifact.id} · ${artifact.kind} · ${artifact.state}\n${artifact.title ?? "Untitled"}`,
-        );
+        await ctx.write(buildArtifactPrompt(artifact, artifact.threads));
+        await print("\n## Versions");
         for (const version of artifact.versions)
           await print(
-            `Version ${version.seq}${version.label ? ` · ${version.label}` : ""} · ${version.publishedAt}`,
+            `v${version.seq}${version.label ? ` · ${version.label}` : ""} · ${version.publishedAt}`,
           );
-        for (const threads of artifact.threads) {
-          await print(
-            `\n${threads.id} [${threads.status}] ${artifactThreadTargetLabel(threads)}${threads.claim ? ` · working: ${threads.claim.sessionId}` : ""}\n[${threads.comments[0]!.author.role}${threads.comments[0]!.author.sessionId ? ` ${threads.comments[0]!.author.sessionId}` : ""}] ${threads.comments[0]!.body}\nTarget: ${JSON.stringify(threads.target)}${threads.comments[0]!.legacy ? `\nImported evidence: ${JSON.stringify(threads.comments[0]!.legacy)}` : ""}`,
-          );
-          await print(
-            `Anchor revision: ${threads.anchor?.revision ?? 0}${threads.anchor ? `\nCurrent thread target: ${JSON.stringify(threads.anchor.target)}` : ""}`,
-          );
-          if (threads.comments[0]!.attachments?.length)
-            await print(attachmentPrompt(threads.comments[0]!.attachments));
-          for (const comment of threads.comments.slice(1)) {
-            if (comment.attachments?.length) await print(attachmentPrompt(comment.attachments));
-            await print(
-              `  ${comment.id} [${comment.author.role}${comment.author.sessionId ? ` ${comment.author.sessionId}` : ""}] ${comment.body}\n  Context: ${JSON.stringify(comment.context)}${comment.target ? `; fix: ${JSON.stringify(comment.target)}` : ""}`,
-            );
-          }
-        }
         for (const event of artifact.events)
           await print(
             `\n${event.event} · ${event.createdAt}${event.comment?.body ? `\n${event.comment?.body}` : ""}`,
