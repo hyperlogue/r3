@@ -126,11 +126,6 @@ export function installAssetRelay(
     }
     return release;
   };
-  // Retained media plays from a Blob. Anything else streams from the preview
-  // origin, where playback is the sign that its bytes are worth retaining.
-  const retainPlayed = (path: string) => {
-    if (relays) void readAsset(path).catch(() => {});
-  };
   const mediaBindings = new WeakMap<HTMLMediaElement, () => void>();
   const bindMedia = (media: HTMLMediaElement, path: string) => {
     mediaBindings.get(media)?.();
@@ -138,12 +133,10 @@ export function installAssetRelay(
     const stream = streamURL(path);
     let url: string | undefined;
     let released = false;
-    const retain = () => retainPlayed(path);
     const release = () => {
       if (released) return;
       released = true;
       mediaBindings.delete(media);
-      media.removeEventListener("playing", retain);
       if (media.getAttribute("src") === (url ?? stream)) {
         media.removeAttribute("src");
         media.load();
@@ -154,7 +147,6 @@ export function installAssetRelay(
     const play = (blob: Blob | null) => {
       if (released) return;
       if (blob) url = URL.createObjectURL(blob);
-      else media.addEventListener("playing", retain, { once: true });
       media.src = url ?? stream;
     };
     readMedia(path, media.autoplay || media.preload !== "none").then(play, () => play(null));
@@ -263,10 +255,7 @@ export function installAssetRelay(
       }
       return reading;
     };
-    const choices = new WeakMap<
-      HTMLMediaElement,
-      { waiting: number; streams: Map<string, string> }
-    >();
+    const pendingSources = new WeakMap<HTMLMediaElement, number>();
     function loadSource(source: HTMLSourceElement) {
       const src = source.getAttribute("data-r3-static-src");
       source.removeAttribute("data-r3-static-src");
@@ -276,30 +265,16 @@ export function installAssetRelay(
         source.src = src;
         return;
       }
-      let choice = choices.get(media);
-      if (!choice) {
-        const streams = new Map<string, string>();
-        choice = { waiting: 0, streams };
-        choices.set(media, choice);
-        media.addEventListener("playing", () => {
-          const path = streams.get(media.currentSrc);
-          if (path === undefined) return;
-          streams.delete(media.currentSrc);
-          retainPlayed(path);
-        });
-      }
-      const pending = choice;
       const file = publishedFile(src, source.baseURI);
       const relayed = file && !file.fragment ? file : null;
-      pending.waiting++;
+      pendingSources.set(media, (pendingSources.get(media) ?? 0) + 1);
       void (relayed ? retainedURL(relayed.path) : Promise.resolve(null)).then((url) => {
-        if (!source.hasAttribute("src")) {
-          if (url === null && relayed) pending.streams.set(relayed.href, relayed.path);
-          source.src = url ?? src;
-        }
+        if (!source.hasAttribute("src")) source.src = url ?? src;
         // A source that gains its address after insertion is only considered
         // again by a new load, issued once for all of this element's sources.
-        if (--pending.waiting === 0) media.load();
+        const remaining = pendingSources.get(media)! - 1;
+        pendingSources.set(media, remaining);
+        if (remaining === 0) media.load();
       });
     }
 

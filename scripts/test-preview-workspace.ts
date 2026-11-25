@@ -337,16 +337,27 @@ try {
   assert.deepEqual(mediaReads, ["media/short.wav"]);
   assert.equal(nativeMediaRequests.includes("long.wav"), false, "preload=none still defers");
   await content.evaluate("long.play().then(() => true)");
-  await eventually(
-    async () => mediaReads.includes("media/long.wav"),
-    "playback retains the streamed clip for the next visit",
-  );
+  await content.evaluate(`new Promise(resolve => {
+    long.addEventListener("seeked", () => resolve(true), { once: true });
+    long.currentTime = 1100;
+  })`);
+  assert.ok(await content.evaluate("long.currentTime >= 1100 && !long.seeking"));
   await content.evaluate("long.pause()");
-  assert.equal(nativeMediaRequests.includes("long.wav"), true);
-  await eventually(
-    async () => (await retainedBytes()) === 3,
-    "the streamed clip is retained once its download is verified",
+  await content.evaluate(
+    `document.body.insertAdjacentHTML("beforeend", '<video id="longSource" muted preload="none"><source data-r3-static-src="media/long.wav" type="audio/wav"></video>')`,
   );
+  await eventually(
+    () => content.evaluate('longSource.currentSrc.endsWith("/media/long.wav")'),
+    "streamed source candidate",
+  );
+  await content.evaluate("longSource.play().then(() => longSource.pause())");
+  assert.equal(nativeMediaRequests.includes("long.wav"), true);
+  assert.deepEqual(
+    mediaReads,
+    ["media/short.wav"],
+    "streaming and seeking use only native requests",
+  );
+  await content.evaluate('r3.readAsset("media/long.wav").then(blob => blob.size)');
   assert.deepEqual(
     await content.evaluate(`(async () => {
       const dynamic = document.createElement("audio");
