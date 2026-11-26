@@ -1,5 +1,5 @@
 {
-  "shikiVersion": "4.4.3",
+  "shikiVersion": "4.6.0",
   "languages": {
     "abap": ["ABAP", "abap"],
     "actionscript-3": ["as"],
@@ -218,7 +218,7 @@
     "mermaid": [],
     "mipsasm": ["asm", "mips", "s", "spim"],
     "mojo": [],
-    "moonbit": ["mbt", "mbtp", "mbtx"],
+    "moonbit": ["mbt", "mbtx"],
     "move": [],
     "narrat": [],
     "nextflow": [],

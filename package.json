@@ -19,26 +19,26 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@formkit/auto-animate": "^0.10.0",
-    "@tanstack/virtual-core": "3.17.11",
-    "hono": "^4.13.8",
-    "i18next": "26.4.2",
-    "markdown-it": "^15.0.2",
+    "@formkit/auto-animate": "^0.10.1",
+    "@tanstack/virtual-core": "3.19.11",
+    "hono": "^4.13.16",
+    "i18next": "26.7.1",
+    "markdown-it": "^15.0.3",
     "nanoid": "6.0.2",
-    "react-i18next": "17.0.15",
-    "shiki": "^4.4.3"
+    "react-i18next": "17.1.12",
+    "shiki": "^4.6.0"
   },
   "devDependencies": {
-    "@tanstack/react-query": "^5.103.1",
-    "@types/bun": "^1.4.2",
+    "@tanstack/react-query": "^5.106.1",
+    "@types/bun": "^1.4.4",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "bun-plugin-tailwind": "^0.1.2",
     "bun2nix": "2.1.2",
-    "pagefind": "1.5.2",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0",
-    "tailwindcss": "^4.3.3",
+    "pagefind": "1.6.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "tailwindcss": "^4.3.4",
     "typescript": "^7.0.2"
   },
   "overrides": {
