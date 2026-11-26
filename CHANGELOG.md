@@ -4,6 +4,13 @@ All notable changes to r3 are documented here. The format is adapted from
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [2.11.1] - 2026-11-26
+
+### Fixed
+
+- **Media playback in HTML artifacts.** Playing uncached audio or video no longer downloads the file a second time to cache it. On a first visit, media up to 8 MiB is cached when it is preloaded or set to autoplay; larger files and media with `preload="none"` stream directly.
+- **Large Markdown files.** A malformed link definition in a large Markdown file or comment no longer stalls the server or browser tab. A 400 KB file that took about 10 seconds to render now takes under half a second.
+
 ## [2.11.0] - 2026-11-24
 
 ### New
@@ -908,6 +915,7 @@ and files reviews, anchored discussions with quote-first re-anchoring, comments,
 diff rounds, content snapshots, the watch/submit agent loop, and the
 GitHub/npm release pipeline.
 
+[2.11.1]: https://github.com/hyperlogue/r3/compare/v2.11.0...v2.11.1
 [2.11.0]: https://github.com/hyperlogue/r3/compare/v2.10.0...v2.11.0
 [2.10.0]: https://github.com/hyperlogue/r3/compare/v2.9.1...v2.10.0
 [2.9.1]: https://github.com/hyperlogue/r3/compare/v2.8.0...v2.9.1
